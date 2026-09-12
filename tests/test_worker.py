@@ -1,4 +1,12 @@
+import os
+from unittest.mock import patch
 from app.worker.handlers import process_event_job
+
+os.environ.setdefault("SUPABASE_URL", "https://x.supabase.co")
+os.environ.setdefault("SUPABASE_SERVICE_KEY", "service-key")
+os.environ.setdefault("WEBHOOK_SECRET", "shh")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("QUEUE_NAME", "events:realtime")
 
 
 class FakeTable:
@@ -82,3 +90,43 @@ def test_process_one_returns_false_when_queue_empty():
 
     assert handled is False
     assert supabase.rows == []
+
+
+class RaisingQueue:
+    """Simulates a transient Redis error (e.g. cold-start race, network blip)."""
+
+    def dequeue(self, timeout: int = 5):
+        raise ConnectionError("connection refused")
+
+
+def test_process_one_does_not_raise_when_dequeue_fails():
+    supabase = FakeSupabase()
+    queue = RaisingQueue()
+
+    handled = process_one(queue, supabase, timeout=1)  # must not raise
+
+    assert handled is False
+    assert supabase.rows == []
+
+
+def test_run_configures_socket_timeout_with_margin_over_dequeue_timeout():
+    """
+    Regression test: BRPOP blocks server-side for up to its `timeout` argument,
+    then replies. If the client's own socket_timeout is equal to (or less
+    than) that, the client can give up right as the reply arrives, raising a
+    spurious redis.exceptions.TimeoutError on nearly every empty poll. The
+    client's socket_timeout must have real margin over the BRPOP timeout used
+    in process_one/dequeue (5s default).
+    """
+    from app.worker import main as worker_main
+
+    with patch.object(worker_main.redis.Redis, "from_url") as mock_from_url, \
+         patch.object(worker_main, "get_supabase_client"), \
+         patch.object(worker_main, "process_one", side_effect=KeyboardInterrupt):
+        try:
+            worker_main.run()
+        except KeyboardInterrupt:
+            pass
+
+        _, kwargs = mock_from_url.call_args
+        assert kwargs.get("socket_timeout", 0) >= 15  # comfortable margin over the 5s BRPOP timeout

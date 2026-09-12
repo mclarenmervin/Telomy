@@ -1,9 +1,13 @@
-version: "3.9"
 services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
 
   gateway:
     build:
@@ -13,7 +17,9 @@ services:
       - "8090:8000"
     env_file: .env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   worker:
     build:
@@ -21,4 +27,6 @@ services:
       dockerfile: docker/Dockerfile.worker
     env_file: .env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
