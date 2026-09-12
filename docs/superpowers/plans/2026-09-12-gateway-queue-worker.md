@@ -1196,7 +1196,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.gateway
     ports:
-      - "8000:8000"
+      - "8090:8000"
     env_file: .env
     depends_on:
       - redis
@@ -1231,7 +1231,7 @@ Run:
 cp .env.example .env   # then fill in real Supabase values
 docker compose build
 docker compose up -d
-curl http://localhost:8000/health
+curl http://localhost:8090/health
 ```
 Expected: `{"status":"ok"}`
 
@@ -1397,7 +1397,7 @@ docker compose up -d
 - [ ] **Step 2: Start an ngrok tunnel to the gateway**
 
 ```bash
-ngrok http 8000
+ngrok http 8090
 ```
 
 Copy the resulting `https://....ngrok-free.app` URL.
