@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>healthagent local test harness</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <!--
+    LOCAL DEV ONLY. This page uses a Supabase key directly in client-side
+    JS and a hardcoded test user_id with no login flow. Never ship this
+    pattern to a real client — it exists only to prove the gateway/queue/
+    worker loop closes end-to-end before the real mobile app is wired up.
+  -->
+  <h1>healthagent test harness</h1>
+
+  <label>Supabase URL: <input id="url" size="40" /></label><br />
+  <label>Supabase Key (anon or service): <input id="key" size="40" /></label><br />
+  <label>Test user_id (any UUID): <input id="uid" value="00000000-0000-0000-0000-000000000001" size="40" /></label><br />
+  <button id="connect">Connect</button>
+
+  <hr />
+
+  <select id="event_type">
+    <option value="alcohol">alcohol</option>
+    <option value="eating">eating</option>
+    <option value="exercise">exercise</option>
+    <option value="sauna">sauna</option>
+  </select>
+  <button id="start" disabled>Start</button>
+  <button id="stop" disabled>Stop</button>
+
+  <h3>Log</h3>
+  <pre id="log"></pre>
+
+  <script>
+    let supabase;
+    let currentEventId = null;
+
+    function log(line) {
+      document.getElementById("log").textContent += line + "\n";
+    }
+
+    document.getElementById("connect").onclick = () => {
+      const url = document.getElementById("url").value;
+      const key = document.getElementById("key").value;
+      supabase = window.supabase.createClient(url, key);
+
+      const userId = document.getElementById("uid").value;
+      supabase
+        .channel("debug_log_changes")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "debug_log", filter: `user_id=eq.${userId}` },
+          (payload) => log("worker wrote back: " + JSON.stringify(payload.new))
+        )
+        .subscribe();
+
+      log("connected, subscribed to debug_log for user " + userId);
+      document.getElementById("start").disabled = false;
+      document.getElementById("stop").disabled = false;
+    };
+
+    document.getElementById("start").onclick = async () => {
+      const userId = document.getElementById("uid").value;
+      const eventType = document.getElementById("event_type").value;
+
+      const { data, error } = await supabase
+        .from("events")
+        .insert({ user_id: userId, event_type: eventType, status: "started", source: "manual" })
+        .select()
+        .single();
+
+      if (error) {
+        log("insert failed: " + error.message);
+        return;
+      }
+      currentEventId = data.id;
+      log("started event " + currentEventId + " (" + eventType + ")");
+    };
+
+    document.getElementById("stop").onclick = async () => {
+      if (!currentEventId) {
+        log("no active event to stop");
+        return;
+      }
+      const { error } = await supabase
+        .from("events")
+        .update({ status: "ended", ended_at: new Date().toISOString() })
+        .eq("id", currentEventId);
+
+      if (error) {
+        log("update failed: " + error.message);
+        return;
+      }
+      log("stopped event " + currentEventId);
+      currentEventId = null;
+    };
+  </script>
+</body>
+</html>
