@@ -48,15 +48,15 @@
 
       const userId = document.getElementById("uid").value;
       sb
-        .channel("debug_log_changes")
+        .channel("predictions_changes")
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "debug_log", filter: `user_id=eq.${userId}` },
-          (payload) => log("worker wrote back: " + JSON.stringify(payload.new))
+          { event: "INSERT", schema: "public", table: "predictions", filter: `user_id=eq.${userId}` },
+          (payload) => log("[" + payload.new.kind + " | data: " + payload.new.data_quality + "] " + payload.new.summary)
         )
         .subscribe();
 
-      log("connected, subscribed to debug_log for user " + userId);
+      log("connected, subscribed to predictions for user " + userId);
       document.getElementById("start").disabled = false;
       document.getElementById("stop").disabled = false;
     };

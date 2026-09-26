@@ -1,5 +1,9 @@
 import redis
 from typing import Any
+
+from app.agent.context_loader import ContextLoader
+from app.agent.graph import build_agent
+from app.agent.llm import build_llm
 from app.common.config import get_settings
 from app.common.logging_config import configure_logging, get_logger
 from app.common.queue import JobQueue
@@ -9,7 +13,7 @@ from app.worker.handlers import process_event_job
 logger = get_logger(__name__)
 
 
-def process_one(queue: Any, supabase: Any, timeout: int = 5) -> bool:
+def process_one(queue: Any, agent: Any, timeout: int = 5) -> bool:
     try:
         job = queue.dequeue(timeout=timeout)
     except Exception:
@@ -17,7 +21,7 @@ def process_one(queue: Any, supabase: Any, timeout: int = 5) -> bool:
         return False
     if job is None:
         return False
-    process_event_job(job, supabase)
+    process_event_job(job, agent)
     return True
 
 
@@ -29,9 +33,11 @@ def run() -> None:
     redis_client = redis.Redis.from_url(settings.redis_url, socket_timeout=30)
     queue = JobQueue(redis_client, settings.queue_name)
     supabase = get_supabase_client()
-    logger.info("worker started")
+    llm = build_llm(settings)
+    agent = build_agent(ContextLoader(supabase), llm, supabase)
+    logger.info(f"worker started llm={'on' if llm else 'off (fallback summaries)'}")
     while True:
-        process_one(queue, supabase)
+        process_one(queue, agent)
 
 
 if __name__ == "__main__":

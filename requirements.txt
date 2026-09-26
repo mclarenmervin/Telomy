@@ -6,3 +6,5 @@ supabase==2.31.0
 httpx==0.28.1
 pytest==9.1.1
 fakeredis==2.38.0
+openai==3.19.2
+langgraph==1.2.12
