@@ -9,8 +9,9 @@ class Settings:
     webhook_secret: str
     redis_url: str
     queue_name: str
-    anthropic_api_key: str | None = None
-    llm_model: str = "claude-sonnet-5"
+    llm_provider: str = "openai"
+    openai_api_key: str | None = None
+    llm_model: str = "gpt-4o-mini"
 
 
 def get_settings() -> Settings:
@@ -20,6 +21,7 @@ def get_settings() -> Settings:
         webhook_secret=os.environ["WEBHOOK_SECRET"],
         redis_url=os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
         queue_name=os.environ.get("QUEUE_NAME", "events:realtime"),
-        anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
-        llm_model=os.environ.get("LLM_MODEL", "claude-sonnet-5"),
+        llm_provider=os.environ.get("LLM_PROVIDER", "openai"),
+        openai_api_key=os.environ.get("OPENAI_API_KEY") or None,
+        llm_model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
     )

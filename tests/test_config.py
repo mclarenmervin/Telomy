@@ -24,20 +24,21 @@ def test_get_settings_missing_var_raises(monkeypatch):
         get_settings()
 
 
-def test_llm_settings_are_optional(monkeypatch):
+def test_llm_settings_default_to_openai_without_key(monkeypatch):
     for key, val in {
         "SUPABASE_URL": "https://x.supabase.co",
         "SUPABASE_SERVICE_KEY": "k",
         "WEBHOOK_SECRET": "s",
     }.items():
         monkeypatch.setenv(key, val)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("LLM_MODEL", raising=False)
+    for name in ("OPENAI_API_KEY", "LLM_MODEL", "LLM_PROVIDER"):
+        monkeypatch.delenv(name, raising=False)
 
     settings = get_settings()
 
-    assert settings.anthropic_api_key is None
-    assert settings.llm_model == "claude-sonnet-5"
+    assert settings.llm_provider == "openai"
+    assert settings.openai_api_key is None
+    assert settings.llm_model == "gpt-4o-mini"
 
 
 def test_llm_settings_read_from_env(monkeypatch):
@@ -45,12 +46,14 @@ def test_llm_settings_read_from_env(monkeypatch):
         "SUPABASE_URL": "https://x.supabase.co",
         "SUPABASE_SERVICE_KEY": "k",
         "WEBHOOK_SECRET": "s",
-        "ANTHROPIC_API_KEY": "sk-test",
-        "LLM_MODEL": "claude-haiku-4-5-20251001",
+        "OPENAI_API_KEY": "sk-test",
+        "LLM_MODEL": "gpt-4.1",
+        "LLM_PROVIDER": "bedrock",
     }.items():
         monkeypatch.setenv(key, val)
 
     settings = get_settings()
 
-    assert settings.anthropic_api_key == "sk-test"
-    assert settings.llm_model == "claude-haiku-4-5-20251001"
+    assert settings.openai_api_key == "sk-test"
+    assert settings.llm_model == "gpt-4.1"
+    assert settings.llm_provider == "bedrock"
