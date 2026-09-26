@@ -90,3 +90,14 @@ def analyze_event(
         quality = "partial"
 
     return {"data_quality": quality, "metrics": metrics}
+
+
+def to_readings(rows: list[dict]) -> list[Reading]:
+    return [
+        Reading(
+            row["measurement_type"],
+            float(row["value"]),
+            datetime.fromisoformat(row["recorded_at"]),
+        )
+        for row in rows
+    ]
