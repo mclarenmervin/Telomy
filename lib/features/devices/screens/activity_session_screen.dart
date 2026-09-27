@@ -118,6 +118,20 @@ class _ActivitySessionScreenState extends ConsumerState<ActivitySessionScreen> {
         ])
           if (latest[key] != null) key: latest[key],
       };
+      final measurements =
+          ref.read(wellnessProvider).asData?.value.measurements ?? const [];
+      final bodyParameters = <String, dynamic>{};
+      for (final measurement in measurements.reversed) {
+        final key = measurement.measurementType.name;
+        if (bodyParameters.containsKey(key)) continue;
+        bodyParameters[key] = {
+          'value': measurement.value,
+          'unit': measurement.unit,
+          'recordedAt': measurement.recordedAt.toUtc().toIso8601String(),
+          'source': measurement.source.name,
+        };
+      }
+      summary['bodyParameters'] = bodyParameters;
       await Supabase.instance.client.from('activity_sessions').insert({
         'id': const Uuid().v4(),
         'user_id': user.id,
