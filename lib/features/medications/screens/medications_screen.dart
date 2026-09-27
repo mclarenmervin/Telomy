@@ -129,7 +129,7 @@ class MedicationsScreen extends ConsumerWidget {
                 ),
               const SizedBox(height: 14),
               const Text(
-                'LongiSync does not change doses or provide medication instructions. Follow your prescription and contact your clinician or pharmacist with questions.',
+                'Telomy does not change doses or provide medication instructions. Follow your prescription and contact your clinician or pharmacist with questions.',
                 style: TextStyle(fontSize: 12),
               ),
             ];

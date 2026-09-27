@@ -1,4 +1,4 @@
-package com.longisync.longisync
+package com.telomy.telomy
 
 import android.bluetooth.BluetoothDevice
 import android.content.Context
@@ -33,7 +33,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.util.UUID
 
 class MainActivity : FlutterFragmentActivity() {
-    private val channelName = "longisync/wearable_sdk"
+    private val channelName = "telomy/wearable_sdk"
     private var sessionActive = false
     private val realtimeCharUuid = UUID.fromString("2b2ebf04-1549-4c7e-bca9-0d498500d191")
     private lateinit var methodChannel: MethodChannel

@@ -13,6 +13,7 @@ import '../features/settings/screens/health_consent_screen.dart';
 import '../features/ai_copilot/screens/insights_screen.dart';
 import '../features/devices/screens/wearables_screen.dart';
 import '../features/devices/screens/add_ring_screen.dart';
+import '../features/devices/screens/activity_session_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/auth/screens/auth_screen.dart';
 import '../features/auth/screens/splash_screen.dart';
@@ -105,6 +106,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/add-ring', builder: (_, state) => const AddRingScreen()),
+      GoRoute(
+        path: '/activity-session',
+        builder: (_, state) => const ActivitySessionScreen(),
+      ),
       for (final entry in <String, Widget>{
         'health': const DashboardScreen(healthOnly: true),
         'vitals': const VitalsScreen(),

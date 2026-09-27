@@ -10,7 +10,7 @@ class JsonDataExportService implements DataExportService {
   @override
   String createExport(WellnessData data) =>
       const JsonEncoder.withIndent('  ').convert({
-        'format': 'longisync-personal-data',
+        'format': 'telomy-personal-data',
         'exportedAt': DateTime.now().toUtc().toIso8601String(),
         'data': data.toJson(),
       });

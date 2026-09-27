@@ -235,7 +235,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   String _weeklyText(WeeklyReport report) {
     final buffer = StringBuffer(
-      'LongiSync weekly report\n'
+      'Telomy weekly report\n'
       '${DateFormat.yMMMd().format(report.from)} – ${DateFormat.yMMMd().format(report.to)}\n\n'
       'LongiScore: ${report.score?.toStringAsFixed(0) ?? 'Unavailable'}\n'
       'Active days: ${report.activeDays}/7\n'

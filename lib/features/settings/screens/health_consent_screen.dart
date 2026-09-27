@@ -36,7 +36,7 @@ class HealthConsentScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Choose which sources LongiSync may read. Turning access off stops future collection; you can delete stored records separately.',
+          'Choose which sources Telomy may read. Turning access off stops future collection; you can delete stored records separately.',
         ),
         const SizedBox(height: 24),
         SwitchListTile(

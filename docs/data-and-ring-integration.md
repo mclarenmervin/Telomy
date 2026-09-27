@@ -31,7 +31,7 @@ The Android flow is:
 5. Validate values, update the wearable screen, and persist readings locally
    and in Supabase.
 
-The native channel is `longisync/wearable_sdk`. Live packets provide heart rate
+The native channel is `telomy/wearable_sdk`. Live packets provide heart rate
 and steps; the SDK also broadcasts measured SpO₂. Daily frames contain fixed
 slots for heart rate, steps/sleep, SpO₂, HRV, stress, temperature, and activity.
 Only values with understood units and valid ranges are promoted to the health

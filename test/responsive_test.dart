@@ -1,12 +1,12 @@
-import 'package:longisync/features/journal/providers/wellness_provider.dart';
-import 'package:longisync/features/journal/models/wellness_data.dart';
+import 'package:telomy/features/journal/providers/wellness_provider.dart';
+import 'package:telomy/features/journal/models/wellness_data.dart';
 import 'wellness_test_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:longisync/app/app.dart';
-import 'package:longisync/features/auth/providers/auth_provider.dart';
-import 'package:longisync/features/settings/providers/theme_provider.dart';
+import 'package:telomy/app/app.dart';
+import 'package:telomy/features/auth/providers/auth_provider.dart';
+import 'package:telomy/features/settings/providers/theme_provider.dart';
 import 'widget_test.dart' show MemoryTokens;
 
 void main() {
@@ -21,7 +21,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
-        final tokens = MemoryTokens()..access = 'longisync-demo-session';
+        final tokens = MemoryTokens()..access = 'telomy-demo-session';
         final container = ProviderContainer(
           overrides: [
             tokenStorageProvider.overrideWithValue(tokens),
@@ -35,7 +35,7 @@ void main() {
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
-            child: const LongiSyncApp(),
+            child: const TelomyApp(),
           ),
         );
         await tester.pumpAndSettle();

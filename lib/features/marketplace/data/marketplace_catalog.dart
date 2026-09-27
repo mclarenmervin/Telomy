@@ -24,7 +24,7 @@ abstract final class MarketplaceCatalog {
     MarketplaceListing(
       id: 'nutrition-review',
       name: 'Nutrition review',
-      provider: 'LongiSync Nutrition Network',
+      provider: 'Telomy Nutrition Network',
       category: MarketplaceCategory.nutrition,
       description:
           'A structured review of food logs, goals, and practical meal planning.',
@@ -37,7 +37,7 @@ abstract final class MarketplaceCatalog {
     MarketplaceListing(
       id: 'fitness-planning',
       name: 'Training plan consultation',
-      provider: 'LongiSync Coach Network',
+      provider: 'Telomy Coach Network',
       category: MarketplaceCategory.fitness,
       description:
           'Review recent training and create a progressive four-week plan.',

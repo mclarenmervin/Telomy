@@ -1,5 +1,5 @@
-import 'package:longisync/features/journal/data/wellness_repository.dart';
-import 'package:longisync/features/journal/models/wellness_data.dart';
+import 'package:telomy/features/journal/data/wellness_repository.dart';
+import 'package:telomy/features/journal/models/wellness_data.dart';
 
 class MemoryWellnessRepository implements WellnessRepository {
   MemoryWellnessRepository([this.data = const WellnessData()]);

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:longisync/core/api/api_endpoints.dart';
+import 'package:telomy/core/api/api_endpoints.dart';
 
 void main() {
   test('production refuses cleartext URLs', () {

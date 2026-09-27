@@ -15,7 +15,7 @@ class SecureWellnessRepository implements WellnessRepository {
     : _storage = storage ?? const FlutterSecureStorage();
   final String userId;
   final FlutterSecureStorage _storage;
-  String get _key => 'longisync.wellness.v1.$userId';
+  String get _key => 'telomy.wellness.v1.$userId';
   @override
   Future<WellnessData> load() async {
     final raw = await _storage.read(key: _key);

@@ -19,7 +19,7 @@
     public void print(...);
     public void println(...);
 }
-# The vendor's optional BleApplication is unused: LongiSync uses Flutter's
+# The vendor's optional BleApplication is unused: Telomy uses Flutter's
 # application lifecycle and initializes BonlalaOperateManager directly.
 -dontwarn org.litepal.LitePal
 -dontwarn org.litepal.LitePalApplication

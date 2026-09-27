@@ -1,6 +1,6 @@
-# LongiSync
+# Telomy
 
-LongiSync is a Flutter health and fitness app that combines daily wellness tracking, longitudinal insights, and Android smart-ring data in one personal timeline.
+Telomy is a Flutter health and fitness app that combines daily wellness tracking, longitudinal insights, and Android smart-ring data in one personal timeline.
 
 ## Features
 
@@ -9,6 +9,7 @@ LongiSync is a Flutter health and fitness app that combines daily wellness track
 - Nutrition, workouts, hydration, sleep, body composition, goals, and check-ins
 - Medications, lab records, therapies, consultations, and health timeline
 - Android Mini Zone/Bonlala smart-ring connection over Bluetooth LE
+- Ring-powered activity sessions for running, swimming, cycling, walking, strength training, and yoga
 - Live heart rate, battery, firmware, steps, SpO₂, HRV, stress, and sleep history when supplied by the ring
 - Local encrypted fallback for offline access
 - Light, dark, phone, and tablet layouts
@@ -51,7 +52,7 @@ Never commit database passwords, service-role keys, or `.env.supabase`.
 
 ## Database
 
-Supabase migrations are in [`supabase/migrations`](supabase/migrations). The schema uses dedicated, user-owned tables for health measurements, wearable devices and reports, preferences, meals, workouts, hydration, medications, labs, consultations, community activity, and other modules. Row-level security restricts every personal record to its authenticated owner.
+Supabase migrations are in [`supabase/migrations`](supabase/migrations). The schema uses dedicated, user-owned tables for health measurements, wearable devices and reports, activity sessions, preferences, meals, workouts, hydration, medications, labs, consultations, community activity, and other modules. Row-level security restricts every personal record to its authenticated owner.
 
 Apply migrations with the Supabase CLI:
 
@@ -92,4 +93,4 @@ test/                    Unit, widget, responsive, and persistence tests
 docs/                    Architecture and integration notes
 ```
 
-LongiSync is a wellness tracking application and does not provide medical diagnosis or emergency monitoring.
+Telomy is a wellness tracking application and does not provide medical diagnosis or emergency monitoring.

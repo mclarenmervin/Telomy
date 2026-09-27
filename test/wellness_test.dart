@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:longisync/features/auth/providers/auth_provider.dart';
-import 'package:longisync/features/journal/providers/wellness_provider.dart';
-import 'package:longisync/features/journal/models/wellness_data.dart';
-import 'package:longisync/features/journal/models/journal_entry.dart';
-import 'package:longisync/features/journal/data/wellness_analytics.dart';
-import 'package:longisync/features/devices/data/ring_snapshot.dart';
-import 'package:longisync/features/health/models/health_measurement.dart';
+import 'package:telomy/features/auth/providers/auth_provider.dart';
+import 'package:telomy/features/journal/providers/wellness_provider.dart';
+import 'package:telomy/features/journal/models/wellness_data.dart';
+import 'package:telomy/features/journal/models/journal_entry.dart';
+import 'package:telomy/features/journal/data/wellness_analytics.dart';
+import 'package:telomy/features/devices/data/ring_snapshot.dart';
+import 'package:telomy/features/health/models/health_measurement.dart';
 import 'widget_test.dart' show MemoryTokens;
 import 'wellness_test_support.dart';
 
@@ -18,7 +18,7 @@ void main() {
       final c = ProviderContainer(
         overrides: [
           tokenStorageProvider.overrideWithValue(
-            MemoryTokens()..access = 'longisync-demo-session',
+            MemoryTokens()..access = 'telomy-demo-session',
           ),
           wellnessRepositoryProvider.overrideWithValue(repo),
         ],

@@ -18,14 +18,14 @@ class SplashScreen extends ConsumerWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(24),
                   child: Image.asset(
-                    'assets/branding/longisync-icon.png',
+                    'assets/branding/telomy-icon.png',
                     width: 96,
                     height: 96,
                   ),
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'LONGISYNC',
+                  'TELOMY',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 24),

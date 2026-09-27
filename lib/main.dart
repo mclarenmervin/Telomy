@@ -12,5 +12,5 @@ Future<void> main() async {
       publishableKey: SupabaseConfig.publishableKey,
     );
   }
-  runApp(const ProviderScope(child: LongiSyncApp()));
+  runApp(const ProviderScope(child: TelomyApp()));
 }

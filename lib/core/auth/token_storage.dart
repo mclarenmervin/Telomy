@@ -11,8 +11,8 @@ class SecureTokenStorage implements TokenStorage {
   SecureTokenStorage({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
   final FlutterSecureStorage _storage;
-  static const _access = 'longisync.access';
-  static const _refresh = 'longisync.refresh';
+  static const _access = 'telomy.access';
+  static const _refresh = 'telomy.refresh';
   @override
   Future<String?> readAccessToken() => _storage.read(key: _access);
   @override

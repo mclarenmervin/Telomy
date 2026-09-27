@@ -173,13 +173,19 @@ class _WearablesScreenState extends ConsumerState<WearablesScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        if (saved.isEmpty)
+        if (saved.isEmpty) ...[
           FilledButton.icon(
             onPressed: () => context.push('/add-ring'),
             icon: const Icon(Icons.bluetooth_searching),
             label: const Text('Add ring'),
-          )
-        else ...[
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => context.push('/activity-session'),
+            icon: const Icon(Icons.play_circle_outline_rounded),
+            label: const Text('Start ring activity'),
+          ),
+        ] else ...[
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -245,6 +251,12 @@ class _WearablesScreenState extends ConsumerState<WearablesScreen> {
                 : (v) {
                     if (v != null) setState(() => _day = v);
                   },
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => context.push('/activity-session'),
+            icon: const Icon(Icons.play_circle_outline_rounded),
+            label: const Text('Start ring activity'),
           ),
         ],
         const SizedBox(height: 16),

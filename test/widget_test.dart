@@ -1,12 +1,12 @@
-import 'package:longisync/features/journal/providers/wellness_provider.dart';
-import 'package:longisync/features/journal/models/wellness_data.dart';
+import 'package:telomy/features/journal/providers/wellness_provider.dart';
+import 'package:telomy/features/journal/models/wellness_data.dart';
 import 'wellness_test_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:longisync/app/app.dart';
-import 'package:longisync/core/auth/token_storage.dart';
-import 'package:longisync/features/auth/providers/auth_provider.dart';
+import 'package:telomy/app/app.dart';
+import 'package:telomy/core/auth/token_storage.dart';
+import 'package:telomy/features/auth/providers/auth_provider.dart';
 
 class MemoryTokens implements TokenStorage {
   String? access;
@@ -38,7 +38,7 @@ void main() {
             MemoryWellnessRepository(const WellnessData(demo: true)),
           ),
         ],
-        child: const LongiSyncApp(),
+        child: const TelomyApp(),
       ),
     );
     await tester.pumpAndSettle();
@@ -80,7 +80,7 @@ void main() {
     );
     await tester.tap(find.text('Sign out'));
     await tester.pumpAndSettle();
-    expect(find.text('LONGISYNC'), findsOneWidget);
+    expect(find.text('TELOMY'), findsOneWidget);
     expect(tokens.access, isNull);
     expect(tester.takeException(), isNull);
   });

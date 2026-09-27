@@ -65,7 +65,7 @@ class SupabaseAuthRepository implements AuthRepository {
     fullName:
         (user.userMetadata?['full_name'] as String?)?.trim().isNotEmpty == true
         ? user.userMetadata!['full_name'] as String
-        : user.email?.split('@').first ?? 'LongiSync user',
+        : user.email?.split('@').first ?? 'Telomy user',
     email: user.email ?? '',
   );
 }

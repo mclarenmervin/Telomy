@@ -58,7 +58,7 @@ class AuthController extends AsyncNotifier<AppUser?> {
                   fullName:
                       metadata?['full_name'] as String? ??
                       user.email?.split('@').first ??
-                      'LongiSync user',
+                      'Telomy user',
                   email: user.email ?? '',
                 ),
               );

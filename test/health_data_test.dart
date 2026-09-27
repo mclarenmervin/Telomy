@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:longisync/features/health/data/mock_health_repository.dart';
-import 'package:longisync/features/health/models/health_measurement.dart';
-import 'package:longisync/features/dashboard/providers/dashboard_provider.dart';
+import 'package:telomy/features/health/data/mock_health_repository.dart';
+import 'package:telomy/features/health/models/health_measurement.dart';
+import 'package:telomy/features/dashboard/providers/dashboard_provider.dart';
 
 void main() {
   test(

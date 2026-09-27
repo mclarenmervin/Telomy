@@ -14,7 +14,7 @@ class NotificationService {
     if (_initialized) return;
     await _plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('ic_stat_longisync'),
+        android: AndroidInitializationSettings('ic_stat_telomy'),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
@@ -111,7 +111,7 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'daily_wellness',
           'Daily wellness reminders',
-          channelDescription: 'Reminders configured in LongiSync settings',
+          channelDescription: 'Reminders configured in Telomy settings',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
         ),

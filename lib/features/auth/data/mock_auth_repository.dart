@@ -13,11 +13,11 @@ class MockAuthRepository implements AuthRepository {
   );
   @override
   Future<AppUser?> restoreSession() async =>
-      await tokens.readAccessToken() == 'longisync-demo-session' ? demo : null;
+      await tokens.readAccessToken() == 'telomy-demo-session' ? demo : null;
   @override
   Future<AppUser> login(String email, String password) async {
     await Future<void>.delayed(const Duration(milliseconds: 450));
-    await tokens.save(accessToken: 'longisync-demo-session');
+    await tokens.save(accessToken: 'telomy-demo-session');
     return demo;
   }
 

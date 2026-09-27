@@ -1,6 +1,6 @@
 # Architecture
 
-LongiSync is a feature-first Flutter application. The Flutter iOS project is
+Telomy is a feature-first Flutter application. The Flutter iOS project is
 `ios/Runner.xcworkspace`; Android sources are under `android/`.
 
 ## Application layers
@@ -27,7 +27,7 @@ retained only to migrate accounts created before the normalized schema.
 ## Wearables
 
 Android ring discovery uses `flutter_blue_plus`. Device communication uses the
-bundled Bonlala SDK through the `longisync/wearable_sdk` method channel in
+bundled Bonlala SDK through the `telomy/wearable_sdk` method channel in
 `MainActivity.kt`. The bridge validates live packets, imports daily history,
 and sends normalized data to Flutter. Apple Health and Health Connect use the
 `health` package behind explicit consent controls.

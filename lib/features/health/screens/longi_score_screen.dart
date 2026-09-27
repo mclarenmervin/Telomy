@@ -16,7 +16,7 @@ class LongiScoreScreen extends ConsumerWidget {
         Text('LongiScore', style: Theme.of(context).textTheme.headlineLarge),
         const SizedBox(height: 8),
         const Text(
-          'A daily summary of the health signals available to LongiSync.',
+          'A daily summary of the health signals available to Telomy.',
         ),
         const SizedBox(height: 20),
         if (wellness.isLoading || measurements.isLoading)

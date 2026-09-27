@@ -48,7 +48,7 @@ final ringProvider = NotifierProvider<RingController, RingState>(
 );
 
 class RingController extends Notifier<RingState> with WidgetsBindingObserver {
-  static const channel = MethodChannel('longisync/wearable_sdk');
+  static const channel = MethodChannel('telomy/wearable_sdk');
   StreamSubscription<List<ScanResult>>? _scan;
   StreamSubscription<bool>? _scanStatus;
   DateTime? _lastSaved;

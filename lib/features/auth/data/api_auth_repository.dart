@@ -14,7 +14,7 @@ class ApiAuthRepository implements AuthRepository {
   Future<AppUser?> restoreSession() async {
     final token = await tokens.readAccessToken();
     if (token == null) return null;
-    if (token == 'longisync-demo-session') {
+    if (token == 'telomy-demo-session') {
       await tokens.clear();
       return null;
     }

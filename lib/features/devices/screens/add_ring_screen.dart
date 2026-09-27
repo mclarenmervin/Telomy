@@ -33,7 +33,7 @@ class AddRingScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             const Text(
-              'LongiSync asks for Bluetooth access when you scan. On Android 11 and earlier, scanning also requires Location permission. Your location is not recorded.',
+              'Telomy asks for Bluetooth access when you scan. On Android 11 and earlier, scanning also requires Location permission. Your location is not recorded.',
             ),
             if (!Platform.isAndroid)
               const Padding(

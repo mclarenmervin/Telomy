@@ -47,7 +47,7 @@ class DashboardScreen extends ConsumerWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.asset(
-                  'assets/branding/longisync-icon.png',
+                  'assets/branding/telomy-icon.png',
                   width: 36,
                   height: 36,
                 ),
@@ -55,7 +55,7 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'LONGISYNC',
+                  'TELOMY',
                   style: TextStyle(
                     letterSpacing: 3,
                     fontWeight: FontWeight.w600,

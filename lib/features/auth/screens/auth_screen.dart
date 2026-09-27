@@ -106,7 +106,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Image.asset(
-                    'assets/branding/longisync-icon.png',
+                    'assets/branding/telomy-icon.png',
                     width: 64,
                     height: 64,
                   ),

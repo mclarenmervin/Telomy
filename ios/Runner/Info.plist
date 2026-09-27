@@ -3,15 +3,15 @@
 <plist version="1.0">
 <dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>LongiSync uses Bluetooth when you add a ring to read health measurements you choose to sync.</string>
+	<string>Telomy uses Bluetooth when you add a ring to read health measurements you choose to sync.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>LongiSync reads the health categories you select to show your history and trends.</string>
+	<string>Telomy reads the health categories you select to show your history and trends.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>LongiSync requests HealthKit access only after you choose to connect Apple Health.</string>
+	<string>Telomy requests HealthKit access only after you choose to connect Apple Health.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>LongiSync</string>
+	<string>Telomy</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>longisync</string>
+	<string>telomy</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

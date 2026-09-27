@@ -14,7 +14,7 @@ class OnboardingScreen extends StatelessWidget {
             padding: const EdgeInsets.all(28),
             children: [
               Text(
-                'LONGISYNC',
+                'TELOMY',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(letterSpacing: 4),
@@ -29,7 +29,7 @@ class OnboardingScreen extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(40),
                   child: Image.asset(
-                    'assets/branding/longisync-icon.png',
+                    'assets/branding/telomy-icon.png',
                     fit: BoxFit.contain,
                   ),
                 ),

@@ -47,7 +47,7 @@ class ProfileScreen extends ConsumerWidget {
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.asset(
-                'assets/branding/longisync-icon.png',
+                'assets/branding/telomy-icon.png',
                 width: 48,
                 height: 48,
               ),
