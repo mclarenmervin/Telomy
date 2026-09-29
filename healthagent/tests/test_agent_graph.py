@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from app.agent.context_loader import ContextLoader
+from app.common.context_loader import ContextLoader
 from app.agent.graph import build_agent
 from app.agent.guardrails import SAFE_FALLBACK
 from app.dev.synthetic import generate_readings

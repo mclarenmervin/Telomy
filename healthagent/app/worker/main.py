@@ -1,7 +1,7 @@
 import redis
 from typing import Any
 
-from app.agent.context_loader import ContextLoader
+from app.common.context_loader import ContextLoader
 from app.agent.graph import build_agent
 from app.agent.llm import build_llm
 from app.common.config import get_settings

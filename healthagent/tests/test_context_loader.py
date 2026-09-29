@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from app.agent.context_loader import ContextLoader
+from app.common.context_loader import ContextLoader
 from tests.fakes import FakeSupabase
 
 UTC = timezone.utc
