@@ -884,5 +884,13 @@ never retry on our behalf, so without this a transient blip lost the report sile
 - The report envelope carries no duration field; the UI must read it from prose.
 - User-authored text (display name, `notes`, `fields`) is labelled as data in the prompt
   but not structurally delimited. Blast radius is the user's own report.
-- `build_checkpointer` holds one connection open for process lifetime with no reconnect.
+- ~~`build_checkpointer` holds one connection open for process lifetime with no
+  reconnect.~~ **Fixed 2026-09-30, and it was not minor.** Live testing reproduced it:
+  after roughly thirty minutes idle, Supabase's pooler closed the connection and *every*
+  subsequent job failed with `psycopg.OperationalError: consuming input failed: SSL error:
+  unexpected eof while reading` inside the checkpointer's `get_tuple`, until the worker
+  was restarted. `build_checkpointer` now uses a `ConnectionPool` with
+  `check=ConnectionPool.check_connection`, which validates a connection on checkout and
+  replaces a dead one, plus TCP keepalives. The pool replicates what
+  `from_conn_string` sets (`autocommit`, `dict_row`, `prepare_threshold=0`).
 - No per-user throttling: a bulk sync of six sessions runs six agent invocations.
