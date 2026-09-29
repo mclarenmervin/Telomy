@@ -57,3 +57,26 @@ def test_llm_settings_read_from_env(monkeypatch):
     assert settings.openai_api_key == "sk-test"
     assert settings.llm_model == "gpt-4.1"
     assert settings.llm_provider == "bedrock"
+
+
+def test_settings_expose_db_url_and_budgets(monkeypatch):
+    for key, value in {
+        "SUPABASE_URL": "https://x.supabase.co",
+        "SUPABASE_SERVICE_KEY": "k",
+        "WEBHOOK_SECRET": "s",
+        "SUPABASE_DB_URL": "postgresql://u:p@h:5432/db",
+    }.items():
+        monkeypatch.setenv(key, value)
+    settings = get_settings()
+    assert settings.supabase_db_url == "postgresql://u:p@h:5432/db"
+    assert settings.activity_queue_name == "activity:realtime"
+    assert settings.max_llm_calls == 2
+    assert settings.max_tool_calls == 8
+    assert settings.wall_clock_seconds == 60
+
+
+def test_db_url_is_none_when_unset(monkeypatch):
+    for key in ("SUPABASE_URL", "SUPABASE_SERVICE_KEY", "WEBHOOK_SECRET"):
+        monkeypatch.setenv(key, "x")
+    monkeypatch.delenv("SUPABASE_DB_URL", raising=False)
+    assert get_settings().supabase_db_url is None
