@@ -84,7 +84,13 @@ class FakeQuery:
             rows = self._matching()
             if self._order:
                 column, desc = self._order
-                rows = sorted(rows, key=lambda r: r[column], reverse=desc)
+                # Real tables supply defaults (e.g. created_at default now()), which this
+                # fake does not simulate. Missing keys sort last instead of raising.
+                rows = sorted(
+                    rows,
+                    key=lambda r: (r.get(column) is None, r.get(column)),
+                    reverse=desc,
+                )
             if self._range:
                 rows = rows[self._range[0] : self._range[1] + 1]
             rows = copy.deepcopy(rows)

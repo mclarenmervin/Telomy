@@ -1,0 +1,129 @@
+"""The report envelope. The model supplies prose; every number here is ours."""
+
+import re
+
+from pydantic import BaseModel, Field
+
+SCHEMA_VERSION = 1
+SECTION_IDS = ("what_happened", "what_changed", "what_went_well", "watch_outs", "improve")
+SECTION_TITLES = {
+    "what_happened": "What happened",
+    "what_changed": "What changed",
+    "what_went_well": "What went well",
+    "watch_outs": "Worth watching",
+    "improve": "What to try next time",
+}
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+SMALL_NUMBER_LIMIT = 10  # ordinals and counts like "3 sessions" are unremarkable
+
+
+class NarrativeSection(BaseModel):
+    id: str = Field(description="One of: " + ", ".join(SECTION_IDS))
+    title: str
+    body: str
+
+
+class Narrative(BaseModel):
+    """Prose only — the model never returns metrics, scores, or data quality."""
+
+    headline: str = Field(description="One sentence for a list view.")
+    sections: list[NarrativeSection]
+
+
+def build_report(analysis, insights, narrative, data_gaps) -> dict:
+    by_id = {s.id: s for s in narrative.sections}
+    sections = [
+        {
+            "id": sid,
+            "title": SECTION_TITLES[sid],
+            "body": (by_id[sid].body if sid in by_id else "").strip(),
+        }
+        for sid in SECTION_IDS
+    ]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "score_version": (analysis.get("score") or {}).get("score_version", 1),
+        "event_type": analysis.get("activity_type"),
+        "score": analysis.get("score"),
+        "headline": narrative.headline.strip(),
+        "sections": sections,
+        "metrics": analysis.get("metrics") or [],
+        "data_quality": analysis.get("data_quality", "none"),
+        "history_used": analysis.get("history_used") or {},
+        "data_gaps": data_gaps or [],
+        "insights": insights or [],
+    }
+
+
+def _allowed_numbers(analysis) -> set[str]:
+    allowed: set[str] = set()
+
+    def add(value):
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            allowed.add(f"{round(abs(value)):d}")
+            allowed.add(f"{abs(value):.1f}".rstrip("0").rstrip("."))
+
+    for metric in analysis.get("metrics") or []:
+        for key in ("value", "min", "max", "baseline", "delta", "samples"):
+            add(metric.get(key))
+    for value in (analysis.get("baseline") or {}).values():
+        add(value)
+    add((analysis.get("score") or {}).get("value"))
+    seconds = analysis.get("duration_seconds") or 0
+    add(seconds)
+    add(seconds // 60)  # minutes are a fair restatement of duration
+    add((analysis.get("history_used") or {}).get("sessions_compared"))
+    return allowed
+
+
+def verify_numbers(report_dict, analysis) -> tuple[dict, list[str]]:
+    """Cheap deterministic fidelity check: prose figures must trace to computed values."""
+    flags: list[str] = []
+    allowed = _allowed_numbers(analysis)
+    texts = [report_dict["headline"]] + [s["body"] for s in report_dict["sections"]]
+    found = {n for text in texts for n in _NUMBER.findall(text)}
+    unverified = {
+        n
+        for n in found
+        if n not in allowed and not (float(n).is_integer() and float(n) <= SMALL_NUMBER_LIMIT)
+    }
+
+    if analysis.get("data_quality") == "none" and found:
+        for section in report_dict["sections"]:
+            section["body"] = _NUMBER.sub("—", section["body"])
+        report_dict["headline"] = _NUMBER.sub("—", report_dict["headline"])
+        flags.append("quality_gate")
+    elif unverified:
+        flags.append("unverified_number")
+
+    return report_dict, flags
+
+
+def fallback_narrative(analysis, insights) -> Narrative:
+    """Used when no model is available or a budget cap was hit — deterministic prose."""
+    minutes = round((analysis.get("duration_seconds") or 0) / 60)
+    activity = analysis.get("activity_type") or "activity"
+    metric_bits = (
+        ", ".join(
+            f"{m['key']} averaged {m['value']}" for m in (analysis.get("metrics") or [])[:3]
+        )
+        or "no sensor metrics were captured"
+    )
+    by_section: dict[str, list[str]] = {sid: [] for sid in SECTION_IDS}
+    for insight in insights or []:
+        by_section.setdefault(insight["section"], []).append(insight["fact"])
+
+    bodies = {
+        "what_happened": f"You recorded a {minutes}-minute {activity} session.",
+        "what_changed": metric_bits[0].upper() + metric_bits[1:] + ".",
+        "what_went_well": " ".join(by_section["what_went_well"]) or "Session recorded.",
+        "watch_outs": " ".join(by_section["watch_outs"]) or "Nothing flagged.",
+        "improve": " ".join(by_section["improve"])
+        or "Keep logging sessions to build a clearer picture.",
+    }
+    return Narrative(
+        headline=f"{minutes}-minute {activity} session recorded.",
+        sections=[
+            NarrativeSection(id=s, title=SECTION_TITLES[s], body=bodies[s]) for s in SECTION_IDS
+        ],
+    )
