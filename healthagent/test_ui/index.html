@@ -30,6 +30,18 @@
   <button id="start" disabled>Start</button>
   <button id="stop" disabled>Stop</button>
 
+  <hr />
+  <h2>Activity session</h2>
+  <select id="activity_type">
+    <option value="running">running</option>
+    <option value="cycling">cycling</option>
+    <option value="walking">walking</option>
+    <option value="yoga">yoga</option>
+  </select>
+  <label>minutes <input id="activity_minutes" value="30" size="4" /></label>
+  <button id="finish_activity" disabled>Finish session</button>
+  <div id="report" style="max-width:46em;font-family:system-ui;line-height:1.5"></div>
+
   <h3>Log</h3>
   <pre id="log"></pre>
 
@@ -52,13 +64,17 @@
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "predictions", filter: `user_id=eq.${userId}` },
-          (payload) => log("[" + payload.new.kind + " | data: " + payload.new.data_quality + "] " + payload.new.summary)
+          (payload) => {
+            log("[" + payload.new.kind + " | data: " + payload.new.data_quality + "] " + payload.new.summary);
+            renderReport(payload.new);
+          }
         )
         .subscribe();
 
       log("connected, subscribed to predictions for user " + userId);
       document.getElementById("start").disabled = false;
       document.getElementById("stop").disabled = false;
+      document.getElementById("finish_activity").disabled = false;
     };
 
     document.getElementById("start").onclick = async () => {
@@ -95,6 +111,51 @@
       }
       log("stopped event " + currentEventId);
       currentEventId = null;
+    };
+
+    // Render an activity_summary the moment Realtime delivers it. No polling: the row
+    // arrives on its own once the agent finishes in the background.
+    function renderReport(row) {
+      if (row.kind !== "activity_summary") return;
+      const r = row.analysis;
+      const score = r.score
+        ? `<p><b>Score ${r.score.value}/${r.score.scale}</b> — ${r.score.label}
+             <i>(${r.score.basis})</i></p>`
+        : "<p><i>Not enough history yet for a score.</i></p>";
+      const gaps = (r.data_gaps || []).length
+        ? `<p><small>unavailable sources: ${r.data_gaps
+             .map((g) => g.source + " (" + g.status + ")").join(", ")}</small></p>`
+        : "";
+      document.getElementById("report").innerHTML =
+        `<h3>${r.headline}</h3>` + score +
+        r.sections.map((s) => `<h4>${s.title}</h4><p>${s.body}</p>`).join("") +
+        `<p><small>data quality: ${r.data_quality}` +
+        (row.guardrail_flags && row.guardrail_flags.length
+          ? " | flags: " + row.guardrail_flags.join(", ") : "") +
+        `</small></p>` + gaps;
+    }
+
+    document.getElementById("finish_activity").onclick = async () => {
+      const userId = document.getElementById("uid").value;
+      const minutes = Math.max(3, parseInt(document.getElementById("activity_minutes").value, 10) || 30);
+      const id = crypto.randomUUID();
+      const ended = new Date();
+      const started = new Date(ended.getTime() - minutes * 60 * 1000);
+      const samples = Array.from({ length: minutes * 20 }, (_, i) => ({
+        heartRate: 138 + (i % 9), spo2: 97,
+      }));
+
+      document.getElementById("report").innerHTML = "<p><i>Session saved. The report will appear here when the agent finishes…</i></p>";
+      const { error } = await sb.from("activity_sessions").insert({
+        id, user_id: userId,
+        activity_type: document.getElementById("activity_type").value,
+        started_at: started.toISOString(), ended_at: ended.toISOString(),
+        duration_seconds: minutes * 60,
+        summary: { heartRate: 142, spo2: 97, hrv: 48 },
+        samples,
+      });
+      log(error ? "activity insert failed: " + error.message
+                : "activity session " + id + " saved, waiting for the report…");
     };
   </script>
 </body>
