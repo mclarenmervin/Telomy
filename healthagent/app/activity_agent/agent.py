@@ -16,10 +16,36 @@ from app.activity_agent.report import (
     verify_numbers,
 )
 from app.activity_agent.state import ActivityContext, ActivityState
-from app.agent.guardrails import apply_guardrails
+from app.agent.guardrails import ESCALATION_LINE, apply_guardrails
 from app.common.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# Exercise-specific danger thresholds. The event agent's HEART_RATE_HIGH = 150 describes
+# a resting-ish context; a mean of 150-175 bpm is ordinary for a tempo run, so reusing it
+# would put a chest-pain warning on most hard workouts.
+SPO2_DANGER_MIN = 90.0
+HEART_RATE_DANGER_MAX = 200.0
+
+
+def _exercise_danger(analysis) -> bool:
+    """True only for readings that are alarming *during exercise*."""
+    aggregates = analysis.get("aggregates") or {}
+    spo2 = aggregates.get("spo2") or {}
+    heart_rate = aggregates.get("heartRate") or {}
+    spo2_min = spo2.get("min")
+    hr_max = heart_rate.get("max")
+    return (spo2_min is not None and spo2_min < SPO2_DANGER_MIN) or (
+        hr_max is not None and hr_max > HEART_RATE_DANGER_MAX
+    )
+
+
+def _guard_headline(headline: str, analysis) -> tuple[str, list[str]]:
+    """The headline reaches predictions.summary and is the most-read text, so it gets the
+    same deterministic language check as the bodies — but never the escalation append,
+    which belongs in a section."""
+    # Empty metrics: language rules only, no value-triggered escalation.
+    return apply_guardrails(headline, {"metrics": {}})
 
 
 def _build_narrator(loader, settings):
@@ -77,36 +103,63 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
                         "messages": [
                             {"role": "user", "content": "Write the report for this session."}
                         ],
-                        **{k: state[k] for k in ("session", "analysis", "insights",
-                                                 "data_gaps", "profile", "previous_report")
-                           if k in state},
+                        **{
+                            k: state[k]
+                            for k in (
+                                "session", "analysis", "insights", "data_gaps",
+                                "profile", "previous_report", "safety_facts",
+                            )
+                            if k in state
+                        },
                     },
                     context=runtime.context,
                 )
                 narrative = result.get("structured_response")
             except Exception:
                 logger.exception("narration failed, falling back to deterministic prose")
-        if narrative is None:
+        used_fallback = narrative is None
+        if used_fallback:
             narrative = fallback_narrative(analysis, insights)
-        return {
-            "report": build_report(analysis, insights, narrative, state.get("data_gaps") or [])
-        }
+        report = build_report(analysis, insights, narrative, state.get("data_gaps") or [])
+        flags = []
+        if used_fallback:
+            # A missing key or an exhausted budget must not look like a normal report.
+            flags.append("narration_incomplete")
+            if report["data_quality"] == "full":
+                report["data_quality"] = "partial"
+        return {"report": report, "guardrail_flags": flags}
 
     def verify(state) -> dict:
-        report, flags = verify_numbers(state["report"], state["analysis"])
+        report, new_flags = verify_numbers(state["report"], state["analysis"])
+        flags = list(state.get("guardrail_flags") or [])
+        flags.extend(f for f in new_flags if f not in flags)
         return {"report": report, "guardrail_flags": flags}
 
     def guardrails(state) -> dict:
         report = state["report"]
         flags = list(state.get("guardrail_flags") or [])
-        # Reuse the existing deterministic medical-safety rules unchanged.
-        analysis_for_rules = {
-            "metrics": {m["key"]: {"during_mean": m["value"]} for m in report.get("metrics", [])}
-        }
+
+        # Language rules over every section AND the headline. Empty metrics are passed so
+        # the reused module never appends its own escalation per section.
         for section in report["sections"]:
-            text, section_flags = apply_guardrails(section["body"], analysis_for_rules)
+            text, section_flags = apply_guardrails(section["body"], {"metrics": {}})
             section["body"] = text
             flags.extend(f for f in section_flags if f not in flags)
+
+        safe_headline, headline_flags = _guard_headline(report["headline"], state["analysis"])
+        if headline_flags:
+            # Replace rather than publish sanitised boilerplate as the list-view line.
+            safe_headline = fallback_narrative(state["analysis"], []).headline
+        report["headline"] = safe_headline
+        flags.extend(f for f in headline_flags if f not in flags)
+
+        # Escalate once, in the section where a warning belongs — not five times.
+        if _exercise_danger(state["analysis"]):
+            watch = next(s for s in report["sections"] if s["id"] == "watch_outs")
+            watch["body"] = f"{watch['body']} {ESCALATION_LINE}".strip()
+            if "escalation" not in flags:
+                flags.append("escalation")
+
         return {"report": report, "guardrail_flags": flags}
 
     def persist(state, runtime) -> dict:

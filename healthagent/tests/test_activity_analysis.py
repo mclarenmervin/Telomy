@@ -91,3 +91,50 @@ def test_analyze_activity_assembles_metrics_and_history():
     assert hr["direction"] == "better"
     assert out["data_quality"] in {"full", "partial"}
     assert out["history_used"]["sessions_compared"] == 3
+
+
+# --- review fix pass ---------------------------------------------------------
+
+
+def test_malformed_sample_entries_are_dropped_not_fatal():
+    """Finding 6: a null or scalar inside samples must not lose the whole report."""
+    agg = aggregate_samples([{"heartRate": 140}, None, "garbage", 7, {"heartRate": 150}])
+    assert agg["heartRate"]["n"] == 2
+
+
+def test_zero_baseline_heart_rate_does_not_raise():
+    """Finding 12: a ring with no skin contact can report 0, not omit the key."""
+    baseline = {"heartRate": 0, "duration_seconds": 1800, "sessions_compared": 5}
+    assert compute_score({"heartRate": {"mean": 140}}, baseline, 1800) is None
+
+
+def test_a_real_long_session_is_still_analysed():
+    """Finding 7: a 7-hour ride is excluded from baselines but must still get a report."""
+    from app.analytics.activity_analysis import is_analyzable
+
+    seven_hours = {"duration_seconds": 7 * 3600}
+    assert is_plausible_session(seven_hours) is False  # not baseline material
+    assert is_analyzable(seven_hours) is True  # but still worth a report
+
+
+def test_an_accidental_tap_is_not_analysed():
+    from app.analytics.activity_analysis import is_analyzable
+
+    assert is_analyzable({"duration_seconds": 4}) is False
+    assert is_analyzable({"duration_seconds": 95}) is True  # a short mobility block counts
+
+
+def test_an_implausibly_long_session_is_marked_suspect():
+    session = {"activity_type": "cycling", "duration_seconds": 9 * 3600, "samples": []}
+    assert analyze_activity(session, [])["duration_suspect"] is True
+    normal = {"activity_type": "cycling", "duration_seconds": 1800, "samples": []}
+    assert analyze_activity(normal, [])["duration_suspect"] is False
+
+
+def test_history_used_reports_the_window():
+    """Finding 14: the UI renders 'vs your last N over M days' and needs both."""
+    past = [{"duration_seconds": 1800, "summary": {"heartRate": 150}}] * 3
+    out = analyze_activity({"activity_type": "running", "duration_seconds": 1800,
+                            "samples": [{"heartRate": 142}]}, past)
+    assert out["history_used"]["sessions_compared"] == 3
+    assert out["history_used"]["window_days"] > 0

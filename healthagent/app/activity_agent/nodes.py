@@ -57,7 +57,8 @@ def make_load_context(loader):
         for source, result in (
             ("past_sessions", past),
             ("profile", profile),
-            ("safety_facts", safety),
+            # safety_facts is deliberately absent: having no medications is not a gap
+            # the UI should invite the user to fill.
             ("past_reports", reports),
             ("documents", documents),
         ):

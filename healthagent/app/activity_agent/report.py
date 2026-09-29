@@ -14,7 +14,13 @@ SECTION_TITLES = {
     "improve": "What to try next time",
 }
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
-SMALL_NUMBER_LIMIT = 10  # ordinals and counts like "3 sessions" are unremarkable
+SMALL_NUMBER_LIMIT = 10  # bare counts like "3 sessions" are unremarkable
+# A small number carrying a unit is a measurement claim, not a count, and must reconcile:
+# an invented delta ("3 bpm lower") is the likeliest fabrication in this domain.
+_UNIT_AFTER = re.compile(
+    r"\s*(?:%|bpm|beats|percent|hours?|hrs?|minutes?|mins?|seconds?|secs?|kg|lbs?|ms|°)\b",
+    re.I,
+)
 
 
 class NarrativeSection(BaseModel):
@@ -59,9 +65,17 @@ def _allowed_numbers(analysis) -> set[str]:
     allowed: set[str] = set()
 
     def add(value):
+        """Admit every form a careful writer might use for one computed value.
+
+        A mean of 148.6 may fairly be written 148, 148.0, 148.6 or 149; rejecting those
+        would make the flag fire on correct prose and destroy its signal.
+        """
         if isinstance(value, (int, float)) and not isinstance(value, bool):
-            allowed.add(f"{round(abs(value)):d}")
-            allowed.add(f"{abs(value):.1f}".rstrip("0").rstrip("."))
+            magnitude = abs(value)
+            for form in (int(magnitude), round(magnitude), magnitude):
+                allowed.add(f"{form:.0f}")  # 148
+                allowed.add(f"{form:.1f}")  # 148.0
+                allowed.add(f"{form:.1f}".rstrip("0").rstrip("."))  # 148.6 / 148
 
     for metric in analysis.get("metrics") or []:
         for key in ("value", "min", "max", "baseline", "delta", "samples"):
@@ -71,7 +85,10 @@ def _allowed_numbers(analysis) -> set[str]:
     add((analysis.get("score") or {}).get("value"))
     seconds = analysis.get("duration_seconds") or 0
     add(seconds)
-    add(seconds // 60)  # minutes are a fair restatement of duration
+    # Both roundings: the prompt presents round(s/60), so allowing only the floor would
+    # flag a correct restatement on any duration with a remainder of 30s or more.
+    add(seconds // 60)
+    add(round(seconds / 60) if seconds else 0)
     add((analysis.get("history_used") or {}).get("sessions_compared"))
     return allowed
 
@@ -81,17 +98,34 @@ def verify_numbers(report_dict, analysis) -> tuple[dict, list[str]]:
     flags: list[str] = []
     allowed = _allowed_numbers(analysis)
     texts = [report_dict["headline"]] + [s["body"] for s in report_dict["sections"]]
-    found = {n for text in texts for n in _NUMBER.findall(text)}
-    unverified = {
-        n
-        for n in found
-        if n not in allowed and not (float(n).is_integer() and float(n) <= SMALL_NUMBER_LIMIT)
-    }
 
-    if analysis.get("data_quality") == "none" and found:
+    def unverified_in(text: str) -> set[str]:
+        out = set()
+        for match in _NUMBER.finditer(text):
+            token = match.group()
+            if token in allowed:
+                continue
+            carries_unit = bool(_UNIT_AFTER.match(text, match.end()))
+            small_bare_count = (
+                not carries_unit
+                and float(token).is_integer()
+                and float(token) <= SMALL_NUMBER_LIMIT
+            )
+            if not small_bare_count:
+                out.add(token)
+        return out
+
+    unverified = {n for text in texts for n in unverified_in(text)}
+
+    if analysis.get("data_quality") == "none" and unverified:
+        # Strip only figures that do not trace to computed values; the duration does,
+        # so the ring-dropped report stays readable instead of becoming "—-minute".
+        def strip(text: str) -> str:
+            return _NUMBER.sub(lambda m: "—" if m.group() in unverified else m.group(), text)
+
         for section in report_dict["sections"]:
-            section["body"] = _NUMBER.sub("—", section["body"])
-        report_dict["headline"] = _NUMBER.sub("—", report_dict["headline"])
+            section["body"] = strip(section["body"])
+        report_dict["headline"] = strip(report_dict["headline"])
         flags.append("quality_gate")
     elif unverified:
         flags.append("unverified_number")

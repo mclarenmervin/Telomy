@@ -20,7 +20,7 @@ def process_one(queue, agent, timeout: int = 5, wall_clock_seconds: int = 60) ->
         return False
     if job is None:
         return False
-    process_activity_job(job, agent, wall_clock_seconds)
+    process_activity_job(job, agent, wall_clock_seconds, queue=queue)
     return True
 
 

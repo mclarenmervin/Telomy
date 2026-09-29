@@ -81,3 +81,80 @@ def test_data_gaps_are_carried_into_the_envelope():
     gaps = [{"source": "documents", "status": "unconfigured", "reason": "not configured"}]
     out = build_report(ANALYSIS, [], _narrative("Fine."), gaps)
     assert out["data_gaps"] == gaps
+
+
+# --- review fix pass ---------------------------------------------------------
+
+NO_DATA = {
+    "activity_type": "running", "duration_seconds": 2700, "data_quality": "none",
+    "metrics": [], "score": None, "baseline": None,
+    "history_used": {"sessions_compared": 0, "window_days": 90},
+}
+
+
+def test_quality_none_keeps_the_duration_readable():
+    """Finding 4: the ring-dropped path must not render '—-minute session'."""
+    nar = fallback_narrative(NO_DATA, [])
+    out = build_report(NO_DATA, [], nar, [])
+    checked, flags = verify_numbers(out, NO_DATA)
+    assert "45" in checked["headline"]
+    assert "—-minute" not in checked["headline"]
+    assert "45" in checked["sections"][0]["body"]
+
+
+def test_quality_none_still_strips_an_invented_physiological_number():
+    out = build_report(NO_DATA, [], _narrative("Your heart rate averaged 148 bpm."), [])
+    checked, flags = verify_numbers(out, NO_DATA)
+    assert "148" not in checked["sections"][0]["body"]
+    assert "quality_gate" in flags
+
+
+def test_rounded_minutes_are_accepted():
+    """Finding 5a: the prompt gives round(s/60); allowing only floor flags half of reports."""
+    analysis = dict(ANALYSIS, duration_seconds=1790)  # round -> 30, floor -> 29
+    out = build_report(analysis, [], _narrative("You ran for 30 minutes."), [])
+    _, flags = verify_numbers(out, analysis)
+    assert flags == []
+
+
+def test_an_invented_small_delta_is_flagged():
+    """Finding 5b: deltas are the likeliest fabrication and are usually small integers."""
+    out = build_report(ANALYSIS, [], _narrative("Heart rate held 3 bpm lower than usual."), [])
+    _, flags = verify_numbers(out, ANALYSIS)
+    assert "unverified_number" in flags
+
+
+def test_a_real_delta_with_units_is_accepted():
+    out = build_report(ANALYSIS, [], _narrative("Heart rate held 8 bpm lower than usual."), [])
+    _, flags = verify_numbers(out, ANALYSIS)
+    assert flags == []
+
+
+def test_a_bare_small_count_is_still_unremarkable():
+    out = build_report(ANALYSIS, [], _narrative("Try this over the next 3 sessions."), [])
+    _, flags = verify_numbers(out, ANALYSIS)
+    assert flags == []
+
+
+def test_plausible_roundings_of_a_computed_value_are_accepted():
+    """A mean of 148.6 may fairly be restated as 148, 148.0, 148.6 or 149."""
+    analysis = dict(
+        ANALYSIS,
+        metrics=[{"key": "heartRate", "value": 148.6, "min": 140, "max": 160,
+                  "samples": 60, "baseline": 150, "delta": -1.4, "direction": "better"}],
+    )
+    for written in ("148", "148.0", "148.6", "149"):
+        out = build_report(analysis, [], _narrative(f"Heart rate averaged {written} bpm."), [])
+        _, flags = verify_numbers(out, analysis)
+        assert flags == [], f"{written} should be accepted as a restatement of 148.6"
+
+
+def test_a_genuinely_different_value_is_still_flagged():
+    analysis = dict(
+        ANALYSIS,
+        metrics=[{"key": "heartRate", "value": 148.6, "min": 140, "max": 160,
+                  "samples": 60, "baseline": 150, "delta": -1.4, "direction": "better"}],
+    )
+    out = build_report(analysis, [], _narrative("Heart rate averaged 162 bpm."), [])
+    _, flags = verify_numbers(out, analysis)
+    assert "unverified_number" in flags

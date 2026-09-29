@@ -7,6 +7,8 @@ LOWER_IS_BETTER = frozenset({"heartRate", "stress"})
 MIN_BASELINE_SESSIONS = 3
 MIN_DURATION_SECONDS = 120
 MAX_PLAUSIBLE_DURATION_SECONDS = 21600  # 6h — beyond this, assume "forgot to stop"
+MIN_ANALYZABLE_SECONDS = 30  # below this it is an accidental tap, not a session
+BASELINE_WINDOW_DAYS = 90
 SCORE_VERSION = 1
 
 
@@ -18,7 +20,11 @@ def aggregate_samples(samples) -> dict:
     """Per-field aggregates. Ragged-safe: each field uses only samples containing it."""
     out: dict[str, dict] = {}
     for field in TRACKED_FIELDS:
-        values = [s[field] for s in samples if _numeric(s.get(field))]
+        values = [
+            s[field]
+            for s in samples
+            if isinstance(s, dict) and _numeric(s.get(field))
+        ]
         if values:
             out[field] = {
                 "mean": round(mean(values), 1),
@@ -30,8 +36,19 @@ def aggregate_samples(samples) -> dict:
 
 
 def is_plausible_session(session) -> bool:
+    """Whether a session may contribute to a baseline. Stricter than `is_analyzable`."""
     seconds = session.get("duration_seconds") or 0
     return MIN_DURATION_SECONDS <= seconds <= MAX_PLAUSIBLE_DURATION_SECONDS
+
+
+def is_analyzable(session) -> bool:
+    """Whether a session deserves a report at all.
+
+    Deliberately much looser than `is_plausible_session`: a genuine seven-hour ride is
+    unfit for a baseline but is exactly the session a user most wants explained, and a
+    90-second mobility block is a real session. Only an accidental tap is refused.
+    """
+    return (session.get("duration_seconds") or 0) >= MIN_ANALYZABLE_SECONDS
 
 
 def build_baseline(past):
@@ -64,6 +81,8 @@ def compute_score(aggregates, baseline, duration_seconds):
         return None
     hr = aggregates["heartRate"]["mean"]
     hr_base = baseline["heartRate"]
+    if not hr_base:  # a wearable can report 0 rather than omitting the key
+        return None
     # Lower heart rate than baseline is better; clamp influence at 20% deviation.
     hr_ratio = max(-0.2, min(0.2, (hr_base - hr) / hr_base))
     hr_points = hr_ratio / 0.2 * 30
@@ -124,5 +143,9 @@ def analyze_activity(session, past) -> dict:
         "metrics": metrics,
         "score": compute_score(aggregates, baseline, duration),
         "data_quality": assess_data_quality(aggregates),
-        "history_used": {"sessions_compared": (baseline or {}).get("sessions_compared", 0)},
+        "duration_suspect": duration > MAX_PLAUSIBLE_DURATION_SECONDS,
+        "history_used": {
+            "sessions_compared": (baseline or {}).get("sessions_compared", 0),
+            "window_days": BASELINE_WINDOW_DAYS,
+        },
     }
