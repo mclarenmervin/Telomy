@@ -807,3 +807,82 @@ test files.
    accidental-tap session yields no report rather than a bad one.
 3. **The partial path always reaches `persist`.** A budget breach or a missing API
    key still produces the deterministic sections — never an empty screen (§11).
+
+## 20. Implementation notes (as built, 2026-09-29)
+
+Decisions taken during implementation that a future change should not silently reverse.
+Corrections to earlier sections of this document are marked.
+
+### 20.1 Corrections to this spec
+
+- **§D3 said "no schema migration".** Wrong: `predictions.kind` carries a CHECK
+  constraint, so `db/003_activity_summary.sql` was required.
+- **§16.2 said the clinical tables do not exist.** Wrong: `lab_results`,
+  `therapy_sessions`, `genetic_records`, `medications` and others are created by a
+  `do $$ … loop` in the mobile migration. The single-agent decision stands on the
+  cross-observation argument alone.
+- **§15.2 said to delete `app/agent/llm.py`.** Kept: the legacy event agent depends on
+  it, and migrating that agent is not part of this feature. The activity agent uses
+  `ChatOpenAI` directly. The `app/agent` → `app/event_agent` rename was likewise skipped.
+
+### 20.2 Safety thresholds are v1 and want clinical review
+
+`app/activity_agent/agent.py` escalates only on **SpO2 < 90** or **max HR > 200**. The
+event agent's `HEART_RATE_HIGH = 150` must not be reused here: a mean of 150–175 bpm is
+ordinary for a tempo run, and reusing it put a chest-pain warning on every hard workout —
+repeated in all five sections, because the reused module's escalation does not depend on
+the text. The escalation line is appended **once**, to `watch_outs`.
+
+`app/analytics/insight_rules.py` thresholds (`HR_ELEVATED_DELTA = 15`,
+`SPO2_WATCH_MIN = 92`, `SHORT_SESSION_RATIO = 0.7`) are also v1 placeholders.
+
+### 20.3 Two duration gates, not one
+
+- `is_plausible_session` (120s–6h) decides **baseline eligibility** only.
+- `is_analyzable` (≥30s) decides **whether to report at all**.
+
+Conflating them meant a genuine seven-hour ride — the session a user most wants
+explained — produced silence, and a 90-second mobility block produced nothing. A session
+beyond 6h is still reported, with `duration_suspect: true`.
+
+### 20.4 `verify_numbers` tolerance is deliberate
+
+`_allowed_numbers` admits the truncated, rounded and one-decimal forms of every computed
+value, and both `floor(s/60)` and `round(s/60)` for duration. This is not laxity: the
+prompt presents `round(s/60)`, so allowing only the floor flagged a correct restatement on
+roughly half of real sessions, and a flag that fires on healthy reports carries no signal.
+
+Conversely, a small number **carrying a unit** ("3 bpm lower") is never exempted, because
+an invented delta is the likeliest fabrication in this domain. Bare small counts
+("3 sessions") still are.
+
+### 20.5 The fallback path must stay visible
+
+When no API key is configured, narration throws, or a budget cap ends the run, the report
+is deterministic prose, `data_quality` is downgraded to `partial`, and
+`narration_incomplete` is recorded in `guardrail_flags`. Without this, an expired API key
+in production yields terse reports stamped `full` with no flags — invisible in dashboards
+and to the user.
+
+### 20.6 The wall-clock deadline is ours
+
+No middleware enforces elapsed time. `app/activity_worker/handlers.py` runs the graph on a
+helper thread and abandons the wait at `wall_clock_seconds`, so a hung model or database
+call cannot stall the single-threaded lane. The thread is orphaned deliberately.
+
+Failures re-enqueue once (`MAX_ATTEMPTS = 2`) — Supabase already received its 202 and will
+never retry on our behalf, so without this a transient blip lost the report silently.
+
+### 20.7 Known gaps, deliberately deferred
+
+- The history window uses `datetime.now()`, so replaying a session on a different day can
+  select a different baseline set. Anchor to `session["started_at"]` to make the
+  determinism guarantee in D8 total.
+- FastAPI validates the webhook body before the handler's secret check, so a malformed
+  unauthenticated request receives 422 with schema detail rather than 401. No user data is
+  touched. Matches the pre-existing events webhook.
+- The report envelope carries no duration field; the UI must read it from prose.
+- User-authored text (display name, `notes`, `fields`) is labelled as data in the prompt
+  but not structurally delimited. Blast radius is the user's own report.
+- `build_checkpointer` holds one connection open for process lifetime with no reconnect.
+- No per-user throttling: a bulk sync of six sessions runs six agent invocations.
