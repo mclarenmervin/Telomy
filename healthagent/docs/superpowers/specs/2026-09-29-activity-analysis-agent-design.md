@@ -52,7 +52,7 @@ Each of these was decided deliberately; do not silently reverse one.
 |---|---|---|
 | D1 | Trigger from `activity_sessions` INSERT, not `events` | Mobile already writes exactly one complete row at session end. Requires zero mobile change. |
 | D2 | Accept this as a second trigger path alongside `events` | Deliberate, documented exception to P1 ("one event contract"). The alternative was a mobile change we do not want to block on. |
-| D3 | Reuse `predictions.event_id` to hold the triggering row id | No schema migration. The column means "id of the row that triggered this", `kind` disambiguates. |
+| D3 | Reuse `predictions.event_id` to hold the triggering row id | The column means "id of the row that triggered this"; `kind` disambiguates. **Correction to an earlier draft: one small migration IS required** — `predictions.kind` carries `check (kind in ('ack','analysis'))`, so `'activity_summary'` must be added to the constraint (`db/003_activity_summary.sql`). No new table or column. |
 | D4 | Own deployable service (`activity-worker`), own queue lane | Independent failure domain, deploy and restart independently. Shares only `common/`. |
 | D5 | Supervisor-shaped graph, but **one** reasoning node in Phase 1 | Evaluated explicitly for accuracy (§16) and chosen *because* it is more accurate, not merely cheaper. Splitting session-vs-trend analysis would prevent the cross-observation that matters most. `create_supervisor` accepts compiled agents, so this is additive later at zero rewrite cost. |
 | D6 | OpenAI via `init_chat_model`; **delete** the custom `llm.py` wrapper | A hand-rolled provider Protocol duplicates a framework built-in. See §15. |
@@ -699,3 +699,111 @@ rules fired, every time.
   mode: a confidently-wrong number.
 - **`data_quality` gates claim strength.** At `data_quality='none'`, confident
   physiological claims must be *impossible*, not merely discouraged.
+
+## 19. Module layout and graph flow
+
+### 19.1 Target layout
+
+`★ new · ✎ changed · ⇄ moved · ✗ deleted`
+
+```
+healthagent/
+├── langgraph.json                    ★ optional — enables `langgraph dev` / Studio
+├── requirements.txt                  ✎ +langchain, langchain-openai,
+│                                        langgraph-checkpoint-postgres, psycopg
+├── docker-compose.yml                ✎ + activity-worker service
+├── docker/Dockerfile.activity-worker ★
+├── db/003_activity_summary.sql       ★ extend predictions.kind CHECK (D3)
+├── app/
+│   ├── common/
+│   │   ├── config.py                 ✎ + DB conn string, budget settings
+│   │   ├── context_loader.py         ⇄ from app/agent/ — now shared (§5.2)
+│   │   └── checkpointer.py           ★ PostgresSaver factory
+│   ├── analytics/
+│   │   ├── activity_analysis.py      ★ aggregates, baseline, deltas, score
+│   │   └── insight_rules.py          ★ deterministic advice decisions (§17.4)
+│   ├── event_agent/                  ⇄ renamed from app/agent/ (two agents now)
+│   │   ├── guardrails.py             ← reused unchanged by the activity agent
+│   │   └── llm.py                    ✗ deleted — replaced by ChatOpenAI (§15.2)
+│   ├── activity_agent/               ★ LangGraph app-structure convention (§15.5)
+│   │   ├── agent.py                  # graph assembly
+│   │   ├── state.py                  # ActivityState + ActivityContext
+│   │   ├── nodes.py                  # deterministic nodes
+│   │   ├── tools.py                  # 7 ToolRuntime tools + absence envelope
+│   │   ├── prompts.py                # @dynamic_prompt
+│   │   ├── report.py                 # Pydantic response_format model
+│   │   └── persist.py
+│   ├── activity_worker/              ★ separate deployable (D4)
+│   ├── gateway/activity_webhooks.py  ★
+│   └── gateway/main.py               ✎ mount activity router
+└── tests/                            ✎ ~10 new modules mirroring the above
+```
+
+The `app/agent/` → `app/event_agent/` rename is optional but recommended: with two
+agents, `agent/` beside `activity_agent/` reads badly. It touches imports and a few
+test files.
+
+### 19.2 Graph flow
+
+```
+  Supabase: INSERT activity_sessions
+       │  DB webhook + x-webhook-secret
+       ▼
+  gateway/activity_webhooks.py
+    verify secret ──► reject (before any field is read)
+    enqueue {user_id, session_id} ──► 202
+       │
+       ▼  Redis lane: activity
+  activity_worker ──► invoke graph (thread_id = session_id)
+
+╔════════════ StateGraph — ours, deterministic ════════════╗
+║  entry          bind user_id+session_id into context;    ║
+║    │            allowlist activity_type; init budget     ║
+║    ▼                                                     ║
+║  load_session   re-read row BY ID scoped to user_id      ║
+║    ├──► END     missing row · user mismatch · too short  ║
+║    │            →  write nothing                         ║
+║    ▼                                                     ║
+║  load_context   profile · safety facts (always) ·        ║
+║    │            baseline · trend · prior headline;       ║
+║    │            records data_gaps{empty|unconfigured}    ║
+║    ▼                                                     ║
+║  analyze        PURE PYTHON — ragged-safe aggregates,    ║
+║    │            outlier-rejected baseline, deltas, z,    ║
+║    │            score (omitted if <3 sessions), quality  ║
+║    ▼                                                     ║
+║  insight_rules  PURE PYTHON — which observations fire    ║
+║    ▼                                                     ║
+║  ┌────────── narrate = create_agent(...) ───────────┐    ║
+║  │ ChatOpenAI · @dynamic_prompt                     │    ║
+║  │ response_format=ActivityReport (Pydantic)        │    ║
+║  │ 7 tools, ToolRuntime-bound, no user_id           │    ║
+║  │ middleware: ModelCallLimit(2) · ToolCallLimit(8) │    ║
+║  │             · ModelRetry                         │    ║
+║  │ sees ONLY computed facts, never raw samples      │    ║
+║  └───────────────────┬──────────────────────────────┘    ║
+║    budget hit/no LLM │                                   ║
+║       ┌──────────────┴──── partial path ────┐            ║
+║       ▼                                     ▼            ║
+║  verify        numeric fidelity vs        (deterministic  ║
+║    │           metrics; quality gates      sections only)║
+║    ▼           claim strength               │            ║
+║  guardrails    deterministic medical safety ◄┘           ║
+║    ▼           (reused module, unchanged)                ║
+║  persist       ONE idempotent upsert                     ║
+║                event_id=session_id, kind=activity_summary║
+╚══════════════════════════════════════════════════════════╝
+       │  checkpoint RETAINED (thread_id = session_id)
+       ▼      └─► Phase 3 chat resumes this thread
+  predictions ──► Supabase Realtime ──► mobile app
+```
+
+### 19.3 Invariants the flow enforces
+
+1. **Exactly one node calls a model.** Everything before `narrate` is arithmetic;
+   everything after is deterministic checking. This is what keeps the score
+   comparable across runs (D8).
+2. **Two exits write nothing.** A missing row, a user mismatch, or an
+   accidental-tap session yields no report rather than a bad one.
+3. **The partial path always reaches `persist`.** A budget breach or a missing API
+   key still produces the deterministic sections — never an empty screen (§11).
