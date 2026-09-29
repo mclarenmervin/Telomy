@@ -1,0 +1,10 @@
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.5
+redis==8.1.0
+supabase==2.31.0
+httpx==0.28.1
+pytest==9.1.1
+fakeredis==2.38.0
+openai==3.19.2
+langgraph==1.2.12
