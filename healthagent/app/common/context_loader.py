@@ -97,7 +97,12 @@ class ContextLoader:
         return rows[0] if rows else None
 
     def past_activity_sessions(
-        self, user_id: str, activity_type: str | None, limit: int = 5, window_days: int = 90
+        self,
+        user_id: str,
+        activity_type: str | None,
+        limit: int = 5,
+        window_days: int = 90,
+        exclude_id: str | None = None,
     ) -> dict:
         query = (
             self._db.table("activity_sessions")
@@ -107,6 +112,9 @@ class ContextLoader:
         )
         if activity_type:
             query = query.eq("activity_type", activity_type)
+        if exclude_id:
+            # A session must never contribute to its own baseline.
+            query = query.neq("id", exclude_id)
         rows = query.order("started_at", desc=True).range(0, max(0, limit - 1)).execute().data
         return _ok(rows)
 

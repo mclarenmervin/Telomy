@@ -94,3 +94,20 @@ def test_safety_facts_are_returned_for_the_user_only():
 def test_user_profile_returns_empty_envelope_when_absent():
     out = ContextLoader(FakeSupabase({"user_preferences": []})).user_profile(USER)
     assert out["status"] == "empty"
+
+
+def test_past_sessions_can_exclude_the_session_being_analysed():
+    """A session must never appear in its own baseline: it would dampen its own delta."""
+    rows = [
+        {"id": "cur", "user_id": USER, "activity_type": "running",
+         "started_at": "2026-09-29T10:00:00+00:00", "duration_seconds": 1800,
+         "summary": {"heartRate": 142}},
+        {"id": "old", "user_id": USER, "activity_type": "running",
+         "started_at": "2026-09-28T10:00:00+00:00", "duration_seconds": 1800,
+         "summary": {"heartRate": 150}},
+    ]
+    loader = ContextLoader(FakeSupabase({"activity_sessions": rows}))
+    out = loader.past_activity_sessions(
+        USER, "running", limit=10, window_days=36500, exclude_id="cur"
+    )
+    assert [r["id"] for r in out["items"]] == ["old"]

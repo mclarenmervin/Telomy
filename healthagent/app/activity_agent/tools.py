@@ -118,6 +118,7 @@ def build_tools(loader) -> list:
             session.get("activity_type"),
             limit=MAX_LIMIT,
             window_days=clamp(window_days, 1, MAX_DAYS),
+            exclude_id=ctx.session_id,
         )["items"]
         return {"status": "ok", "items": [analyze_activity(session, past)]}
 
