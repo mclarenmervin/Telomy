@@ -10,9 +10,16 @@ class FakeQuery:
         self._db, self._name = db, name
         self._filters, self._order, self._range = [], None, None
         self._op, self._payload, self._conflict = "select", None, None
+        self._columns = None
 
-    def select(self, *_args, **_kwargs):
+    def select(self, *args, **_kwargs):
         self._op = "select"
+        # PostgREST projects to the named columns; model that so tests can assert a
+        # query does NOT return a heavy column such as activity_sessions.samples.
+        columns = ",".join(a for a in args if isinstance(a, str)) or "*"
+        self._columns = None if "*" in columns else [
+            c.strip() for c in columns.split(",") if c.strip()
+        ]
         return self
 
     def eq(self, column, value):
@@ -80,7 +87,10 @@ class FakeQuery:
                 rows = sorted(rows, key=lambda r: r[column], reverse=desc)
             if self._range:
                 rows = rows[self._range[0] : self._range[1] + 1]
-            return SimpleNamespace(data=copy.deepcopy(rows))
+            rows = copy.deepcopy(rows)
+            if self._columns is not None:
+                rows = [{k: r[k] for k in self._columns if k in r} for r in rows]
+            return SimpleNamespace(data=rows)
         if self._op == "delete":
             gone = self._matching()
             table[:] = [r for r in table if r not in gone]

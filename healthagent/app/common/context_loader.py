@@ -1,6 +1,30 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.analytics.event_analysis import BASELINE_DAYS, TRACKED, WINDOW, Reading, to_readings
+
+
+# Model-reachable log kinds. `medications` is deliberately absent: safety facts are
+# fetched deterministically and always included, never via a skippable tool.
+LOG_KINDS = frozenset({
+    "lab_results", "therapy_sessions", "genetic_records", "environment_logs",
+    "meals", "workouts", "hydration_logs", "plans", "progress_checkins",
+    "consultations", "timeline_events",
+})
+
+SESSION_FIELDS = "id,activity_type,started_at,ended_at,duration_seconds,summary"
+
+
+def _ok(items) -> dict:
+    """`empty` means we looked and found nothing — never confuse it with `unconfigured`."""
+    return {"status": "ok" if items else "empty", "items": items}
+
+
+def _unconfigured(reason: str) -> dict:
+    return {"status": "unconfigured", "items": [], "reason": reason}
+
+
+def _since(days: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
 
 class ContextLoader:
@@ -60,3 +84,112 @@ class ContextLoader:
             (datetime.fromisoformat(r["started_at"]), datetime.fromisoformat(r["ended_at"]))
             for r in rows
         ]
+
+    def activity_session(self, user_id: str, session_id: str) -> dict | None:
+        rows = (
+            self._db.table("activity_sessions")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("id", session_id)
+            .execute()
+            .data
+        )
+        return rows[0] if rows else None
+
+    def past_activity_sessions(
+        self, user_id: str, activity_type: str | None, limit: int = 5, window_days: int = 90
+    ) -> dict:
+        query = (
+            self._db.table("activity_sessions")
+            .select(SESSION_FIELDS)
+            .eq("user_id", user_id)
+            .gte("started_at", _since(window_days))
+        )
+        if activity_type:
+            query = query.eq("activity_type", activity_type)
+        rows = query.order("started_at", desc=True).range(0, max(0, limit - 1)).execute().data
+        return _ok(rows)
+
+    def past_activity_reports(self, user_id: str, limit: int = 3) -> dict:
+        rows = (
+            self._db.table("predictions")
+            .select("summary,analysis,created_at")
+            .eq("user_id", user_id)
+            .eq("kind", "activity_summary")
+            .order("created_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def user_profile(self, user_id: str) -> dict:
+        rows = (
+            self._db.table("user_preferences")
+            .select("profile")
+            .eq("user_id", user_id)
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def safety_facts(self, user_id: str) -> dict:
+        """Medications — always fetched, never exposed as a model-callable tool."""
+        rows = (
+            self._db.table("medications")
+            .select("title,notes,fields,recorded_at")
+            .eq("user_id", user_id)
+            .order("recorded_at", desc=True)
+            .range(0, 49)
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def logs(self, user_id: str, kind: str, days: int = 30, limit: int = 20) -> dict:
+        if kind not in LOG_KINDS:
+            raise ValueError(f"kind not allowed: {kind}")
+        rows = (
+            self._db.table(kind)
+            .select("title,notes,fields,recorded_at")
+            .eq("user_id", user_id)
+            .gte("recorded_at", _since(days))
+            .order("recorded_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def measurements(
+        self, user_id: str, measurement_type: str, days: int = 30, limit: int = 100
+    ) -> dict:
+        rows = (
+            self._db.table("health_measurements")
+            .select("measurement_type,value,unit,recorded_at,quality")
+            .eq("user_id", user_id)
+            .eq("measurement_type", measurement_type)
+            .gte("recorded_at", _since(days))
+            .order("recorded_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def daily_snapshots(self, user_id: str, days: int = 7) -> dict:
+        rows = (
+            self._db.table("wearable_daily_reports")
+            .select("report_date,snapshot")
+            .eq("user_id", user_id)
+            .order("report_date", desc=True)
+            .range(0, max(0, days - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def documents(self, user_id: str, kind: str | None = None, limit: int = 5) -> dict:
+        """No object-storage backend is wired yet, so this reports `unconfigured` —
+        which must never be narrated as the user having no documents."""
+        return _unconfigured("no document storage backend is configured")
