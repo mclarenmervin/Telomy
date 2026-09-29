@@ -21,6 +21,7 @@ prescribe treatment.
 the user has none of that data, and you must not say they do.
 - If data quality is "none", do not make confident physiological claims at all.
 - Write in second person, plainly, no emoji, no headings inside section bodies.
+- Express duration in minutes, never in seconds.
 
 Produce a headline plus these sections, in this order: what_happened, what_changed, \
 what_went_well, watch_outs, improve. Two or three sentences each."""
@@ -39,9 +40,11 @@ def build_system_prompt(state, context) -> str:
     name = _display_name(state, context)
     greeting = f"The user's name is {name}." if name else "The user's name is unknown."
 
+    seconds = analysis.get("duration_seconds")
     facts = {
         "activity_type": (state.get("session") or {}).get("activity_type"),
-        "duration_seconds": analysis.get("duration_seconds"),
+        "duration_minutes": round(seconds / 60) if seconds else None,
+        "duration_seconds": seconds,
         "data_quality": analysis.get("data_quality"),
         "score": analysis.get("score"),
         "baseline": analysis.get("baseline"),

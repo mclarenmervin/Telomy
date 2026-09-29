@@ -121,3 +121,17 @@ def test_prompt_falls_back_to_context_name_then_to_unknown():
     base = {"session": SESSION, "analysis": {}, "insights": [], "data_gaps": []}
     assert "Ravi" in build_system_prompt(base, ActivityContext(USER, "s1", display_name="Ravi"))
     assert "unknown" in build_system_prompt(base, ActivityContext(USER, "s1")).lower()
+
+
+def test_prompt_offers_duration_in_minutes_not_only_seconds():
+    """Raw seconds make the model write "lasted 1800 seconds", which reads badly."""
+    state = {
+        "session": SESSION,
+        "profile": {},
+        "analysis": {"duration_seconds": 1800, "metrics": [], "data_quality": "full"},
+        "insights": [],
+        "data_gaps": [],
+    }
+    prompt = build_system_prompt(state, ActivityContext(USER, "s1"))
+    assert '"duration_minutes": 30' in prompt
+    assert "minutes" in prompt.lower()
