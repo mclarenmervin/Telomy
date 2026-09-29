@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/config/supabase_config.dart';
+import '../../activity_report/providers/activity_report_provider.dart';
+import '../../activity_report/widgets/activity_report_card.dart';
 import '../../journal/providers/wellness_provider.dart';
 import '../providers/ring_provider.dart';
 
@@ -36,6 +38,14 @@ class _ActivitySessionScreenState extends ConsumerState<ActivitySessionScreen> {
   bool _busy = false;
   String? _error;
   final List<Map<String, dynamic>> _samples = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(activityReportProvider.notifier).loadLatest();
+    });
+  }
 
   @override
   void dispose() {
@@ -132,8 +142,9 @@ class _ActivitySessionScreenState extends ConsumerState<ActivitySessionScreen> {
         };
       }
       summary['bodyParameters'] = bodyParameters;
+      final sessionId = const Uuid().v4();
       await Supabase.instance.client.from('activity_sessions').insert({
-        'id': const Uuid().v4(),
+        'id': sessionId,
         'user_id': user.id,
         'activity_type': _type.name,
         'started_at': started.toUtc().toIso8601String(),
@@ -142,6 +153,8 @@ class _ActivitySessionScreenState extends ConsumerState<ActivitySessionScreen> {
         'summary': summary,
         'samples': _samples,
       });
+      // The agent runs in the background; the report arrives on its own.
+      ref.read(activityReportProvider.notifier).awaitReportFor(sessionId);
       if (!mounted) return;
       setState(() {
         _startedAt = null;
@@ -149,7 +162,7 @@ class _ActivitySessionScreenState extends ConsumerState<ActivitySessionScreen> {
         _busy = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Activity saved to your health history.')),
+        const SnackBar(content: Text('Activity saved. Preparing your analysis…')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -243,6 +256,10 @@ class _ActivitySessionScreenState extends ConsumerState<ActivitySessionScreen> {
           ),
           const SizedBox(height: 18),
           if (running) _LiveMetrics(snapshot),
+          if (!running) ...[
+            const ActivityReportCard(),
+            const SizedBox(height: 4),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 14),
             Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
