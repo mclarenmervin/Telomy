@@ -18,3 +18,18 @@ class SupabaseWebhookPayload(BaseModel):
     table: str
     record: EventRecord
     old_record: EventRecord | None = None
+
+
+class ActivitySessionRecord(BaseModel):
+    """Only the identifiers are read. `samples` may be megabytes and is deliberately
+    not modelled — the worker re-reads the authoritative row instead."""
+
+    id: str
+    user_id: str
+    activity_type: str
+
+
+class ActivityWebhookPayload(BaseModel):
+    type: Literal["INSERT", "UPDATE", "DELETE"]
+    table: str
+    record: ActivitySessionRecord
