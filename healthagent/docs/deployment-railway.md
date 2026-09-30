@@ -39,25 +39,50 @@ the same way as activity-worker if you want it.
 
 ## Variables (set on gateway and activity-worker both)
 
+Generate the exact block from your local `.env` instead of retyping it:
+
 ```
-SUPABASE_URL=https://oeghvplwcsxhimxvozzb.supabase.co
-SUPABASE_SERVICE_KEY=<secret key — server side only, never in the app>
-SUPABASE_DB_URL=<pooler connection string, port 5432 session mode>
-WEBHOOK_SECRET=<the same long random string the trigger sends>
+cd healthagent
+./scripts/railway_env.sh | pbcopy
+```
+
+Paste that into Railway's **RAW Editor** (Service → Variables) on both services, or once into
+project-level **Shared Variables**. The script warns on stderr if a key is missing from `.env` or
+if `SUPABASE_DB_URL` points at the transaction pooler (6543) instead of the session pooler (5432).
+
+It emits:
+
+```
+SUPABASE_URL=            # your project URL
+SUPABASE_SERVICE_KEY=    # secret key, server side only — never in the app
+SUPABASE_DB_URL=         # session pooler, port 5432
+WEBHOOK_SECRET=          # must match what the Postgres trigger sends
+OPENAI_API_KEY=
 REDIS_URL=${{Redis.REDIS_URL}}
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-5.4-mini
 QUEUE_NAME=events:realtime
 ACTIVITY_QUEUE_NAME=activity:realtime
-LLM_PROVIDER=openai
-OPENAI_API_KEY=<key>
-LLM_MODEL=gpt-5.4-mini
+MAX_LLM_CALLS=2
+MAX_TOOL_CALLS=8
+WALL_CLOCK_SECONDS=60
 ```
 
-`${{Redis.REDIS_URL}}` is Railway's variable-reference syntax — it wires the services together
-without pasting the URL.
+`REDIS_URL=${{Redis.REDIS_URL}}` is Railway's variable-reference syntax — it wires the services
+together without pasting the URL.
 
-`SUPABASE_DB_URL` must be the **pooler** URL on port 5432 (session mode), not 6543 — the
-LangGraph checkpointer uses prepared-statement-free session connections. It is already pooled and
-health-checked in `app/common/checkpointer.py`.
+Do **not** set `PORT`. Railway assigns it and the gateway reads it; overriding it can break the
+health check.
+
+`LLM_MODEL` is worth setting explicitly: `config.py` defaults to `gpt-4o-mini`, so leaving it
+unset silently runs a different model than the one tested.
+
+`SUPABASE_DB_URL` must be the **session** pooler on port 5432, not 6543 — the LangGraph
+checkpointer needs session-scoped connections and fails at `setup()` on the transaction pooler. If
+the password contains `@`, `/`, `#` or `?`, URL-encode it or the connection string mis-parses.
+
+A crash-looping gateway almost always means `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` or
+`WEBHOOK_SECRET` is absent — `get_settings()` raises `KeyError` on startup for those three.
 
 ## After the first deploy
 
