@@ -12,6 +12,7 @@ class Settings:
     llm_provider: str = "openai"
     openai_api_key: str | None = None
     llm_model: str = "gpt-4o-mini"
+    llm_base_url: str | None = None
     supabase_db_url: str | None = None
     activity_queue_name: str = "activity:realtime"
     max_llm_calls: int = 2
@@ -29,6 +30,7 @@ def get_settings() -> Settings:
         llm_provider=os.environ.get("LLM_PROVIDER", "openai"),
         openai_api_key=os.environ.get("OPENAI_API_KEY") or None,
         llm_model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+        llm_base_url=os.environ.get("LLM_BASE_URL") or None,
         supabase_db_url=os.environ.get("SUPABASE_DB_URL") or None,
         activity_queue_name=os.environ.get("ACTIVITY_QUEUE_NAME", "activity:realtime"),
         max_llm_calls=int(os.environ.get("MAX_LLM_CALLS", "2")),

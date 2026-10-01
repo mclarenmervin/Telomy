@@ -73,6 +73,9 @@ def _build_narrator(loader, settings):
         model=ChatOpenAI(
             model=settings.llm_model,
             api_key=settings.openai_api_key,
+            # Any OpenAI-compatible endpoint (Groq, Together, a local server) works
+            # here; unset means OpenAI itself.
+            base_url=getattr(settings, "llm_base_url", None),
             temperature=0,
             timeout=settings.wall_clock_seconds,
         ),
