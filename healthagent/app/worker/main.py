@@ -3,7 +3,7 @@ from typing import Any
 
 from app.common.context_loader import ContextLoader
 from app.agent.graph import build_agent
-from app.agent.llm import build_llm
+from app.common.llm import get_narration_model
 from app.common.config import get_settings
 from app.common.logging_config import configure_logging, get_logger
 from app.common.queue import JobQueue
@@ -33,7 +33,7 @@ def run() -> None:
     redis_client = redis.Redis.from_url(settings.redis_url, socket_timeout=30)
     queue = JobQueue(redis_client, settings.queue_name)
     supabase = get_supabase_client()
-    llm = build_llm(settings)
+    llm = get_narration_model(settings)
     agent = build_agent(ContextLoader(supabase), llm, supabase)
     logger.info(f"worker started llm={'on' if llm else 'off (fallback summaries)'}")
     while True:

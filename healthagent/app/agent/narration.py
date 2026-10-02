@@ -66,7 +66,8 @@ def narrate(llm, event_type: str, analysis: dict) -> str:
         return fallback_summary(event_type, analysis)
     system, user = build_prompt(event_type, analysis)
     try:
-        text = llm.complete(system, user).strip()
+        # A LangChain chat model, same as the activity agent uses — see app/common/llm.py.
+        text = str(llm.invoke([("system", system), ("human", user)]).content).strip()
     except Exception:
         logger.exception("llm call failed, using fallback summary")
         return fallback_summary(event_type, analysis)

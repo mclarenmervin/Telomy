@@ -8,26 +8,28 @@ rather than assume.
     OPENAI_API_KEY=gsk_... \
     LLM_MODEL=openai/gpt-oss-120b \
     python scripts/check_llm_provider.py
+
+It builds the model through app/common/llm.py, so it exercises the same code path
+the worker does rather than a parallel one that could drift.
 """
-import os
 import sys
 
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
 
 from app.activity_agent.report import Narrative
+from app.common.config import get_settings
+from app.common.llm import get_activity_model, model_name_for
 
-model_name = os.environ.get("LLM_MODEL", "openai/gpt-oss-120b")
-base_url = os.environ.get("LLM_BASE_URL") or None
-llm = ChatOpenAI(
-    model=model_name,
-    api_key=os.environ["OPENAI_API_KEY"],
-    base_url=base_url,
-    temperature=0,
-    timeout=60,
-)
-print(f"model    : {model_name}")
-print(f"base_url : {base_url or 'https://api.openai.com/v1 (default)'}\n")
+# Built the same way the worker builds it, so a pass here means the agent will work.
+settings = get_settings()
+llm = get_activity_model(settings)
+if llm is None:
+    sys.exit("no model configured - set OPENAI_API_KEY (or your provider's key)")
+
+print(f"provider : {settings.llm_provider}")
+print(f"model    : {model_name_for(settings, 'activity')}")
+print(f"base_url : {settings.llm_base_url or 'provider default'}")
+print(f"class    : {type(llm).__name__}\n")
 
 failures = []
 

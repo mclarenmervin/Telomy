@@ -1,5 +1,7 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+MODEL_OVERRIDE_PREFIX = "LLM_MODEL_"
 
 
 @dataclass(frozen=True)
@@ -13,11 +15,23 @@ class Settings:
     openai_api_key: str | None = None
     llm_model: str = "gpt-4o-mini"
     llm_base_url: str | None = None
+    aws_region: str | None = None
+    # Per-purpose model choices, e.g. LLM_MODEL_NARRATION=gpt-4o-mini picks a
+    # cheaper model for narration while the activity agent keeps the default.
+    llm_model_overrides: dict[str, str] = field(default_factory=dict)
     supabase_db_url: str | None = None
     activity_queue_name: str = "activity:realtime"
     max_llm_calls: int = 2
     max_tool_calls: int = 8
     wall_clock_seconds: int = 60
+
+
+def _model_overrides() -> dict[str, str]:
+    return {
+        key[len(MODEL_OVERRIDE_PREFIX) :].lower(): value
+        for key, value in os.environ.items()
+        if key.startswith(MODEL_OVERRIDE_PREFIX) and value
+    }
 
 
 def get_settings() -> Settings:
@@ -31,6 +45,8 @@ def get_settings() -> Settings:
         openai_api_key=os.environ.get("OPENAI_API_KEY") or None,
         llm_model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
         llm_base_url=os.environ.get("LLM_BASE_URL") or None,
+        aws_region=os.environ.get("AWS_REGION") or None,
+        llm_model_overrides=_model_overrides(),
         supabase_db_url=os.environ.get("SUPABASE_DB_URL") or None,
         activity_queue_name=os.environ.get("ACTIVITY_QUEUE_NAME", "activity:realtime"),
         max_llm_calls=int(os.environ.get("MAX_LLM_CALLS", "2")),

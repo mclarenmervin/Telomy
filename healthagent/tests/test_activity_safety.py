@@ -1,12 +1,11 @@
 """Fixes from the whole-branch review: escalation, safety facts, headline, fallback."""
 
-from types import SimpleNamespace
 
 from app.activity_agent.agent import build_activity_agent
 from app.activity_agent.prompts import build_system_prompt
 from app.activity_agent.state import ActivityContext
 from app.common.context_loader import ContextLoader
-from tests.fakes import FakeSupabase
+from tests.fakes import FakeSupabase, make_settings
 
 USER = "user-1"
 
@@ -27,10 +26,7 @@ PAST = [
      "summary": {"heartRate": 150}}
     for i in range(1, 4)
 ]
-SETTINGS = SimpleNamespace(
-    openai_api_key=None, llm_model="x", max_llm_calls=2, max_tool_calls=8,
-    wall_clock_seconds=60,
-)
+SETTINGS = make_settings(openai_api_key=None, llm_model="x")
 
 
 def _run(db, session_id="s1"):

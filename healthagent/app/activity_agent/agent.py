@@ -49,8 +49,11 @@ def _guard_headline(headline: str, analysis) -> tuple[str, list[str]]:
 
 
 def _build_narrator(loader, settings):
-    """None when no API key is configured — the graph then uses deterministic prose."""
-    if not getattr(settings, "openai_api_key", None):
+    """None when no model is configured — the graph then uses deterministic prose."""
+    from app.common.llm import get_activity_model
+
+    model = get_activity_model(settings)
+    if model is None:
         return None
 
     from langchain.agents import create_agent
@@ -60,7 +63,6 @@ def _build_narrator(loader, settings):
         ToolCallLimitMiddleware,
         dynamic_prompt,
     )
-    from langchain_openai import ChatOpenAI
 
     from app.activity_agent.report import Narrative
     from app.activity_agent.tools import build_tools
@@ -70,15 +72,7 @@ def _build_narrator(loader, settings):
         return build_system_prompt(request.state, request.runtime.context)
 
     return create_agent(
-        model=ChatOpenAI(
-            model=settings.llm_model,
-            api_key=settings.openai_api_key,
-            # Any OpenAI-compatible endpoint (Groq, Together, a local server) works
-            # here; unset means OpenAI itself.
-            base_url=getattr(settings, "llm_base_url", None),
-            temperature=0,
-            timeout=settings.wall_clock_seconds,
-        ),
+        model=model,
         tools=build_tools(loader),
         middleware=[
             prompt,

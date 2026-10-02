@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from app.agent.narration import build_prompt, fallback_summary, narrate
 
 FULL = {
@@ -13,16 +15,20 @@ NONE = {"data_quality": "none", "metrics": {}}
 
 
 class FakeLLM:
+    """Stands in for a LangChain chat model: invoke(messages) -> object with .content."""
+
     def __init__(self, reply="LLM says hello", fail=False):
         self.reply = reply
         self.fail = fail
         self.calls = []
 
-    def complete(self, system, user):
+    def invoke(self, messages):
+        system = next(text for role, text in messages if role == "system")
+        user = next(text for role, text in messages if role == "human")
         self.calls.append((system, user))
         if self.fail:
             raise RuntimeError("api down")
-        return self.reply
+        return SimpleNamespace(content=self.reply)
 
 
 def test_fallback_mentions_computed_numbers_and_event():

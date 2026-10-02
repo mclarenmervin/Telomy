@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from app.common.context_loader import ContextLoader
 from app.agent.graph import build_agent
@@ -16,12 +17,14 @@ EVENT_ID = "22222222-2222-2222-2222-222222222222"
 
 
 class FakeLLM:
+    """Stands in for a LangChain chat model: invoke(messages) -> object with .content."""
+
     def __init__(self, reply="Your heart rate rose during the session."):
         self.reply, self.calls = reply, 0
 
-    def complete(self, system, user):
+    def invoke(self, messages):
         self.calls += 1
-        return self.reply
+        return SimpleNamespace(content=self.reply)
 
 
 def make_db(owner=ALICE, status="ended", with_readings=True):

@@ -2,6 +2,25 @@ import copy
 import uuid
 from types import SimpleNamespace
 
+from app.common.config import Settings
+
+
+def make_settings(**overrides) -> Settings:
+    """Real Settings, not a stub.
+
+    Hand-rolled settings stubs silently drift from the dataclass as fields are
+    added, so the tests pass while the production path raises AttributeError.
+    """
+    base = dict(
+        supabase_url="https://x.supabase.co",
+        supabase_service_key="k",
+        webhook_secret="s",
+        redis_url="redis://localhost:6379/0",
+        queue_name="q",
+    )
+    base.update(overrides)
+    return Settings(**base)
+
 
 class FakeQuery:
     """Just enough of the supabase-py query builder to test our code without a database."""

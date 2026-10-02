@@ -88,7 +88,7 @@ def test_run_configures_socket_timeout_with_margin_over_dequeue_timeout():
 
     with patch.object(worker_main.redis.Redis, "from_url") as mock_from_url, \
          patch.object(worker_main, "get_supabase_client"), \
-         patch.object(worker_main, "build_llm", return_value=None), \
+         patch.object(worker_main, "get_narration_model", return_value=None), \
          patch.object(worker_main, "build_agent"), \
          patch.object(worker_main, "process_one", side_effect=KeyboardInterrupt):
         try:
