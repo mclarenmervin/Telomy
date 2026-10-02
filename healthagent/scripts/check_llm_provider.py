@@ -70,15 +70,42 @@ def structured():
     assert len(out.sections) >= 1, "no sections returned"
 
 
+def real_agent():
+    """`create_agent` itself — the only faithful test.
+
+    Checking tools and structured output separately is not enough, and nor is
+    `bind_tools().with_structured_output()`: that routes the schema through a
+    tool call, while create_agent asks for provider-native JSON mode. Groq
+    accepts the former and rejects the latter with "json mode cannot be combined
+    with tool/function calling" — which surfaces only as an empty
+    structured_response and a silent fall back to deterministic prose.
+    """
+    from langchain.agents import create_agent
+
+    agent = create_agent(model=llm, tools=[past_sessions], response_format=Narrative)
+    result = agent.invoke(
+        {"messages": [("human", "Write a headline and one section (id "
+                                "'what_happened') about a 30 minute ride.")]}
+    )
+    if result.get("structured_response") is None:
+        last = result["messages"][-1].content if result.get("messages") else ""
+        raise AssertionError(f"no structured_response. last message: {str(last)[:300]}")
+
+
 check("plain chat", plain)
 check("tool calling", tool_calling)
 check("structured output (nested Narrative schema)", structured)
+check("create_agent (tools + structured output together)", real_agent)
 
 print()
 if failures:
-    print("NOT USABLE as-is. Failed:", ", ".join(failures))
-    print("If only structured output failed, the agent can still run by dropping")
-    print("response_format and parsing JSON by hand - ask before doing that, it")
-    print("weakens the contract the report builder relies on.")
+    print("Failed:", ", ".join(failures))
+    if failures == ["create_agent (tools + structured output together)"]:
+        print()
+        print("This provider cannot run the ACTIVITY agent, which needs tools and a")
+        print("response schema in one request. It can still run plain calls, so set")
+        print("it per purpose instead:")
+        print("    LLM_PROVIDER_NARRATION=groq  LLM_MODEL_NARRATION=...")
+        print("leaving the activity agent on a provider that passes this check.")
     sys.exit(1)
-print("All three capabilities present - this provider can run the activity agent.")
+print("All capabilities present - this provider can run every agent.")

@@ -19,9 +19,19 @@ Groq, Together and local servers speak the OpenAI wire protocol, so pointing
 `bedrock*` providers need `langchain-groq` / `langchain-aws` installed; the
 import error names the missing package.
 
-Per-purpose models: `LLM_MODEL_<PURPOSE>` overrides `LLM_MODEL` for one caller,
-so narration can run on a cheaper model than the activity agent without a code
-change.
+Per-purpose overrides: `LLM_<SETTING>_<PURPOSE>` overrides one caller's provider,
+model, api_key or base_url. This is not only about cost. Groq cannot serve the
+activity agent at all — it rejects tool calling and a response schema in the same
+request ("json mode cannot be combined with tool/function calling") — but it
+handles narration, which is a single call with neither. So:
+
+    LLM_PROVIDER=openai           LLM_MODEL=gpt-5.4-mini
+    LLM_PROVIDER_NARRATION=groq   LLM_MODEL_NARRATION=openai/gpt-oss-120b
+    LLM_API_KEY_NARRATION=gsk_...
+
+runs narration on Groq and leaves the activity agent on OpenAI.
+`scripts/check_llm_provider.py` tells you which side of that line a provider
+falls on.
 """
 
 from app.common.config import Settings
@@ -35,25 +45,42 @@ NARRATION = "narration"
 ACTIVITY = "activity"
 
 
+def config_for(settings: Settings, purpose: str | None = None) -> dict:
+    """Resolve provider/model/key/base_url for one purpose, over the defaults."""
+    resolved = {
+        "provider": settings.llm_provider,
+        "model": settings.llm_model,
+        "api_key": settings.openai_api_key,
+        "base_url": settings.llm_base_url,
+    }
+    if purpose:
+        overrides = settings.llm_overrides.get(purpose, {})
+        resolved.update({k: v for k, v in overrides.items() if v})
+        # A purpose that switches provider without naming its own key would
+        # otherwise silently send the default provider's key to a new vendor.
+        if "provider" in overrides and "api_key" not in overrides:
+            resolved["api_key"] = settings.openai_api_key
+    return resolved
+
+
 def model_name_for(settings: Settings, purpose: str | None = None) -> str:
     """The model this purpose should use, falling back to the default."""
-    if purpose:
-        return settings.llm_model_overrides.get(purpose, settings.llm_model)
-    return settings.llm_model
+    return config_for(settings, purpose)["model"]
 
 
-def _provider_kwargs(settings: Settings, provider: str) -> dict:
+def _provider_kwargs(cfg: dict) -> dict:
     """Provider-specific arguments.
 
     These genuinely differ — Bedrock takes a region and no key at all — so the
     shape cannot be one fixed signature without breaking when Bedrock is added.
     """
+    provider = cfg["provider"]
     if provider.startswith("bedrock"):
-        return {"region_name": settings.aws_region} if settings.aws_region else {}
-    kwargs: dict = {"api_key": settings.openai_api_key}
+        return {"region_name": cfg.get("aws_region")} if cfg.get("aws_region") else {}
+    kwargs: dict = {"api_key": cfg["api_key"]}
     # Only OpenAI-compatible endpoints take a base URL; passing it to others errors.
-    if settings.llm_base_url and provider == "openai":
-        kwargs["base_url"] = settings.llm_base_url
+    if cfg["base_url"] and provider == "openai":
+        kwargs["base_url"] = cfg["base_url"]
     return kwargs
 
 
@@ -64,8 +91,10 @@ def get_model(settings: Settings, purpose: str | None = None, **overrides):
     deterministic prose, which is why a missing key degrades the wording rather
     than breaking the report.
     """
-    provider = settings.llm_provider
-    if provider in _API_KEY_PROVIDERS and not settings.openai_api_key:
+    cfg = config_for(settings, purpose)
+    cfg["aws_region"] = settings.aws_region
+    provider = cfg["provider"]
+    if provider in _API_KEY_PROVIDERS and not cfg["api_key"]:
         return None
 
     from langchain.chat_models import init_chat_model
@@ -73,13 +102,11 @@ def get_model(settings: Settings, purpose: str | None = None, **overrides):
     kwargs = {
         "temperature": 0,
         "timeout": settings.wall_clock_seconds,
-        **_provider_kwargs(settings, provider),
+        **_provider_kwargs(cfg),
         **overrides,
     }
     try:
-        return init_chat_model(
-            model_name_for(settings, purpose), model_provider=provider, **kwargs
-        )
+        return init_chat_model(cfg["model"], model_provider=provider, **kwargs)
     except ImportError as exc:  # a provider whose package is not installed
         raise ValueError(
             f"LLM_PROVIDER={provider!r} needs an extra package: {exc}"
