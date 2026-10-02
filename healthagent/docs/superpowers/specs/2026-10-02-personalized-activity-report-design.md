@@ -100,6 +100,41 @@ The exercise-aware logic in `_exercise_danger` stays: elevated heart rate during
 exercise is expected, which is why the danger threshold is 200 and not the event
 agent's 150.
 
+## 5.1 Where thresholds live
+
+Thresholds are configurable at three tiers, chosen per threshold rather than uniformly.
+
+**App level (environment), for all of them.** A single `app/common/thresholds.py` reads
+each value from the environment with the default above, so they can be tuned without a
+code deploy:
+
+```
+SPO2_DANGER_MIN, SPO2_ATTENTION_MAX, HEART_RATE_DANGER_MAX,
+HR_ATTENTION_DELTA, STRESS_ATTENTION_DELTA, HRV_ATTENTION_DELTA
+```
+
+**Per user, only where physiology genuinely varies and we already hold the data.** The
+one clear case is maximum heart rate: 195 bpm is unremarkable at 20 and alarming at 70, so
+a flat 200 is crude. Where the profile has a date of birth, the danger threshold becomes
+`220 - age`; where it does not, it falls back to `HEART_RATE_DANGER_MAX`.
+
+**Never settable by the user.** A user who raises their own SpO2 danger threshold disables
+the warning for exactly the person who needs it. These are physiological facts, not
+preferences.
+
+Note that the `attention` rules are *already* per-user: `delta >= +15` is measured against
+that person's own baseline, computed from their own history. What the environment tunes is
+sensitivity, not the reference point.
+
+### Validation is mandatory
+
+Each value is range-checked at startup. A typo such as `SPO2_DANGER_MIN=0` would otherwise
+switch off the urgent warning silently, with nothing in any log to show it. Out-of-range
+values fall back to the default and log at error level, and the effective thresholds are
+logged once at worker start so a running deployment can be audited.
+
+Accepted ranges: SpO2 thresholds 85-99, heart-rate danger 150-230, delta thresholds 5-50.
+
 ## 6. Report contract (schema v2)
 
 ```jsonc
