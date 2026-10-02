@@ -44,3 +44,13 @@ MAX_LLM_CALLS=2
 MAX_TOOL_CALLS=8
 WALL_CLOCK_SECONDS=60
 EOF
+
+# Per-purpose overrides, emitted only when set locally. Groq cannot run the
+# activity agent (no tools + response schema in one request) but is fine for the
+# plain narration call, so it is configured per purpose rather than globally.
+for key in LLM_PROVIDER_NARRATION LLM_MODEL_NARRATION LLM_API_KEY_NARRATION \
+           LLM_BASE_URL_NARRATION LLM_MODEL_ACTIVITY; do
+  value="$(get "$key")"
+  [ -n "$value" ] && echo "${key}=${value}"
+done
+exit 0

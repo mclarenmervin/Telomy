@@ -894,3 +894,44 @@ never retry on our behalf, so without this a transient blip lost the report sile
   replaces a dead one, plus TCP keepalives. The pool replicates what
   `from_conn_string` sets (`autocommit`, `dict_row`, `prepare_threshold=0`).
 - No per-user throttling: a bulk sync of six sessions runs six agent invocations.
+
+### 20.8 Model selection moved behind one factory (2026-10-02)
+
+This supersedes the earlier decision to construct `ChatOpenAI` inline. That decision was
+correct while OpenAI was the only target; once a second provider was in play it stopped being.
+
+`app/common/llm.py` is now the only place that decides which model to use. The raw-SDK
+`app/agent/llm.py` (`from openai import OpenAI`, a hand-rolled `complete(system, user)`) is
+deleted: it ignored `LLM_BASE_URL`, so the event agent could not have reached an alternate
+provider at all. Both agents now take a LangChain `BaseChatModel`, which is also what
+`create_agent` requires — only a `BaseChatModel` carries `bind_tools()` and
+`with_structured_output()`.
+
+Resolution is per purpose: `LLM_{PROVIDER,MODEL,API_KEY,BASE_URL}_<PURPOSE>` overrides the
+global setting for one call site, with purposes `NARRATION` and `ACTIVITY`.
+
+**`api_key` is not universal.** Bedrock authenticates with AWS SigV4, so the "no key means no
+model" check deliberately excludes it — otherwise an unset `OPENAI_API_KEY` would silently
+disable a correctly configured Bedrock. Provider kwargs are assembled per provider rather than
+through one fixed signature.
+
+### 20.9 Groq cannot serve the activity agent (2026-10-02, measured)
+
+Groq returns `400: json mode cannot be combined with tool/function calling` when a request
+carries both tools and a response schema. The activity agent needs exactly that combination, so
+Groq cannot run it. We chose **not** to redesign the agent around this: dropping
+`response_format`, or routing the schema through a tool call, would weaken the typed contract
+`build_report` depends on for the sake of one vendor.
+
+Groq does serve the event agent's narration well — a single call with no tools and no schema —
+so it is configured per purpose instead.
+
+**This failure is silent, which is the important part.** The agent catches it, falls back to
+deterministic prose, and still writes a report; the only signals are the `narration_incomplete`
+guardrail flag, `data_quality` downgraded from `full` to `partial`, and visibly flatter wording.
+
+Capability must therefore be tested with a real `create_agent`, not with its parts. Testing
+tool calling and structured output separately passes on Groq. So does
+`bind_tools().with_structured_output()`, because that routes the schema through a tool call
+rather than provider-native JSON mode. Only the assembled agent reproduces the failure, and
+`scripts/check_llm_provider.py` now builds one.

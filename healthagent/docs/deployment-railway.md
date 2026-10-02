@@ -77,6 +77,30 @@ health check.
 `LLM_MODEL` is worth setting explicitly: `config.py` defaults to `gpt-4o-mini`, so leaving it
 unset silently runs a different model than the one tested.
 
+### Using a second provider for narration
+
+The activity agent needs tool calling and a response schema **in one request**, which Groq
+rejects outright (`json mode cannot be combined with tool/function calling`). The event agent's
+narration is a single plain call, which Groq handles well. So a cheaper provider goes in per
+purpose, not globally:
+
+```
+LLM_PROVIDER_NARRATION=groq
+LLM_MODEL_NARRATION=openai/gpt-oss-120b
+LLM_API_KEY_NARRATION=gsk_...
+```
+
+Any of `LLM_{PROVIDER,MODEL,API_KEY,BASE_URL}_<PURPOSE>` works, for the purposes `NARRATION`
+and `ACTIVITY`. Before pointing a purpose at a new provider, run:
+
+```
+PYTHONPATH=. python scripts/check_llm_provider.py
+```
+
+It builds a real `create_agent` and fails loudly if the provider cannot serve the activity
+agent — a check worth trusting over vendor capability tables, because this failure is otherwise
+silent: the report still appears, just with a `narration_incomplete` flag and flatter prose.
+
 `SUPABASE_DB_URL` must be the **session** pooler on port 5432, not 6543 — the LangGraph
 checkpointer needs session-scoped connections and fails at `setup()` on the transaction pooler. If
 the password contains `@`, `/`, `#` or `?`, URL-encode it or the connection string mis-parses.
