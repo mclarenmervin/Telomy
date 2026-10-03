@@ -117,3 +117,44 @@ def test_the_fallback_path_is_visible_in_the_persisted_row():
     row = _run(db)  # SETTINGS has openai_api_key=None, so narration falls back
     assert "narration_incomplete" in row["guardrail_flags"]
     assert row["data_quality"] == "partial"
+
+
+def test_a_congratulatory_report_against_a_raised_flag_is_replaced():
+    """A warm persona must not be able to soften an attention finding into nothing."""
+    from app.activity_agent.agent import _acknowledges_concern
+
+    glowing = {
+        "severity": "attention",
+        "headline": "A brilliant session, nothing to worry about.",
+        "sections": [{"id": "watch_outs", "title": "Worth watching", "body": "Nothing flagged."}],
+        "escalation": {"level": "recommended", "title": "Worth getting checked",
+                       "body": "One of your readings moved outside your usual range."},
+    }
+
+    assert _acknowledges_concern(glowing) is False
+
+
+def test_a_report_that_names_the_concern_passes():
+    from app.activity_agent.agent import _acknowledges_concern
+
+    honest = {
+        "severity": "attention",
+        "headline": "Mostly steady, with one thing to flag.",
+        "sections": [{"id": "watch_outs", "title": "Worth watching",
+                      "body": "Your blood oxygen moved outside your usual range — "
+                              "worth having someone look at it."}],
+        "escalation": {"level": "recommended", "title": "Worth getting checked", "body": "x"},
+    }
+
+    assert _acknowledges_concern(honest) is True
+
+
+def test_a_normal_report_is_never_treated_as_inconsistent():
+    from app.activity_agent.agent import _acknowledges_concern
+
+    plain = {"severity": "normal", "headline": "A steady session.",
+             "sections": [{"id": "watch_outs", "title": "Worth watching",
+                           "body": "Nothing flagged."}],
+             "escalation": {"level": "routine", "title": "Book a consultation", "body": "x"}}
+
+    assert _acknowledges_concern(plain) is True

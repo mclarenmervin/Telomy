@@ -5,6 +5,8 @@ prebuilt `create_agent`, so tools, budgets, retries and structured output are al
 framework-provided.
 """
 
+import re
+
 from langgraph.graph import END, START, StateGraph
 
 from app.activity_agent import nodes
@@ -17,6 +19,7 @@ from app.activity_agent.report import (
     verify_numbers,
 )
 from app.activity_agent.state import ActivityContext, ActivityState
+from app.analytics.severity import ATTENTION, NORMAL, URGENT
 from app.agent.guardrails import ESCALATION_LINE, apply_guardrails
 from app.common.logging_config import get_logger
 
@@ -27,6 +30,34 @@ logger = get_logger(__name__)
 # would put a chest-pain warning on most hard workouts.
 SPO2_DANGER_MIN = 90.0
 HEART_RATE_DANGER_MAX = 200.0
+
+
+# Reassurance that happens to contain a concern word. "Nothing flagged" is the
+# canonical way a report says everything is fine, and it would otherwise satisfy
+# the check below — the exact case this guard exists to catch.
+_REASSURANCE = re.compile(
+    r"\b(?:nothing|no|none|not)\b[^.]{0,30}?"
+    r"\b(?:flagged|flag|concerns?|unusual|watch|worry|worrying|issues?|problems?)\b",
+    re.I,
+)
+
+# Words a report must use somewhere when Python has raised a flag. Deliberately broad:
+# the check exists to catch a wholly reassuring narrative, not to police phrasing.
+_CONCERN_WORDS = re.compile(
+    r"\b(?:watch|watching|flag|flagged|concern\w*|checked|check|unusual|outside|"
+    r"lower than|higher than|dipped|elevated|practitioner|consultation|doctor)\b",
+    re.I,
+)
+
+
+def _acknowledges_concern(report: dict) -> bool:
+    """Whether a report with a raised severity actually says so."""
+    if report.get("severity", NORMAL) not in (ATTENTION, URGENT):
+        return True
+    texts = [report.get("headline") or ""]
+    texts += [s.get("body") or "" for s in report.get("sections") or []]
+    # Strip negated reassurance first, so "nothing flagged" cannot pass as acknowledgement.
+    return any(_CONCERN_WORDS.search(_REASSURANCE.sub(" ", text)) for text in texts)
 
 
 def _exercise_danger(analysis) -> bool:
@@ -158,6 +189,17 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
             safe_headline = fallback_narrative(state["analysis"], []).headline
         report["headline"] = safe_headline
         flags.extend(f for f in headline_flags if f not in flags)
+
+        if not _acknowledges_concern(report):
+            # A reassuring narrative against a raised flag is worse than no narrative.
+            deterministic = fallback_narrative(state["analysis"], state.get("insights") or [])
+            report["headline"] = deterministic.headline
+            by_id = {s.id: s for s in deterministic.sections}
+            for section in report["sections"]:
+                if section["id"] in by_id:
+                    section["body"] = by_id[section["id"]].body
+            if "severity_mismatch" not in flags:
+                flags.append("severity_mismatch")
 
         # Escalate once, in the section where a warning belongs — not five times.
         if _exercise_danger(state["analysis"]):
