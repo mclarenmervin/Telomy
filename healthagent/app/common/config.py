@@ -24,7 +24,7 @@ class Settings:
     llm_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
     supabase_db_url: str | None = None
     activity_queue_name: str = "activity:realtime"
-    max_llm_calls: int = 2
+    max_llm_calls: int = 3
     max_tool_calls: int = 8
     wall_clock_seconds: int = 60
 
@@ -59,7 +59,7 @@ def get_settings() -> Settings:
         llm_overrides=_llm_overrides(),
         supabase_db_url=os.environ.get("SUPABASE_DB_URL") or None,
         activity_queue_name=os.environ.get("ACTIVITY_QUEUE_NAME", "activity:realtime"),
-        max_llm_calls=int(os.environ.get("MAX_LLM_CALLS", "2")),
+        max_llm_calls=int(os.environ.get("MAX_LLM_CALLS", "3")),
         max_tool_calls=int(os.environ.get("MAX_TOOL_CALLS", "8")),
         wall_clock_seconds=int(os.environ.get("WALL_CLOCK_SECONDS", "60")),
     )

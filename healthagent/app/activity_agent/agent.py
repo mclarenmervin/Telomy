@@ -19,7 +19,8 @@ from app.activity_agent.report import (
     verify_numbers,
 )
 from app.activity_agent.state import ActivityContext, ActivityState
-from app.analytics.severity import ATTENTION, NORMAL, URGENT
+from app.analytics.severity import ATTENTION, NORMAL, URGENT, annotate
+from app.common.thresholds import get_thresholds
 from app.agent.guardrails import ESCALATION_LINE, apply_guardrails
 from app.common.logging_config import get_logger
 
@@ -124,6 +125,11 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
     def narrate(state, runtime) -> dict:
         analysis = state["analysis"]
         insights = state.get("insights") or []
+        # The prompt needs severity BEFORE narration; build_report recomputes it after.
+        _, severity = annotate(
+            analysis.get("metrics") or [], state.get("profile") or {}, get_thresholds()
+        )
+        state = {**state, "severity": severity}
         narrative = None
         tool_numbers = set()
         if narrator is not None:
@@ -137,7 +143,7 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
                             k: state[k]
                             for k in (
                                 "session", "analysis", "insights", "data_gaps",
-                                "profile", "previous_report", "safety_facts",
+                                "profile", "previous_report", "safety_facts", "severity",
                             )
                             if k in state
                         },
@@ -151,7 +157,10 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
         used_fallback = narrative is None
         if used_fallback:
             narrative = fallback_narrative(analysis, insights)
-        report = build_report(analysis, insights, narrative, state.get("data_gaps") or [])
+        report = build_report(
+            analysis, insights, narrative, state.get("data_gaps") or [],
+            profile=state.get("profile") or {},
+        )
         flags = []
         if used_fallback:
             # A missing key or an exhausted budget must not look like a normal report.
