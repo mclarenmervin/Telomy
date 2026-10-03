@@ -98,3 +98,49 @@ def test_annotate_on_an_empty_metric_list_is_normal():
 
     assert annotated == []
     assert overall == NORMAL
+
+
+def test_stress_rise_at_the_threshold_is_attention_just_below_is_normal():
+    assert metric_severity(m("stress", delta=15), T, 200.0) == ATTENTION
+    assert metric_severity(m("stress", delta=14), T, 200.0) == NORMAL
+    assert metric_severity(m("stress"), T, 200.0) == NORMAL
+
+
+def test_spo2_at_the_danger_boundary_is_attention_not_urgent():
+    """Strict '<': a flip to '<=' would raise a false urgent at exactly 90."""
+    assert metric_severity(m("spo2", min=90), T, 200.0) == ATTENTION
+    assert metric_severity(m("spo2", min=89.9), T, 200.0) == URGENT
+
+
+def test_heart_rate_exactly_at_the_danger_max_is_normal():
+    assert metric_severity(m("heartRate", max=200), T, 200.0) == NORMAL
+    assert metric_severity(m("heartRate", max=200.1), T, 200.0) == URGENT
+
+
+def test_deltas_just_below_the_attention_threshold_are_normal():
+    assert metric_severity(m("heartRate", delta=14.9), T, 200.0) == NORMAL
+    assert metric_severity(m("stress", delta=14.9), T, 200.0) == NORMAL
+    assert metric_severity(m("hrv", delta=-14), T, 200.0) == NORMAL
+    assert metric_severity(m("hrv", delta=-14.9), T, 200.0) == NORMAL
+
+
+def test_thresholds_are_read_from_the_passed_instance_not_inlined():
+    """Custom values must move the boundaries, proving nothing is hardcoded."""
+    custom = Thresholds(spo2_danger_min=88.0, spo2_attention_max=92.0,
+                        hr_attention_delta=20.0, stress_attention_delta=5.0,
+                        hrv_attention_delta=30.0)
+
+    assert metric_severity(m("spo2", min=89), custom, 200.0) == ATTENTION
+    assert metric_severity(m("spo2", min=87), custom, 200.0) == URGENT
+    assert metric_severity(m("spo2", min=93), custom, 200.0) == NORMAL
+    assert metric_severity(m("heartRate", delta=18), custom, 200.0) == NORMAL
+    assert metric_severity(m("heartRate", delta=20), custom, 200.0) == ATTENTION
+    assert metric_severity(m("stress", delta=5), custom, 200.0) == ATTENTION
+    assert metric_severity(m("hrv", delta=-20), custom, 200.0) == NORMAL
+    assert metric_severity(m("hrv", delta=-30), custom, 200.0) == ATTENTION
+
+
+def test_default_heart_rate_ceiling_comes_from_the_passed_instance():
+    custom = Thresholds(heart_rate_danger_max=180.0)
+
+    assert max_heart_rate_for({}, custom) == 180.0
