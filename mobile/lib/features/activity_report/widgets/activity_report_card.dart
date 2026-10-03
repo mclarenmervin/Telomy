@@ -56,12 +56,12 @@ class ActivityReportCard extends ConsumerWidget {
 
     final report = state.report;
     if (report == null) return const SizedBox.shrink();
-    return _ReportBody(report: report);
+    return ReportBody(report: report);
   }
 }
 
-class _ReportBody extends ConsumerWidget {
-  const _ReportBody({required this.report});
+class ReportBody extends ConsumerWidget {
+  const ReportBody({required this.report});
 
   final ActivityReport report;
 
@@ -101,7 +101,7 @@ class _ReportBody extends ConsumerWidget {
             ],
             if (report.metrics.isNotEmpty) ...[
               const SizedBox(height: 16),
-              _MetricStrip(metrics: report.metrics),
+              _MetricRows(metrics: report.metrics),
             ],
             for (final section in report.sections) ...[
               const SizedBox(height: 18),
@@ -182,45 +182,57 @@ class _ScoreRow extends StatelessWidget {
   }
 }
 
-class _MetricStrip extends StatelessWidget {
-  const _MetricStrip({required this.metrics});
+/// Amber for attention, the error colour for urgent. The scheme has no warning
+/// colour, so it is defined here alongside its only consumer.
+const _attentionLight = Color(0xFFB26A00);
+const _attentionDark = Color(0xFFFFB74D);
+
+Color severityColor(BuildContext context, String severity) {
+  final theme = Theme.of(context);
+  switch (severity) {
+    case 'urgent':
+      return theme.colorScheme.error;
+    case 'attention':
+      return theme.brightness == Brightness.dark ? _attentionDark : _attentionLight;
+    default:
+      return theme.colorScheme.onSurfaceVariant;
+  }
+}
+
+class _MetricRows extends StatelessWidget {
+  const _MetricRows({required this.metrics});
 
   final List<ReportMetric> metrics;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final metric in metrics.take(4))
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(10),
-            ),
+        for (final metric in metrics)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(metric.label, style: theme.textTheme.bodySmall),
-                const SizedBox(height: 2),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
+                    Expanded(
+                      child: Text(metric.label, style: theme.textTheme.bodyMedium),
+                    ),
                     Text(
                       '${_trim(metric.value)}${metric.unit}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     if (metric.delta != null && metric.delta != 0) ...[
                       const SizedBox(width: 6),
-                      // The arrow shows which way the value moved; the colour says
-                      // whether that is good. Lower is better for heart rate, higher
-                      // is better for blood oxygen, so the two must not be conflated.
+                      // The arrow follows the delta's sign; the colour says whether
+                      // that direction is good. Lower is better for heart rate,
+                      // higher for blood oxygen, so the two must not be conflated.
                       Icon(
                         metric.delta! > 0
                             ? Icons.trending_up_rounded
@@ -230,13 +242,28 @@ class _MetricStrip extends StatelessWidget {
                             ? theme.colorScheme.primary
                             : theme.colorScheme.error,
                       ),
+                      Text(_trim(metric.delta!.abs()),
+                          style: theme.textTheme.bodySmall),
+                    ],
+                    if (metric.severity != 'normal') ...[
+                      const SizedBox(width: 8),
+                      Icon(Icons.warning_amber_rounded,
+                          size: 15, color: severityColor(context, metric.severity)),
+                      const SizedBox(width: 3),
                       Text(
-                        _trim(metric.delta!.abs()),
-                        style: theme.textTheme.bodySmall,
+                        metric.severity,
+                        style: theme.textTheme.labelSmall
+                            ?.copyWith(color: severityColor(context, metric.severity)),
                       ),
                     ],
                   ],
                 ),
+                if (metric.note.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(metric.note,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.hintColor)),
+                ],
               ],
             ),
           ),
@@ -244,6 +271,7 @@ class _MetricStrip extends StatelessWidget {
     );
   }
 
-  String _trim(num value) =>
-      value == value.roundToDouble() ? value.round().toString() : value.toStringAsFixed(1);
+  String _trim(num value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
 }
