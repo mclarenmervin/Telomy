@@ -32,7 +32,7 @@ def _narrative(body):
 
 def test_report_envelope_is_assembled_from_deterministic_values():
     out = build_report(ANALYSIS, [], _narrative("Nothing notable."), [])
-    assert out["schema_version"] == 1
+    assert out["schema_version"] == 2
     assert out["score"]["value"] == 72
     assert out["metrics"][0]["delta"] == -8
     assert [s["id"] for s in out["sections"]] == SECTION_IDS

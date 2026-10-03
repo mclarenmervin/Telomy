@@ -4,7 +4,10 @@ import re
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = 1
+from app.analytics.severity import ATTENTION, NORMAL, URGENT, annotate
+from app.common.thresholds import get_thresholds
+
+SCHEMA_VERSION = 2
 SECTION_IDS = ("what_happened", "what_changed", "what_went_well", "watch_outs", "improve")
 SECTION_TITLES = {
     "what_happened": "What happened",
@@ -36,7 +39,37 @@ class Narrative(BaseModel):
     sections: list[NarrativeSection]
 
 
-def build_report(analysis, insights, narrative, data_gaps) -> dict:
+# Written here, not by the model, so the call to action cannot be softened by a
+# generation. No phone number: it could not be changed without a redeploy, could not
+# vary by region, and would be wrong for most users.
+ESCALATION_LEVELS = {NORMAL: "routine", ATTENTION: "recommended", URGENT: "urgent"}
+ESCALATION_COPY = {
+    "routine": (
+        "Book a consultation",
+        "Nothing here needs attention, but you can talk this through with a "
+        "practitioner whenever you want to.",
+    ),
+    "recommended": (
+        "Worth getting checked",
+        "One of your readings moved outside your usual range. It is worth having "
+        "someone look at it properly.",
+    ),
+    "urgent": (
+        "Please get this checked",
+        "A reading from this session is outside a safe range. Please arrange to see "
+        "a practitioner. If you feel unwell, have chest pain, or trouble breathing, "
+        "seek medical care right away.",
+    ),
+}
+
+
+def build_escalation(severity: str) -> dict:
+    level = ESCALATION_LEVELS.get(severity, "routine")
+    title, body = ESCALATION_COPY[level]
+    return {"level": level, "title": title, "body": body, "action": "book_consultation"}
+
+
+def build_report(analysis, insights, narrative, data_gaps, profile=None) -> dict:
     by_id = {s.id: s for s in narrative.sections}
     sections = [
         {
@@ -46,6 +79,9 @@ def build_report(analysis, insights, narrative, data_gaps) -> dict:
         }
         for sid in SECTION_IDS
     ]
+    metrics, severity = annotate(
+        analysis.get("metrics") or [], profile or {}, get_thresholds()
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "score_version": (analysis.get("score") or {}).get("score_version", 1),
@@ -53,7 +89,9 @@ def build_report(analysis, insights, narrative, data_gaps) -> dict:
         "score": analysis.get("score"),
         "headline": narrative.headline.strip(),
         "sections": sections,
-        "metrics": analysis.get("metrics") or [],
+        "metrics": metrics,
+        "severity": severity,
+        "escalation": build_escalation(severity),
         "data_quality": analysis.get("data_quality", "none"),
         "history_used": analysis.get("history_used") or {},
         "data_gaps": data_gaps or [],
