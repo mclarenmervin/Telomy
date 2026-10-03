@@ -64,4 +64,50 @@ void main() {
     expect(find.text('attention'), findsNothing);
     expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
   });
+
+  testWidgets('a routine escalation is a quiet link', (tester) async {
+    await tester.pumpWidget(host(ReportBody(
+      report: reportWith(escalation: const ReportEscalation(
+        level: 'routine', title: 'Book a consultation',
+        body: 'Whenever you want to.', action: 'book_consultation')),
+    )));
+
+    expect(find.text('Book a consultation'), findsOneWidget);
+    expect(find.byType(FilledButton), findsNothing);
+  });
+
+  testWidgets('a recommended escalation is prominent and names the reason',
+      (tester) async {
+    await tester.pumpWidget(host(ReportBody(
+      report: reportWith(severity: 'attention', escalation: const ReportEscalation(
+        level: 'recommended', title: 'Worth getting checked',
+        body: 'One of your readings moved outside your usual range.',
+        action: 'book_consultation')),
+    )));
+
+    expect(find.text('Worth getting checked'), findsOneWidget);
+    expect(find.text('One of your readings moved outside your usual range.'),
+        findsOneWidget);
+    expect(find.byType(FilledButton), findsOneWidget);
+  });
+
+  testWidgets('a report with no escalation renders without one', (tester) async {
+    await tester.pumpWidget(host(ReportBody(report: reportWith())));
+
+    expect(find.text('Book a consultation'), findsNothing);
+  });
+
+  testWidgets('no escalation copy ever contains a phone number', (tester) async {
+    await tester.pumpWidget(host(ReportBody(
+      report: reportWith(severity: 'urgent', escalation: const ReportEscalation(
+        level: 'urgent', title: 'Please get this checked',
+        body: 'Please arrange to see a practitioner.',
+        action: 'book_consultation')),
+    )));
+
+    final texts = tester.widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? '')
+        .join(' ');
+    expect(RegExp(r'\+?\d[\d\s().-]{6,}').hasMatch(texts), isFalse);
+  });
 }

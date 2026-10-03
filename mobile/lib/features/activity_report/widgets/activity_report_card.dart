@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/activity_report.dart';
 import '../providers/activity_report_provider.dart';
@@ -61,7 +62,7 @@ class ActivityReportCard extends ConsumerWidget {
 }
 
 class ReportBody extends ConsumerWidget {
-  const ReportBody({required this.report});
+  const ReportBody({super.key, required this.report});
 
   final ActivityReport report;
 
@@ -103,6 +104,11 @@ class ReportBody extends ConsumerWidget {
               const SizedBox(height: 16),
               _MetricRows(metrics: report.metrics),
             ],
+            if (report.escalation?.isProminent ?? false) ...[
+              const SizedBox(height: 14),
+              _EscalationBlock(
+                  escalation: report.escalation!, severity: report.severity),
+            ],
             for (final section in report.sections) ...[
               const SizedBox(height: 18),
               Text(
@@ -117,6 +123,9 @@ class ReportBody extends ConsumerWidget {
               _footnote(report),
               style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
             ),
+            if (report.escalation != null && !report.escalation!.isProminent)
+              _EscalationBlock(
+                  escalation: report.escalation!, severity: report.severity),
           ],
         ),
       ),
@@ -274,4 +283,65 @@ class _MetricRows extends StatelessWidget {
   String _trim(num value) => value == value.roundToDouble()
       ? value.round().toString()
       : value.toStringAsFixed(1);
+}
+
+
+class _EscalationBlock extends StatelessWidget {
+  const _EscalationBlock({required this.escalation, required this.severity});
+
+  final ReportEscalation escalation;
+  final String severity;
+
+  void _book(BuildContext context) => context.push('/consultations');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (!escalation.isProminent) {
+      // Easy to ignore, which is correct on an ordinary day.
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: () => _book(context),
+          child: Text(escalation.title),
+        ),
+      );
+    }
+    final color = severityColor(context, severity == 'normal' ? 'attention' : severity);
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 18, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  escalation.title,
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(color: color, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          if (escalation.body.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(escalation.body, style: theme.textTheme.bodyMedium),
+          ],
+          const SizedBox(height: 10),
+          FilledButton(
+            onPressed: () => _book(context),
+            child: const Text('Book a consultation'),
+          ),
+        ],
+      ),
+    );
+  }
 }
