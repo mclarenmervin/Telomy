@@ -8,6 +8,7 @@ from app.common.context_loader import ContextLoader
 from app.common.logging_config import configure_logging, get_logger
 from app.common.queue import JobQueue
 from app.common.supabase_client import get_supabase_client
+from app.common.thresholds import describe, get_thresholds
 
 logger = get_logger(__name__)
 
@@ -39,6 +40,7 @@ def run() -> None:
         f"llm={'on' if settings.openai_api_key else 'off (deterministic prose)'} "
         f"model={settings.llm_model} lane={settings.activity_queue_name}"
     )
+    logger.info(f"severity thresholds: {describe(get_thresholds())}")
     while True:
         process_one(queue, agent, wall_clock_seconds=settings.wall_clock_seconds)
 

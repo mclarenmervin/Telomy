@@ -70,7 +70,7 @@ def test_settings_expose_db_url_and_budgets(monkeypatch):
     settings = get_settings()
     assert settings.supabase_db_url == "postgresql://u:p@h:5432/db"
     assert settings.activity_queue_name == "activity:realtime"
-    assert settings.max_llm_calls == 2
+    assert settings.max_llm_calls == 3
     assert settings.max_tool_calls == 8
     assert settings.wall_clock_seconds == 60
 

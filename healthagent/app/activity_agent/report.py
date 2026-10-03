@@ -1,10 +1,15 @@
 """The report envelope. The model supplies prose; every number here is ours."""
 
+import json
+import math
 import re
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = 1
+from app.analytics.severity import ATTENTION, NORMAL, URGENT, annotate
+from app.common.thresholds import get_thresholds
+
+SCHEMA_VERSION = 2
 SECTION_IDS = ("what_happened", "what_changed", "what_went_well", "watch_outs", "improve")
 SECTION_TITLES = {
     "what_happened": "What happened",
@@ -36,7 +41,37 @@ class Narrative(BaseModel):
     sections: list[NarrativeSection]
 
 
-def build_report(analysis, insights, narrative, data_gaps) -> dict:
+# Written here, not by the model, so the call to action cannot be softened by a
+# generation. No phone number: it could not be changed without a redeploy, could not
+# vary by region, and would be wrong for most users.
+ESCALATION_LEVELS = {NORMAL: "routine", ATTENTION: "recommended", URGENT: "urgent"}
+ESCALATION_COPY = {
+    "routine": (
+        "Book a consultation",
+        "Nothing here needs attention, but you can talk this through with a "
+        "practitioner whenever you want to.",
+    ),
+    "recommended": (
+        "Worth getting checked",
+        "One of your readings moved outside your usual range. It is worth having "
+        "someone look at it properly.",
+    ),
+    "urgent": (
+        "Please get this checked",
+        "A reading from this session is outside a safe range. Please arrange to see "
+        "a practitioner. If you feel unwell, have chest pain, or trouble breathing, "
+        "seek medical care right away.",
+    ),
+}
+
+
+def build_escalation(severity: str) -> dict:
+    level = ESCALATION_LEVELS.get(severity, "routine")
+    title, body = ESCALATION_COPY[level]
+    return {"level": level, "title": title, "body": body, "action": "book_consultation"}
+
+
+def build_report(analysis, insights, narrative, data_gaps, profile=None) -> dict:
     by_id = {s.id: s for s in narrative.sections}
     sections = [
         {
@@ -46,6 +81,9 @@ def build_report(analysis, insights, narrative, data_gaps) -> dict:
         }
         for sid in SECTION_IDS
     ]
+    metrics, severity = annotate(
+        analysis.get("metrics") or [], profile or {}, get_thresholds()
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "score_version": (analysis.get("score") or {}).get("score_version", 1),
@@ -53,7 +91,9 @@ def build_report(analysis, insights, narrative, data_gaps) -> dict:
         "score": analysis.get("score"),
         "headline": narrative.headline.strip(),
         "sections": sections,
-        "metrics": analysis.get("metrics") or [],
+        "metrics": metrics,
+        "severity": severity,
+        "escalation": build_escalation(severity),
         "data_quality": analysis.get("data_quality", "none"),
         "history_used": analysis.get("history_used") or {},
         "data_gaps": data_gaps or [],
@@ -93,10 +133,76 @@ def _allowed_numbers(analysis) -> set[str]:
     return allowed
 
 
-def verify_numbers(report_dict, analysis) -> tuple[dict, list[str]]:
+# Fields that identify or timestamp a row rather than measure the user. A tool
+# returning {"id": 93} must not legitimise the model writing "your blood oxygen was 93".
+_NON_MEASUREMENT_KEY = re.compile(
+    r"(?:^|_)(?:id|ids|uuid|pk|index|idx)$|_at$|^(?:created|updated|recorded|taken)|"
+    r"date|time|timestamp|version",
+    re.I,
+)
+_MAX_PLAUSIBLE = 1e9  # beyond this it is not a health measurement
+
+
+def _admit(value, into: set[str]) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return
+    # Magnitude first: math.isfinite() casts to float, which itself overflows on a
+    # very long digit run, and the exception would be swallowed as a failed narration.
+    if abs(value) > _MAX_PLAUSIBLE or not math.isfinite(value):
+        return
+    magnitude = abs(value)
+    for form in (int(magnitude), round(magnitude), magnitude):
+        into.add(f"{form:.0f}")
+        into.add(f"{form:.1f}")
+        into.add(f"{form:.1f}".rstrip("0").rstrip("."))
+
+
+def _walk(node, into: set[str]) -> None:
+    """Harvest numeric VALUES, skipping identifier and timestamp fields."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if isinstance(key, str) and _NON_MEASUREMENT_KEY.search(key):
+                continue
+            _walk(value, into)
+    elif isinstance(node, list):
+        for item in node:
+            _walk(item, into)
+    else:
+        _admit(node, into)
+
+
+def collect_tool_numbers(messages) -> set[str]:
+    """Numbers a tool actually returned during this run.
+
+    Once the agent fetches labs or measurements, it legitimately cites figures that
+    are not in `analysis`. Without admitting them, `unverified_number` fires on
+    nearly every richer report, stops carrying information, and creates pressure to
+    switch the check off — which is how a fabricated health number reaches a user.
+
+    Values are read from the tool's structured return rather than by regexing its
+    serialised text, so row ids and ISO timestamps cannot launder a fabricated
+    measurement past the check.
+    """
+    found: set[str] = set()
+    for message in messages or []:
+        if getattr(message, "type", None) != "tool":
+            continue
+        content = getattr(message, "content", None)
+        if not isinstance(content, str):
+            continue
+        try:
+            _walk(json.loads(content), found)
+        except (ValueError, TypeError):
+            # Not JSON: admit nothing rather than regexing arbitrary prose, which is
+            # how ids and timestamps got in.
+            continue
+    return found
+
+
+def verify_numbers(report_dict, analysis, extra_allowed=None) -> tuple[dict, list[str]]:
     """Cheap deterministic fidelity check: prose figures must trace to computed values."""
     flags: list[str] = []
-    allowed = _allowed_numbers(analysis)
+    allowed = _allowed_numbers(analysis) | set(extra_allowed or ())
     texts = [report_dict["headline"]] + [s["body"] for s in report_dict["sections"]]
 
     def unverified_in(text: str) -> set[str]:
@@ -133,8 +239,15 @@ def verify_numbers(report_dict, analysis) -> tuple[dict, list[str]]:
     return report_dict, flags
 
 
-def fallback_narrative(analysis, insights) -> Narrative:
-    """Used when no model is available or a budget cap was hit — deterministic prose."""
+def fallback_narrative(analysis, insights, profile=None) -> Narrative:
+    """Used when no model is available or a budget cap was hit — deterministic prose.
+
+    It is also the remedy the graph substitutes for a narrative that failed to
+    acknowledge a raised severity, so it must itself acknowledge one. Its watch-outs
+    therefore come from the annotated metrics, not from `insight_rules`: those rules
+    fire on only two conditions, while severity is raised by six, and the gap used to
+    publish "Nothing flagged." beside an amber "Worth getting checked" card.
+    """
     minutes = round((analysis.get("duration_seconds") or 0) / 60)
     activity = analysis.get("activity_type") or "activity"
     metric_bits = (
@@ -147,11 +260,14 @@ def fallback_narrative(analysis, insights) -> Narrative:
     for insight in insights or []:
         by_section.setdefault(insight["section"], []).append(insight["fact"])
 
+    annotated, _ = annotate(analysis.get("metrics") or [], profile or {}, get_thresholds())
+    flagged = [m["note"] for m in annotated if m["severity"] != NORMAL and m.get("note")]
+
     bodies = {
         "what_happened": f"You recorded a {minutes}-minute {activity} session.",
         "what_changed": metric_bits[0].upper() + metric_bits[1:] + ".",
         "what_went_well": " ".join(by_section["what_went_well"]) or "Session recorded.",
-        "watch_outs": " ".join(by_section["watch_outs"]) or "Nothing flagged.",
+        "watch_outs": " ".join(by_section["watch_outs"] + flagged) or "Nothing flagged.",
         "improve": " ".join(by_section["improve"])
         or "Keep logging sessions to build a clearer picture.",
     }

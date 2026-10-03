@@ -6,7 +6,11 @@ Thresholds here are v1 and intended to be tuned with domain input.
 
 from dataclasses import dataclass
 
-HR_ELEVATED_DELTA = 15.0  # bpm above baseline
+from app.common.thresholds import get_thresholds
+
+# Shares the central attention threshold so tuning the env moves the insight and the
+# severity flag together; a local copy let them disagree about the same reading.
+HR_ELEVATED_DELTA = get_thresholds().hr_attention_delta  # bpm above baseline
 HR_EFFICIENT_DELTA = -5.0  # bpm below baseline
 SHORT_SESSION_RATIO = 0.7  # of baseline duration
 SPO2_WATCH_MIN = 92.0

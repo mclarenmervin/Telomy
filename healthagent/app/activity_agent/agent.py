@@ -5,6 +5,8 @@ prebuilt `create_agent`, so tools, budgets, retries and structured output are al
 framework-provided.
 """
 
+import re
+
 from langgraph.graph import END, START, StateGraph
 
 from app.activity_agent import nodes
@@ -12,32 +14,54 @@ from app.activity_agent.persist import save_activity_report
 from app.activity_agent.prompts import build_system_prompt
 from app.activity_agent.report import (
     build_report,
+    collect_tool_numbers,
     fallback_narrative,
     verify_numbers,
 )
 from app.activity_agent.state import ActivityContext, ActivityState
-from app.agent.guardrails import ESCALATION_LINE, apply_guardrails
+from app.analytics.severity import ATTENTION, NORMAL, URGENT, annotate
+from app.common.thresholds import get_thresholds
+from app.agent.guardrails import apply_guardrails
 from app.common.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-# Exercise-specific danger thresholds. The event agent's HEART_RATE_HIGH = 150 describes
-# a resting-ish context; a mean of 150-175 bpm is ordinary for a tempo run, so reusing it
-# would put a chest-pain warning on most hard workouts.
-SPO2_DANGER_MIN = 90.0
-HEART_RATE_DANGER_MAX = 200.0
+# Reassurance that happens to contain a concern word. "Nothing flagged" is the
+# canonical way a report says everything is fine, and it would otherwise satisfy
+# the check below — the exact case this guard exists to catch.
+_REASSURANCE = re.compile(
+    r"\b(?:nothing|no|none|not)\b[^.]{0,30}?"
+    r"\b(?:flagged|flag|concerns?|unusual|watch|worry|worrying|issues?|problems?)\b",
+    re.I,
+)
+
+# Words that actually name a concern. Deliberately NOT including comparative language
+# ("lower than", "higher than") or bare "watch": the prompt asks every report to describe
+# its deltas, so admitting those would let almost any cheerful narrative satisfy the check
+# — including "Your heart rate was lower than your recent average. Nothing to flag."
+_CONCERN_WORDS = re.compile(
+    r"\b(?:flag|flagged|flagging|concern\w*|checked|unusual|outside|dipped|"
+    r"elevated|practitioner|consultation|doctor|worth watching|keep an eye)\b",
+    re.I,
+)
+
+# Where acknowledgement has to appear. A concern mentioned only in passing inside
+# "what went well" is not the report telling the user something is wrong.
+_ACKNOWLEDGING_SECTIONS = ("watch_outs",)
 
 
-def _exercise_danger(analysis) -> bool:
-    """True only for readings that are alarming *during exercise*."""
-    aggregates = analysis.get("aggregates") or {}
-    spo2 = aggregates.get("spo2") or {}
-    heart_rate = aggregates.get("heartRate") or {}
-    spo2_min = spo2.get("min")
-    hr_max = heart_rate.get("max")
-    return (spo2_min is not None and spo2_min < SPO2_DANGER_MIN) or (
-        hr_max is not None and hr_max > HEART_RATE_DANGER_MAX
-    )
+def _acknowledges_concern(report: dict) -> bool:
+    """Whether a report with a raised severity actually says so, where it counts."""
+    if report.get("severity", NORMAL) not in (ATTENTION, URGENT):
+        return True
+    texts = [report.get("headline") or ""]
+    texts += [
+        s.get("body") or ""
+        for s in report.get("sections") or []
+        if s.get("id") in _ACKNOWLEDGING_SECTIONS
+    ]
+    # Strip negated reassurance first, so "nothing flagged" cannot pass as acknowledgement.
+    return any(_CONCERN_WORDS.search(_REASSURANCE.sub(" ", text)) for text in texts)
 
 
 def _guard_headline(headline: str, analysis) -> tuple[str, list[str]]:
@@ -92,7 +116,13 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
     def narrate(state, runtime) -> dict:
         analysis = state["analysis"]
         insights = state.get("insights") or []
+        # The prompt needs severity BEFORE narration; build_report recomputes it after.
+        _, severity = annotate(
+            analysis.get("metrics") or [], state.get("profile") or {}, get_thresholds()
+        )
+        state = {**state, "severity": severity}
         narrative = None
+        tool_numbers = set()
         if narrator is not None:
             try:
                 result = narrator.invoke(
@@ -104,7 +134,7 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
                             k: state[k]
                             for k in (
                                 "session", "analysis", "insights", "data_gaps",
-                                "profile", "previous_report", "safety_facts",
+                                "profile", "previous_report", "safety_facts", "severity",
                             )
                             if k in state
                         },
@@ -112,22 +142,32 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
                     context=runtime.context,
                 )
                 narrative = result.get("structured_response")
+                tool_numbers = collect_tool_numbers(result.get("messages"))
             except Exception:
                 logger.exception("narration failed, falling back to deterministic prose")
         used_fallback = narrative is None
         if used_fallback:
             narrative = fallback_narrative(analysis, insights)
-        report = build_report(analysis, insights, narrative, state.get("data_gaps") or [])
+        report = build_report(
+            analysis, insights, narrative, state.get("data_gaps") or [],
+            profile=state.get("profile") or {},
+        )
         flags = []
         if used_fallback:
             # A missing key or an exhausted budget must not look like a normal report.
             flags.append("narration_incomplete")
             if report["data_quality"] == "full":
                 report["data_quality"] = "partial"
-        return {"report": report, "guardrail_flags": flags}
+        return {
+            "report": report,
+            "guardrail_flags": flags,
+            "tool_numbers": sorted(tool_numbers),
+        }
 
     def verify(state) -> dict:
-        report, new_flags = verify_numbers(state["report"], state["analysis"])
+        report, new_flags = verify_numbers(
+            state["report"], state["analysis"], state.get("tool_numbers") or []
+        )
         flags = list(state.get("guardrail_flags") or [])
         flags.extend(f for f in new_flags if f not in flags)
         return {"report": report, "guardrail_flags": flags}
@@ -150,12 +190,21 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
         report["headline"] = safe_headline
         flags.extend(f for f in headline_flags if f not in flags)
 
-        # Escalate once, in the section where a warning belongs — not five times.
-        if _exercise_danger(state["analysis"]):
-            watch = next(s for s in report["sections"] if s["id"] == "watch_outs")
-            watch["body"] = f"{watch['body']} {ESCALATION_LINE}".strip()
-            if "escalation" not in flags:
-                flags.append("escalation")
+        if not _acknowledges_concern(report):
+            # A reassuring narrative against a raised flag is worse than no narrative.
+            deterministic = fallback_narrative(state["analysis"], state.get("insights") or [])
+            report["headline"] = deterministic.headline
+            by_id = {s.id: s for s in deterministic.sections}
+            for section in report["sections"]:
+                if section["id"] in by_id:
+                    section["body"] = by_id[section["id"]].body
+            if "severity_mismatch" not in flags:
+                flags.append("severity_mismatch")
+
+        # The escalation sentence lives in report["escalation"], written deterministically
+        # by build_escalation. Appending it here too printed it twice in an urgent report.
+        if report.get("severity") in (ATTENTION, URGENT) and "escalation" not in flags:
+            flags.append("escalation")
 
         return {"report": report, "guardrail_flags": flags}
 
