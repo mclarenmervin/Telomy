@@ -131,10 +131,34 @@ def _allowed_numbers(analysis) -> set[str]:
     return allowed
 
 
-def verify_numbers(report_dict, analysis) -> tuple[dict, list[str]]:
+def collect_tool_numbers(messages) -> set[str]:
+    """Numbers a tool actually returned during this run.
+
+    Once the agent fetches labs or measurements, it legitimately cites figures that
+    are not in `analysis`. Without admitting them, `unverified_number` fires on
+    nearly every richer report, stops carrying information, and creates pressure to
+    switch the check off — which is how a fabricated health number reaches a user.
+    """
+    found: set[str] = set()
+    for message in messages or []:
+        if getattr(message, "type", None) != "tool":
+            continue
+        content = getattr(message, "content", None)
+        if not isinstance(content, str):
+            continue
+        for raw in _NUMBER.findall(content):
+            value = float(raw)
+            for form in (int(value), round(value), value):
+                found.add(f"{form:.0f}")
+                found.add(f"{form:.1f}")
+                found.add(f"{form:.1f}".rstrip("0").rstrip("."))
+    return found
+
+
+def verify_numbers(report_dict, analysis, extra_allowed=None) -> tuple[dict, list[str]]:
     """Cheap deterministic fidelity check: prose figures must trace to computed values."""
     flags: list[str] = []
-    allowed = _allowed_numbers(analysis)
+    allowed = _allowed_numbers(analysis) | set(extra_allowed or ())
     texts = [report_dict["headline"]] + [s["body"] for s in report_dict["sections"]]
 
     def unverified_in(text: str) -> set[str]:

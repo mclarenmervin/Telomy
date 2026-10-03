@@ -12,6 +12,7 @@ from app.activity_agent.persist import save_activity_report
 from app.activity_agent.prompts import build_system_prompt
 from app.activity_agent.report import (
     build_report,
+    collect_tool_numbers,
     fallback_narrative,
     verify_numbers,
 )
@@ -93,6 +94,7 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
         analysis = state["analysis"]
         insights = state.get("insights") or []
         narrative = None
+        tool_numbers = set()
         if narrator is not None:
             try:
                 result = narrator.invoke(
@@ -112,6 +114,7 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
                     context=runtime.context,
                 )
                 narrative = result.get("structured_response")
+                tool_numbers = collect_tool_numbers(result.get("messages"))
             except Exception:
                 logger.exception("narration failed, falling back to deterministic prose")
         used_fallback = narrative is None
@@ -124,10 +127,16 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
             flags.append("narration_incomplete")
             if report["data_quality"] == "full":
                 report["data_quality"] = "partial"
-        return {"report": report, "guardrail_flags": flags}
+        return {
+            "report": report,
+            "guardrail_flags": flags,
+            "tool_numbers": sorted(tool_numbers),
+        }
 
     def verify(state) -> dict:
-        report, new_flags = verify_numbers(state["report"], state["analysis"])
+        report, new_flags = verify_numbers(
+            state["report"], state["analysis"], state.get("tool_numbers") or []
+        )
         flags = list(state.get("guardrail_flags") or [])
         flags.extend(f for f in new_flags if f not in flags)
         return {"report": report, "guardrail_flags": flags}

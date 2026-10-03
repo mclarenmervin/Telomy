@@ -190,7 +190,7 @@ Changed or added:
 
 `verify_numbers` admits only figures traceable to the computed `analysis`. Once the
 agent fetches labs or measurements via tools, it will legitimately cite numbers absent
-from `analysis`, and every such report would raise `unverified_numbers`.
+from `analysis`, and every such report would raise `unverified_number`.
 
 Fix: collect numeric values returned by tool calls during the run and add them to the
 allowed set.

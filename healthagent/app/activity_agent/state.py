@@ -23,3 +23,4 @@ class ActivityState(AgentState):
     data_gaps: list
     report: dict
     guardrail_flags: list
+    tool_numbers: list
