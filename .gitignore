@@ -1,2 +1,5 @@
 .DS_Store
 .superpowers/
+
+# Build artifacts for distribution — never committed (61MB+ binaries)
+dist/
