@@ -19,12 +19,24 @@ _DIAGNOSIS = [
         re.I,
     ),
 ]
+_SUPPLEMENT_NAMES = (
+    r"supplements?|multivitamins?|vitamins?|minerals?|magnesium|zinc|iron|calcium|"
+    r"creatine|collagen|melatonin|omega[- ]?3|fish oil|probiotics?|ashwagandha|"
+    r"turmeric|curcumin|caffeine pills?"
+)
 _MEDICATION = [
     re.compile(r"\b\d+(?:\.\d+)?\s?(?:mg|mcg|ml|milligrams?)\b", re.I),
     re.compile(
         r"\b(?:stop|stopping|skip|skipping|increase|decrease|double|halve|start|starting|"
         r"take|taking|change|changing)\b[^.]{0,40}\b(?:medication|medications|medicine|dose|"
         r"dosage|pills?|tablets?|prescription)\b",
+        re.I,
+    ),
+    # Recommending a supplement, not merely naming one: "try magnesium" is advice,
+    # "greens contain magnesium" is nutrition information.
+    re.compile(
+        r"\b(?:take|taking|try|trying|start|starting|add|adding|consider|supplement)\w*\b"
+        rf"[^.]{{0,40}}\b(?:{_SUPPLEMENT_NAMES})\b",
         re.I,
     ),
 ]

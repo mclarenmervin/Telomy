@@ -72,3 +72,27 @@ def test_missing_metrics_do_not_crash_escalation_check():
 
     assert text == CLEAN
     assert flags == []
+
+
+def test_supplement_recommendations_are_blocked():
+    """The obvious workaround to a medication-only rule, and less regulated."""
+    for text in (
+        "You should try magnesium to help your recovery.",
+        "Consider taking a vitamin D supplement.",
+        "Start taking zinc before bed.",
+        "Adding creatine would help here.",
+    ):
+        cleaned, flags = apply_guardrails(text, {"metrics": {}})
+
+        assert "medication" in flags, text
+        assert cleaned == SAFE_FALLBACK
+
+
+def test_merely_naming_a_nutrient_is_not_blocked():
+    """Blocking the word outright would censor ordinary nutrition talk."""
+    text = "Leafy greens are a good source of magnesium."
+
+    cleaned, flags = apply_guardrails(text, {"metrics": {}})
+
+    assert flags == []
+    assert cleaned == text
