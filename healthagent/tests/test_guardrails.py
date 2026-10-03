@@ -96,3 +96,53 @@ def test_merely_naming_a_nutrient_is_not_blocked():
 
     assert flags == []
     assert cleaned == text
+
+
+DRUG_COMMENTS = [
+    "Your beta-blocker is probably why your heart rate stayed low today.",
+    "Since you're on metformin, keep an eye on this.",
+    "Your statin may be a factor here.",
+    "The lisinopril could explain the lower reading.",
+    "Your inhaler use before the session may matter.",
+]
+
+
+def test_commenting_on_a_named_drug_is_blocked():
+    """The prompt feeds the user's medications in as SAFETY FACTS and forbids naming
+    them. Without drug-name detection the only enforcement was a verb-gated rule."""
+    for text in DRUG_COMMENTS:
+        cleaned, flags = apply_guardrails(text, {"metrics": {}})
+
+        assert "medication" in flags, text
+        assert cleaned == SAFE_FALLBACK
+
+
+SUPPLEMENT_SUGGESTIONS_WITHOUT_A_VERB = [
+    "Magnesium before bed would help you sleep.",
+    "You might benefit from some vitamin D.",
+    "I'd look into creatine.",
+    "Electrolytes would make a difference on long rides.",
+]
+
+
+def test_supplement_suggestions_without_a_listed_verb_are_blocked():
+    """The verb gate reintroduced the workaround the supplement rule exists to close."""
+    for text in SUPPLEMENT_SUGGESTIONS_WITHOUT_A_VERB:
+        cleaned, flags = apply_guardrails(text, {"metrics": {}})
+
+        assert "medication" in flags, text
+        assert cleaned == SAFE_FALLBACK
+
+
+def test_ordinary_nutrition_and_training_talk_still_passes():
+    """Over-blocking would gut the report; these must stay."""
+    for text in (
+        "Leafy greens are a good source of magnesium.",
+        "Your heart rate settled faster than usual after this ride.",
+        "A steadier pace would make the second half easier.",
+        "Hydration before a long session helps most people.",
+    ):
+        cleaned, flags = apply_guardrails(text, {"metrics": {}})
+
+        assert flags == [], text
+        assert cleaned == text

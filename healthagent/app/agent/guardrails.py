@@ -22,7 +22,9 @@ _DIAGNOSIS = [
 _SUPPLEMENT_NAMES = (
     r"supplements?|multivitamins?|vitamins?|minerals?|magnesium|zinc|iron|calcium|"
     r"creatine|collagen|melatonin|omega[- ]?3|fish oil|probiotics?|ashwagandha|"
-    r"turmeric|curcumin|caffeine pills?"
+    r"turmeric|curcumin|caffeine pills?|electrolytes?|beetroot juice|nitrates?|"
+    r"coq10|l-?theanine|beta-?alanine|bcaas?|whey|protein powder|glutamine|"
+    r"ashwaghanda|rhodiola|st\.? john'?s wort"
 )
 _MEDICATION = [
     re.compile(r"\b\d+(?:\.\d+)?\s?(?:mg|mcg|ml|milligrams?)\b", re.I),
@@ -32,16 +34,45 @@ _MEDICATION = [
         r"dosage|pills?|tablets?|prescription)\b",
         re.I,
     ),
-    # Recommending a supplement, not merely naming one: "try magnesium" is advice,
-    # "greens contain magnesium" is nutrition information.
+    # Recommending a supplement, not merely naming one. The earlier version required a
+    # verb from a closed list, which left "Magnesium before bed would help you sleep"
+    # and "I'd look into creatine" straight through — the same workaround the supplement
+    # rule exists to close. Now any recommending construction counts.
     re.compile(
-        r"\b(?:take|taking|try|trying|start|starting|add|adding|consider|supplement)\w*\b"
+        rf"\b(?:{_SUPPLEMENT_NAMES})\b[^.]{{0,40}}"
+        r"\b(?:would help|would make|helps|help|benefit|recommend|worth|good idea|"
+        r"before bed|after training|daily)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:take|taking|try|trying|start|starting|add|adding|consider|considering|"
+        r"supplement|look into|looking into|benefit from|more of|some)\w*\b"
         rf"[^.]{{0,40}}\b(?:{_SUPPLEMENT_NAMES})\b",
+        re.I,
+    ),
+    # Naming a drug or drug class at all. The prompt feeds the user's own medications in
+    # as SAFETY FACTS and forbids repeating them; without this the only enforcement was a
+    # verb near a generic noun, so "Your beta-blocker is why your heart rate stayed low"
+    # passed clean. Suffixes catch whole classes without maintaining a drug dictionary.
+    re.compile(
+        r"\b(?:beta[- ]?blocker|ace[- ]?inhibitor|statins?|insulin|inhalers?|"
+        r"antidepressants?|antihistamines?|steroids?|diuretics?|anticoagulants?|"
+        # Per-suffix minimum stems: 4 keeps "April" out of the -pril class, but
+        # "metformin" has only a 3-letter stem, so -formin gets its own bound.
+        r"\w{2,}formin|"
+        r"\w{4,}(?:olol|statin|pril|sartan|azepam|cillin|profen|tidine|"
+        r"zosin|dipine|glutide))\b",
         re.I,
     ),
 ]
 
-SPO2_LOW = 90.0
+from app.common.thresholds import get_thresholds
+
+# Shared with the activity agent's severity rules; a local copy meant tuning
+# SPO2_DANGER_MIN moved one and not the other.
+SPO2_LOW = get_thresholds().spo2_danger_min
+# Deliberately NOT centralised: this describes a resting-ish context for the event
+# agent. The activity agent uses a much higher exercise-aware ceiling.
 HEART_RATE_HIGH = 150.0
 
 

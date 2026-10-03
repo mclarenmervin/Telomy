@@ -6,7 +6,7 @@ import 'package:telomy/features/activity_report/widgets/activity_report_card.dar
 ActivityReport reportWith({
   String severity = 'normal',
   List<ReportMetric> metrics = const [],
-  ReportEscalation? escalation,
+  ReportEscalation escalation = ReportEscalation.routine,
 }) => ActivityReport(
   sessionId: 's1',
   eventType: 'cycling',
@@ -91,10 +91,13 @@ void main() {
     expect(find.byType(FilledButton), findsOneWidget);
   });
 
-  testWidgets('a report with no escalation renders without one', (tester) async {
+  testWidgets('a report with no escalation field still offers the routine route',
+      (tester) async {
+    // Spec 11: a v1 report must not strand the user without a booking route.
     await tester.pumpWidget(host(ReportBody(report: reportWith())));
 
-    expect(find.text('Book a consultation'), findsNothing);
+    expect(find.text('Book a consultation'), findsOneWidget);
+    expect(find.byType(FilledButton), findsNothing);
   });
 
   testWidgets('no escalation copy ever contains a phone number', (tester) async {
@@ -109,5 +112,29 @@ void main() {
         .map((t) => t.data ?? '')
         .join(' ');
     expect(RegExp(r'\+?\d[\d\s().-]{6,}').hasMatch(texts), isFalse);
+  });
+
+  testWidgets('a flagged metric row fits a real phone at accessible text scale',
+      (tester) async {
+    // 393dp is a Pixel/iPhone 14; 1.3 is an ordinary accessibility setting. The
+    // severity word is the signal spec D7 says must not be missed, so it must not
+    // be clipped. The default 800x600 test surface hid this.
+    tester.view.physicalSize = const Size(393, 850);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(MediaQuery(
+      data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+      child: host(ReportBody(
+        report: reportWith(severity: 'attention', metrics: const [
+          ReportMetric(key: 'heartRate', value: 129.4, baseline: 136.6, delta: -7.2,
+                       direction: 'better', severity: 'attention',
+                       note: 'Moved outside your usual range.'),
+        ]),
+      )),
+    ));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('attention'), findsOneWidget);
   });
 }

@@ -21,17 +21,10 @@ from app.activity_agent.report import (
 from app.activity_agent.state import ActivityContext, ActivityState
 from app.analytics.severity import ATTENTION, NORMAL, URGENT, annotate
 from app.common.thresholds import get_thresholds
-from app.agent.guardrails import ESCALATION_LINE, apply_guardrails
+from app.agent.guardrails import apply_guardrails
 from app.common.logging_config import get_logger
 
 logger = get_logger(__name__)
-
-# Exercise-specific danger thresholds. The event agent's HEART_RATE_HIGH = 150 describes
-# a resting-ish context; a mean of 150-175 bpm is ordinary for a tempo run, so reusing it
-# would put a chest-pain warning on most hard workouts.
-SPO2_DANGER_MIN = 90.0
-HEART_RATE_DANGER_MAX = 200.0
-
 
 # Reassurance that happens to contain a concern word. "Nothing flagged" is the
 # canonical way a report says everything is fine, and it would otherwise satisfy
@@ -42,35 +35,33 @@ _REASSURANCE = re.compile(
     re.I,
 )
 
-# Words a report must use somewhere when Python has raised a flag. Deliberately broad:
-# the check exists to catch a wholly reassuring narrative, not to police phrasing.
+# Words that actually name a concern. Deliberately NOT including comparative language
+# ("lower than", "higher than") or bare "watch": the prompt asks every report to describe
+# its deltas, so admitting those would let almost any cheerful narrative satisfy the check
+# — including "Your heart rate was lower than your recent average. Nothing to flag."
 _CONCERN_WORDS = re.compile(
-    r"\b(?:watch|watching|flag|flagged|concern\w*|checked|check|unusual|outside|"
-    r"lower than|higher than|dipped|elevated|practitioner|consultation|doctor)\b",
+    r"\b(?:flag|flagged|flagging|concern\w*|checked|unusual|outside|dipped|"
+    r"elevated|practitioner|consultation|doctor|worth watching|keep an eye)\b",
     re.I,
 )
 
+# Where acknowledgement has to appear. A concern mentioned only in passing inside
+# "what went well" is not the report telling the user something is wrong.
+_ACKNOWLEDGING_SECTIONS = ("watch_outs",)
+
 
 def _acknowledges_concern(report: dict) -> bool:
-    """Whether a report with a raised severity actually says so."""
+    """Whether a report with a raised severity actually says so, where it counts."""
     if report.get("severity", NORMAL) not in (ATTENTION, URGENT):
         return True
     texts = [report.get("headline") or ""]
-    texts += [s.get("body") or "" for s in report.get("sections") or []]
+    texts += [
+        s.get("body") or ""
+        for s in report.get("sections") or []
+        if s.get("id") in _ACKNOWLEDGING_SECTIONS
+    ]
     # Strip negated reassurance first, so "nothing flagged" cannot pass as acknowledgement.
     return any(_CONCERN_WORDS.search(_REASSURANCE.sub(" ", text)) for text in texts)
-
-
-def _exercise_danger(analysis) -> bool:
-    """True only for readings that are alarming *during exercise*."""
-    aggregates = analysis.get("aggregates") or {}
-    spo2 = aggregates.get("spo2") or {}
-    heart_rate = aggregates.get("heartRate") or {}
-    spo2_min = spo2.get("min")
-    hr_max = heart_rate.get("max")
-    return (spo2_min is not None and spo2_min < SPO2_DANGER_MIN) or (
-        hr_max is not None and hr_max > HEART_RATE_DANGER_MAX
-    )
 
 
 def _guard_headline(headline: str, analysis) -> tuple[str, list[str]]:
@@ -210,12 +201,10 @@ def build_activity_agent(loader, supabase, settings, checkpointer=None):
             if "severity_mismatch" not in flags:
                 flags.append("severity_mismatch")
 
-        # Escalate once, in the section where a warning belongs — not five times.
-        if _exercise_danger(state["analysis"]):
-            watch = next(s for s in report["sections"] if s["id"] == "watch_outs")
-            watch["body"] = f"{watch['body']} {ESCALATION_LINE}".strip()
-            if "escalation" not in flags:
-                flags.append("escalation")
+        # The escalation sentence lives in report["escalation"], written deterministically
+        # by build_escalation. Appending it here too printed it twice in an urgent report.
+        if report.get("severity") in (ATTENTION, URGENT) and "escalation" not in flags:
+            flags.append("escalation")
 
         return {"report": report, "guardrail_flags": flags}
 

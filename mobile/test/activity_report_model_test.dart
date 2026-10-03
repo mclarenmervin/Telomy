@@ -30,9 +30,9 @@ void main() {
     expect(report!.severity, 'attention');
     expect(report.metrics.first.severity, 'attention');
     expect(report.metrics.first.note, 'Dipped below your usual range.');
-    expect(report.escalation!.level, 'recommended');
-    expect(report.escalation!.title, 'Worth getting checked');
-    expect(report.escalation!.isProminent, isTrue);
+    expect(report.escalation.level, 'recommended');
+    expect(report.escalation.title, 'Worth getting checked');
+    expect(report.escalation.isProminent, isTrue);
   });
 
   test('a v1 report with no severity or escalation still parses', () {
@@ -45,7 +45,12 @@ void main() {
 
     expect(report, isNotNull);
     expect(report!.severity, 'normal');
-    expect(report.escalation, isNull);
+    // Spec 11: a new build receiving a v1 report shows a routine escalation. Every
+    // report written before this deploy is a v1 report and is still in the app, so
+    // returning null here strands those users with no booking route at all.
+    expect(report.escalation, isNotNull);
+    expect(report.escalation.level, 'routine');
+    expect(report.escalation.isProminent, isFalse);
     expect(report.metrics.first.severity, 'normal');
     expect(report.metrics.first.note, '');
   });
@@ -60,7 +65,7 @@ void main() {
                      'body': 'Whenever you want to.', 'action': 'book_consultation'},
     }));
 
-    expect(report!.escalation!.isProminent, isFalse);
+    expect(report!.escalation.isProminent, isFalse);
   });
 
   test('still accepts analysis delivered as a JSON string over Realtime', () {

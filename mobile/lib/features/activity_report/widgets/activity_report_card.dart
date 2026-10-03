@@ -104,10 +104,10 @@ class ReportBody extends ConsumerWidget {
               const SizedBox(height: 16),
               _MetricRows(metrics: report.metrics),
             ],
-            if (report.escalation?.isProminent ?? false) ...[
+            if (report.escalation.isProminent) ...[
               const SizedBox(height: 14),
               _EscalationBlock(
-                  escalation: report.escalation!, severity: report.severity),
+                  escalation: report.escalation, severity: report.severity),
             ],
             for (final section in report.sections) ...[
               const SizedBox(height: 18),
@@ -123,9 +123,9 @@ class ReportBody extends ConsumerWidget {
               _footnote(report),
               style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
             ),
-            if (report.escalation != null && !report.escalation!.isProminent)
+            if (!report.escalation.isProminent)
               _EscalationBlock(
-                  escalation: report.escalation!, severity: report.severity),
+                  escalation: report.escalation, severity: report.severity),
           ],
         ),
       ),
@@ -229,9 +229,12 @@ class _MetricRows extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Expanded(
-                      child: Text(metric.label, style: theme.textTheme.bodyMedium),
+                    Flexible(
+                      child: Text(metric.label,
+                          style: theme.textTheme.bodyMedium,
+                          overflow: TextOverflow.ellipsis),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '${_trim(metric.value)}${metric.unit}',
                       style: theme.textTheme.titleMedium
@@ -254,19 +257,26 @@ class _MetricRows extends StatelessWidget {
                       Text(_trim(metric.delta!.abs()),
                           style: theme.textTheme.bodySmall),
                     ],
-                    if (metric.severity != 'normal') ...[
-                      const SizedBox(width: 8),
+
+                  ],
+                ),
+                if (metric.severity != 'normal') ...[
+                  const SizedBox(height: 3),
+                  // Its own row: on the value line this was the child that got clipped
+                  // at ordinary phone widths, and it is the signal that must not be.
+                  Row(
+                    children: [
                       Icon(Icons.warning_amber_rounded,
                           size: 15, color: severityColor(context, metric.severity)),
-                      const SizedBox(width: 3),
+                      const SizedBox(width: 4),
                       Text(
                         metric.severity,
                         style: theme.textTheme.labelSmall
                             ?.copyWith(color: severityColor(context, metric.severity)),
                       ),
                     ],
-                  ],
-                ),
+                  ),
+                ],
                 if (metric.note.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(metric.note,

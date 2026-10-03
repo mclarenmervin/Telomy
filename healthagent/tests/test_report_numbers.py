@@ -46,3 +46,27 @@ def test_collect_tool_numbers_tolerates_odd_messages():
     assert collect_tool_numbers(None) == set()
     assert collect_tool_numbers([SimpleNamespace(type="tool", content=None)]) == set()
     assert collect_tool_numbers([{"no": "attrs"}]) == set()
+
+
+def test_row_ids_and_timestamps_are_not_admitted_as_measurements():
+    """A tool returning an id of 93 would otherwise legitimise the model writing
+    'your blood oxygen was 93%' — the check is meant to catch exactly that."""
+    messages = [SimpleNamespace(
+        type="tool",
+        content='{"items": [{"id": 93, "taken_at": "2026-10-02T14:33:07", "value": 41}]}',
+    )]
+
+    numbers = collect_tool_numbers(messages)
+
+    assert "41" in numbers          # a real measurement value
+    assert "93" not in numbers      # a row id
+    assert "2026" not in numbers    # a timestamp component
+    assert "33" not in numbers
+
+
+def test_a_very_long_digit_run_does_not_raise():
+    """float('9'*400) is inf and int(inf) throws; the caller swallows it as a failed
+    narration, silently discarding a good report."""
+    messages = [SimpleNamespace(type="tool", content="9" * 400)]
+
+    assert collect_tool_numbers(messages) is not None

@@ -114,10 +114,19 @@ class ReportEscalation {
 
   bool get isProminent => level == 'recommended' || level == 'urgent';
 
-  static ReportEscalation? fromJson(Map<String, dynamic>? json) {
-    if (json == null) return null;
+  /// What a report written before schema v2 gets. Spec 11: a new build showing an
+  /// old report must still offer the routine booking route, not strand the user.
+  static const routine = ReportEscalation(
+    level: 'routine',
+    title: 'Book a consultation',
+    body: '',
+    action: 'book_consultation',
+  );
+
+  static ReportEscalation fromJson(Map<String, dynamic>? json) {
+    if (json == null) return routine;
     final level = (json['level'] as String?) ?? '';
-    if (level.isEmpty) return null;
+    if (level.isEmpty) return routine;
     return ReportEscalation(
       level: level,
       title: (json['title'] as String?) ?? 'Book a consultation',
@@ -139,7 +148,7 @@ class ActivityReport {
     this.score,
     this.narrationIncomplete = false,
     this.severity = 'normal',
-    this.escalation,
+    this.escalation = ReportEscalation.routine,
   });
 
   final String sessionId;
@@ -153,7 +162,7 @@ class ActivityReport {
 
   /// Report-level severity: the worst of the metrics. Older reports have none.
   final String severity;
-  final ReportEscalation? escalation;
+  final ReportEscalation escalation;
 
   /// True when the backend fell back to deterministic prose — worth surfacing
   /// quietly rather than pretending the report is complete.
