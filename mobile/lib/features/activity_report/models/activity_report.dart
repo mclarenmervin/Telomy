@@ -51,6 +51,8 @@ class ReportMetric {
     this.baseline,
     this.delta,
     this.direction,
+    this.severity = 'normal',
+    this.note = '',
   });
 
   final String key;
@@ -58,6 +60,12 @@ class ReportMetric {
   final num? baseline;
   final num? delta;
   final String? direction;
+
+  /// Computed by the backend, never by the model. Drives this row's colour.
+  final String severity;
+
+  /// A plain-English line so a number reads as an insight.
+  final String note;
 
   /// A readable label for the metric keys the ring reports.
   String get label => const {
@@ -83,6 +91,38 @@ class ReportMetric {
       baseline: json['baseline'] as num?,
       delta: json['delta'] as num?,
       direction: json['direction'] as String?,
+      severity: (json['severity'] as String?) ?? 'normal',
+      note: ((json['note'] as String?) ?? '').trim(),
+    );
+  }
+}
+
+/// The one route the report offers to act on a finding. Deliberately has no phone
+/// number: the app deep-links to its own consultations flow instead.
+class ReportEscalation {
+  const ReportEscalation({
+    required this.level,
+    required this.title,
+    required this.body,
+    required this.action,
+  });
+
+  final String level; // routine | recommended | urgent
+  final String title;
+  final String body;
+  final String action;
+
+  bool get isProminent => level == 'recommended' || level == 'urgent';
+
+  static ReportEscalation? fromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final level = (json['level'] as String?) ?? '';
+    if (level.isEmpty) return null;
+    return ReportEscalation(
+      level: level,
+      title: (json['title'] as String?) ?? 'Book a consultation',
+      body: ((json['body'] as String?) ?? '').trim(),
+      action: (json['action'] as String?) ?? 'book_consultation',
     );
   }
 }
@@ -98,6 +138,8 @@ class ActivityReport {
     required this.sessionsCompared,
     this.score,
     this.narrationIncomplete = false,
+    this.severity = 'normal',
+    this.escalation,
   });
 
   final String sessionId;
@@ -108,6 +150,10 @@ class ActivityReport {
   final String dataQuality;
   final int sessionsCompared;
   final ReportScore? score;
+
+  /// Report-level severity: the worst of the metrics. Older reports have none.
+  final String severity;
+  final ReportEscalation? escalation;
 
   /// True when the backend fell back to deterministic prose — worth surfacing
   /// quietly rather than pretending the report is complete.
@@ -159,6 +205,12 @@ class ActivityReport {
         json['score'] is Map ? Map<String, dynamic>.from(json['score'] as Map) : null,
       ),
       narrationIncomplete: flags.contains('narration_incomplete'),
+      severity: (json['severity'] as String?) ?? 'normal',
+      escalation: ReportEscalation.fromJson(
+        json['escalation'] is Map
+            ? Map<String, dynamic>.from(json['escalation'] as Map)
+            : null,
+      ),
     );
   }
 }
