@@ -117,7 +117,7 @@ A crash-looping gateway almost always means `SUPABASE_URL`, `SUPABASE_SERVICE_KE
 
 ## After the first deploy
 
-1. Copy the gateway's Railway domain, e.g. `https://telomy-gateway-production.up.railway.app`.
+1. Copy the gateway's Railway domain, e.g. `https://gateway-production-82cd.up.railway.app`.
 2. Confirm it is alive: `curl https://<domain>/health`.
 3. Re-point the Supabase trigger at it (run in the Supabase SQL editor):
 
