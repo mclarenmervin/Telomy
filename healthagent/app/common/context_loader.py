@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from app.analytics.check_in import CHECK_IN_PREFIX
 from app.analytics.event_analysis import BASELINE_DAYS, TRACKED, WINDOW, Reading, to_readings
 
 
@@ -84,6 +85,26 @@ class ContextLoader:
             (datetime.fromisoformat(r["started_at"]), datetime.fromisoformat(r["ended_at"]))
             for r in rows
         ]
+
+    def sent_check_in_reasons(self, user_id: str, event_id: str) -> set[str]:
+        """Which mid-event reasons this event has already been alerted about.
+
+        Filtered in Python rather than with a `like`: the set per event is tiny,
+        and one fewer PostgREST operator is one fewer thing to get wrong.
+        """
+        rows = (
+            self._db.table("predictions")
+            .select("kind")
+            .eq("user_id", user_id)
+            .eq("event_id", event_id)
+            .execute()
+            .data
+        )
+        return {
+            row["kind"][len(CHECK_IN_PREFIX):]
+            for row in rows
+            if str(row.get("kind", "")).startswith(CHECK_IN_PREFIX)
+        }
 
     def activity_session(self, user_id: str, session_id: str) -> dict | None:
         rows = (

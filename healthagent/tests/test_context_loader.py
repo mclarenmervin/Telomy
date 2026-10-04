@@ -69,3 +69,42 @@ def test_load_other_events_returns_only_this_users_finished_events():
 
     assert len(others) == 1
     assert others[0][0] == datetime(2026, 9, 19, 20, 0, tzinfo=UTC)
+
+
+EVENT_ID = "22222222-2222-2222-2222-222222222222"
+
+
+def test_sent_check_in_reasons_returns_bare_reasons():
+    db = FakeSupabase({"predictions": [
+        {"user_id": ALICE, "event_id": EVENT_ID, "kind": "ack"},
+        {"user_id": ALICE, "event_id": EVENT_ID, "kind": "check_in:hr_elevated"},
+        {"user_id": ALICE, "event_id": EVENT_ID, "kind": "check_in:spo2_low"},
+    ]})
+
+    reasons = ContextLoader(db).sent_check_in_reasons(ALICE, EVENT_ID)
+
+    assert reasons == {"hr_elevated", "spo2_low"}
+
+
+def test_sent_check_in_reasons_is_empty_when_nothing_was_sent():
+    db = FakeSupabase({"predictions": [
+        {"user_id": ALICE, "event_id": EVENT_ID, "kind": "ack"},
+    ]})
+
+    assert ContextLoader(db).sent_check_in_reasons(ALICE, EVENT_ID) == set()
+
+
+def test_sent_check_in_reasons_ignores_another_users_rows():
+    db = FakeSupabase({"predictions": [
+        {"user_id": BOB, "event_id": EVENT_ID, "kind": "check_in:hr_elevated"},
+    ]})
+
+    assert ContextLoader(db).sent_check_in_reasons(ALICE, EVENT_ID) == set()
+
+
+def test_sent_check_in_reasons_ignores_other_events():
+    db = FakeSupabase({"predictions": [
+        {"user_id": ALICE, "event_id": "other", "kind": "check_in:hr_elevated"},
+    ]})
+
+    assert ContextLoader(db).sent_check_in_reasons(ALICE, EVENT_ID) == set()
