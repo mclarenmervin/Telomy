@@ -72,3 +72,41 @@ def narrate(llm, event_type: str, analysis: dict) -> str:
         logger.exception("llm call failed, using fallback summary")
         return fallback_summary(event_type, analysis)
     return text or fallback_summary(event_type, analysis)
+
+
+CHECK_IN_SYSTEM_PROMPT = (
+    "You are a wellness assistant speaking to the user DURING an event that is "
+    "still happening right now. In one or two short sentences, say what you are "
+    "seeing and offer one gentle, optional thing they could do. Use ONLY the "
+    "numbers provided. These are correlations, not causes. Never diagnose, and "
+    "never give medication, supplement, or dosage advice."
+)
+
+
+def check_in_fallback(event_type: str, check_in) -> str:
+    """Used whenever the LLM is absent, failing, or empty — a fired rule must
+    never reach the user as silence."""
+    return f"While your {event_type} event is in progress: {check_in.fact}"
+
+
+def build_check_in_prompt(event_type: str, check_in, analysis: dict) -> tuple[str, str]:
+    user = (
+        f"Event in progress: {event_type}\n"
+        f"Data quality: {analysis.get('data_quality')}\n"
+        f"What fired: {check_in.fact}\n"
+        "Other computed readings so far:\n"
+        + "\n".join(f"- {line}" for line in _metric_lines(analysis))
+    )
+    return CHECK_IN_SYSTEM_PROMPT, user
+
+
+def narrate_check_in(llm, event_type: str, check_in, analysis: dict) -> str:
+    if llm is None:
+        return check_in_fallback(event_type, check_in)
+    system, user = build_check_in_prompt(event_type, check_in, analysis)
+    try:
+        text = str(llm.invoke([("system", system), ("human", user)]).content).strip()
+    except Exception:
+        logger.exception("llm call failed, using fallback check-in")
+        return check_in_fallback(event_type, check_in)
+    return text or check_in_fallback(event_type, check_in)

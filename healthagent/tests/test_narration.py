@@ -84,3 +84,55 @@ def test_narrate_skips_llm_when_there_is_no_data():
 
     assert llm.calls == []
     assert text == fallback_summary("alcohol", NONE)
+
+
+from app.analytics.check_in import CheckIn  # noqa: E402
+from app.agent.narration import (  # noqa: E402
+    build_check_in_prompt,
+    check_in_fallback,
+    narrate_check_in,
+)
+
+CHECK_IN = CheckIn("hr_elevated", "Heart rate is running 16 bpm above the baseline.")
+
+
+def test_check_in_fallback_states_the_fact_and_names_the_event():
+    text = check_in_fallback("alcohol", CHECK_IN)
+
+    assert "16 bpm" in text
+    assert "alcohol" in text
+
+
+def test_check_in_prompt_carries_the_fact_and_forbids_diagnosis():
+    system, user = build_check_in_prompt("alcohol", CHECK_IN, {"data_quality": "full"})
+
+    assert "diagnos" in system.lower()
+    assert "right now" in system.lower() or "happening" in system.lower()
+    assert "16 bpm" in user
+    assert "alcohol" in user
+
+
+def test_narrate_check_in_uses_the_llm_reply():
+    llm = FakeLLM("Your heart rate is climbing — worth easing off.")
+
+    text = narrate_check_in(llm, "alcohol", CHECK_IN, {"data_quality": "full"})
+
+    assert text == "Your heart rate is climbing — worth easing off."
+
+
+def test_narrate_check_in_falls_back_without_an_llm_and_never_goes_silent():
+    text = narrate_check_in(None, "alcohol", CHECK_IN, {"data_quality": "full"})
+
+    assert "16 bpm" in text
+
+
+def test_narrate_check_in_falls_back_when_the_llm_raises():
+    text = narrate_check_in(FakeLLM(fail=True), "alcohol", CHECK_IN, {"data_quality": "full"})
+
+    assert "16 bpm" in text
+
+
+def test_narrate_check_in_falls_back_on_an_empty_reply():
+    text = narrate_check_in(FakeLLM("   "), "alcohol", CHECK_IN, {"data_quality": "full"})
+
+    assert "16 bpm" in text
