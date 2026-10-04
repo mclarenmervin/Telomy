@@ -3,10 +3,15 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agent.guardrails import apply_guardrails
-from app.agent.narration import narrate, narrate_check_in
+from app.agent.guardrails import SAFE_FALLBACK, apply_guardrails
+from app.agent.narration import check_in_fallback, narrate, narrate_check_in
 from app.agent.persist import save_prediction
-from app.analytics.check_in import CHECK_IN_PREFIX, CheckIn, evaluate_check_in
+from app.analytics.check_in import (
+    CHECK_IN_PREFIX,
+    PRIORITY,
+    CheckIn,
+    evaluate_check_in,
+)
 from app.analytics.event_analysis import BASELINE_DAYS, analyze_event
 from app.common.logging_config import get_logger, log_context
 from app.common.timeparse import parse_ts
@@ -66,6 +71,16 @@ def build_agent(loader, llm, supabase):
         event = state["event"]
         start = parse_ts(event["started_at"])
         now = _now(state)
+        # Cheapest question first. Every check otherwise re-reads 14 days of raw
+        # measurements to rebuild the baseline, and once every reason has been
+        # delivered there is nothing left that read could change.
+        already_sent = loader.sent_check_in_reasons(state["user_id"], state["event_id"])
+        if already_sent.issuperset(PRIORITY):
+            logger.info(
+                "every check-in reason already delivered, skipping analysis "
+                f"{log_context(user_id=state['user_id'], event_id=state['event_id'])}"
+            )
+            return {"analysis": {}, "check_in": None}
         readings = loader.load_readings(state["user_id"], start, now)
         others = loader.load_other_events(
             state["user_id"], state["event_id"], start - timedelta(days=BASELINE_DAYS)
@@ -74,7 +89,7 @@ def build_agent(loader, llm, supabase):
         fired = evaluate_check_in(
             analysis,
             elapsed_seconds=(now - start).total_seconds(),
-            already_sent=loader.sent_check_in_reasons(state["user_id"], state["event_id"]),
+            already_sent=already_sent,
         )
         if fired is None:
             return {"analysis": analysis, "check_in": None}
@@ -127,6 +142,16 @@ def build_agent(loader, llm, supabase):
 
     def guardrails(state: AgentState) -> dict:
         text, flags = apply_guardrails(state["summary"], state["analysis"])
+        check_in = state.get("check_in")
+        if flags and check_in is not None and text.startswith(SAFE_FALLBACK):
+            # The generic clinician message would drop the very thing we
+            # interrupted them for. The deterministic fact was computed from
+            # their own numbers, so re-running the guardrails over it is safe and
+            # keeps the escalation line the dangerous-value rule may have added.
+            text, _ = apply_guardrails(
+                check_in_fallback(state["event"]["event_type"], check_in),
+                state["analysis"],
+            )
         return {"summary": text, "guardrail_flags": flags}
 
     def persist(state: AgentState) -> dict:

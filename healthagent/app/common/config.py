@@ -1,6 +1,11 @@
 import os
 from dataclasses import dataclass, field
 
+# A check-in interval of 0 would make every check due the instant it is
+# scheduled, turning the timer into a hot loop that re-runs the full event
+# analysis for up to the whole duration cap. One env typo should not do that.
+MIN_CHECK_IN_INTERVAL_SECONDS = 60
+
 # Settings a purpose may override, longest first so BASE_URL wins over its prefix.
 OVERRIDABLE = ("BASE_URL", "API_KEY", "PROVIDER", "MODEL")
 
@@ -65,7 +70,10 @@ def get_settings() -> Settings:
         max_llm_calls=int(os.environ.get("MAX_LLM_CALLS", "3")),
         max_tool_calls=int(os.environ.get("MAX_TOOL_CALLS", "8")),
         wall_clock_seconds=int(os.environ.get("WALL_CLOCK_SECONDS", "60")),
-        check_in_interval_seconds=int(os.environ.get("CHECK_IN_INTERVAL_SECONDS", "600")),
+        check_in_interval_seconds=max(
+            MIN_CHECK_IN_INTERVAL_SECONDS,
+            int(os.environ.get("CHECK_IN_INTERVAL_SECONDS", "600")),
+        ),
         check_in_max_seconds=int(os.environ.get("CHECK_IN_MAX_SECONDS", "28800")),
         delayed_queue_name=os.environ.get("DELAYED_QUEUE_NAME", "events:delayed"),
     )

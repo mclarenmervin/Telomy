@@ -140,7 +140,7 @@ def test_a_started_job_schedules_the_first_check_in():
 
     assert len(delayed.scheduled) == 1
     job, due_at = delayed.scheduled[0]
-    assert job == {"event_id": "e1", "user_id": "u1", "status": "in_progress"}
+    assert (job["event_id"], job["user_id"], job["status"]) == ("e1", "u1", "in_progress")
     assert due_at == SCHEDULE_NOW + timedelta(seconds=settings.check_in_interval_seconds)
 
 
@@ -265,3 +265,58 @@ def test_run_builds_a_delayed_queue_from_the_configured_key():
 
         args, _ = mock_delayed.call_args
         assert args[1] == "events:delayed"
+
+
+PROMOTED = {"event_id": "e1", "user_id": "u1", "status": "in_progress",
+            "started_at": (SCHEDULE_NOW - timedelta(minutes=20)).isoformat()}
+
+
+def test_a_scheduled_job_carries_started_at_so_the_retry_path_can_bound_itself():
+    delayed, agent = SpyDelayed(), EventAgent(OPEN_EVENT)
+
+    process_event_job(
+        {"event_id": "e1", "user_id": "u1", "status": "started"},
+        agent, delayed=delayed, settings=make_settings(), now=SCHEDULE_NOW,
+    )
+
+    job, _ = delayed.scheduled[0]
+    assert job["started_at"] == OPEN_EVENT["started_at"]
+
+
+def test_a_failed_promoted_check_is_retried_instead_of_ending_the_chain():
+    """Regression: nothing else re-enters a promoted job's chain, so a transient
+    read error would otherwise silence the rest of the event."""
+    delayed = SpyDelayed()
+
+    process_event_job(
+        PROMOTED, FakeAgent(fail=True),
+        delayed=delayed, settings=make_settings(), now=SCHEDULE_NOW,
+    )
+
+    assert len(delayed.scheduled) == 1
+    job, due_at = delayed.scheduled[0]
+    assert job["failures"] == 1
+    assert due_at == SCHEDULE_NOW + timedelta(seconds=make_settings().check_in_interval_seconds)
+
+
+def test_consecutive_failures_stop_the_chain():
+    delayed = SpyDelayed()
+
+    process_event_job(
+        {**PROMOTED, "failures": 3}, FakeAgent(fail=True),
+        delayed=delayed, settings=make_settings(), now=SCHEDULE_NOW,
+    )
+
+    assert delayed.scheduled == []
+
+
+def test_a_successful_check_clears_the_failure_count():
+    delayed = SpyDelayed()
+
+    process_event_job(
+        {**PROMOTED, "failures": 2}, EventAgent(OPEN_EVENT),
+        delayed=delayed, settings=make_settings(), now=SCHEDULE_NOW,
+    )
+
+    job, _ = delayed.scheduled[0]
+    assert "failures" not in job or job["failures"] == 0

@@ -1,5 +1,5 @@
 import pytest
-from app.common.config import get_settings
+from app.common.config import MIN_CHECK_IN_INTERVAL_SECONDS, get_settings
 
 
 def test_get_settings_reads_env(monkeypatch):
@@ -107,3 +107,23 @@ def test_check_in_interval_is_overridable(monkeypatch):
     monkeypatch.setenv("CHECK_IN_INTERVAL_SECONDS", "300")
 
     assert get_settings().check_in_interval_seconds == 300
+
+
+def test_a_zero_or_negative_interval_is_clamped_to_a_floor(monkeypatch):
+    """Regression: 0 makes every check due immediately, so the worker re-runs the
+    full analysis for an open event continuously for up to 8 hours."""
+    _required_env(monkeypatch)
+    monkeypatch.setenv("CHECK_IN_INTERVAL_SECONDS", "0")
+
+    assert get_settings().check_in_interval_seconds == MIN_CHECK_IN_INTERVAL_SECONDS
+
+    monkeypatch.setenv("CHECK_IN_INTERVAL_SECONDS", "-30")
+
+    assert get_settings().check_in_interval_seconds == MIN_CHECK_IN_INTERVAL_SECONDS
+
+
+def test_a_sane_short_interval_is_left_alone(monkeypatch):
+    _required_env(monkeypatch)
+    monkeypatch.setenv("CHECK_IN_INTERVAL_SECONDS", "120")
+
+    assert get_settings().check_in_interval_seconds == 120

@@ -1,6 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
-from app.worker.check_in_schedule import next_check_in_due
+from app.worker.check_in_schedule import (
+    MAX_CONSECUTIVE_FAILURES,
+    next_check_in_due,
+    retry_check_in_due,
+)
 from tests.fakes import make_settings
 
 UTC = timezone.utc
@@ -69,3 +73,51 @@ def test_an_unparseable_started_at_stops_the_chain():
     assert next_check_in_due(
         {"status": "started", "started_at": "nonsense"}, "in_progress", NOW, SETTINGS
     ) is None
+
+
+def promoted_job(status="in_progress", failures=0, started_at=NOW - timedelta(minutes=20)):
+    """A job as the scheduler writes it: it carries started_at so the retry path
+    can honour the duration cap without a database read."""
+    job = {"event_id": "e1", "user_id": "u1", "status": status,
+           "started_at": started_at.isoformat()}
+    if failures:
+        job["failures"] = failures
+    return job
+
+
+def test_a_failed_in_progress_job_is_retried_so_one_blip_does_not_end_the_chain():
+    """Regression: a promoted job exists only because the previous run scheduled
+    it, so no webhook retry covers it — a single transient read error would
+    otherwise silence every remaining check-in for the event."""
+    due = retry_check_in_due(promoted_job(), NOW, SETTINGS)
+
+    assert due == NOW + timedelta(seconds=SETTINGS.check_in_interval_seconds)
+
+
+def test_retries_stop_after_the_consecutive_failure_cap():
+    assert retry_check_in_due(
+        promoted_job(failures=MAX_CONSECUTIVE_FAILURES - 1), NOW, SETTINGS
+    ) is not None
+    assert retry_check_in_due(
+        promoted_job(failures=MAX_CONSECUTIVE_FAILURES), NOW, SETTINGS
+    ) is None
+
+
+def test_a_failed_job_past_the_duration_cap_is_not_retried():
+    forgotten = promoted_job(
+        started_at=NOW - timedelta(seconds=SETTINGS.check_in_max_seconds + 1)
+    )
+
+    assert retry_check_in_due(forgotten, NOW, SETTINGS) is None
+
+
+def test_a_job_without_started_at_is_not_retried():
+    """A `started` job came from a webhook Supabase will retry, and carries no
+    start time to bound the chain with, so the retry path leaves it alone."""
+    assert retry_check_in_due(
+        {"event_id": "e1", "user_id": "u1", "status": "started"}, NOW, SETTINGS
+    ) is None
+
+
+def test_an_ended_job_is_never_retried():
+    assert retry_check_in_due(promoted_job(status="ended"), NOW, SETTINGS) is None

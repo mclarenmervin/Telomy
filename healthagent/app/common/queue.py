@@ -19,7 +19,6 @@ class JobQueue:
             return None
         _, raw_job = result
         return json.loads(raw_job)
-from datetime import datetime
 
 
 class DelayedQueue:

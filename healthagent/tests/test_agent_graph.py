@@ -241,7 +241,8 @@ def test_an_unsafe_check_in_is_replaced_and_flagged():
     run_in_progress(db, llm)
 
     row = db.tables["predictions"][0]
-    assert row["summary"] == SAFE_FALLBACK
+    assert "diagnosis" not in row["summary"].lower()
+    assert "atrial" not in row["summary"].lower()
     assert "diagnosis" in row["guardrail_flags"]
 
 
@@ -269,3 +270,61 @@ def test_in_progress_does_not_mutate_the_user_id():
     result = run_in_progress(db, FakeLLM())
 
     assert result["user_id"] == ALICE
+
+
+class CountingLoader(ContextLoader):
+    """Counts the expensive read so a test can prove it was skipped."""
+
+    def __init__(self, db):
+        super().__init__(db)
+        self.reading_loads = 0
+
+    def load_readings(self, user_id, start, end):
+        self.reading_loads += 1
+        return super().load_readings(user_id, start, end)
+
+
+def test_all_reasons_delivered_skips_the_fourteen_day_reading_load():
+    """Every check re-reads 14 days of raw measurements to build the baseline.
+    Once there is nothing left that could fire, that read buys nothing."""
+    db = make_open_db(event_type="sauna")
+    db.tables["predictions"] = [
+        {"user_id": ALICE, "event_id": EVENT_ID, "kind": f"check_in:{reason}",
+         "summary": "already said"}
+        for reason in PRIORITY
+    ]
+    loader = CountingLoader(db)
+
+    build_agent(loader, FakeLLM(), db).invoke({
+        "user_id": ALICE, "event_id": EVENT_ID,
+        "status": "in_progress", "now": IN_PROGRESS_NOW.isoformat(),
+    })
+
+    assert loader.reading_loads == 0
+
+
+def test_a_check_with_reasons_still_available_does_load_readings():
+    db = make_open_db(event_type="sauna")
+    loader = CountingLoader(db)
+
+    build_agent(loader, FakeLLM(), db).invoke({
+        "user_id": ALICE, "event_id": EVENT_ID,
+        "status": "in_progress", "now": IN_PROGRESS_NOW.isoformat(),
+    })
+
+    assert loader.reading_loads == 1
+
+
+def test_a_flagged_check_in_keeps_the_fired_fact_instead_of_going_generic():
+    """A fired rule must never reach the user as a generic clinician message: the
+    deterministic fact was computed from their own numbers and is safe by
+    construction, so it is the right fallback when the wording is rejected."""
+    db = make_open_db(event_type="sauna")
+    llm = FakeLLM("This is a diagnosis of atrial fibrillation.")
+
+    run_in_progress(db, llm)
+
+    row = db.tables["predictions"][0]
+    assert "diagnosis" in row["guardrail_flags"]
+    assert "in progress" in row["summary"].lower()
+    assert "bpm" in row["summary"]
