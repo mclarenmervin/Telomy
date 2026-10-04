@@ -91,6 +91,35 @@ class NotificationService {
     }
   }
 
+  /// Shows a notification immediately, for something happening right now.
+  ///
+  /// Its own channel and high importance, because a mid-event check-in is time
+  /// sensitive in a way the daily reminders are not — and so a user can silence
+  /// the reminders without silencing this.
+  Future<void> showNow({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    await initialize();
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'live_check_ins',
+          'Live check-ins',
+          channelDescription:
+              'Alerts while an event you logged is still happening',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+    );
+  }
+
   Future<void> _daily(int id, int minute, String title, String body) async {
     final now = tz.TZDateTime.now(tz.local);
     var date = tz.TZDateTime(

@@ -11,6 +11,7 @@ import '../widgets/trend_chart.dart';
 import '../../../core/config/feature_flags.dart';
 import '../../health/services/longi_score_service.dart';
 import '../../biological_age/data/biological_age_service.dart';
+import '../../life_events/widgets/life_event_panel.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -153,6 +154,8 @@ class TodayScreen extends ConsumerWidget {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        const LifeEventPanel(),
         const SizedBox(height: 14),
         Row(
           children: [
