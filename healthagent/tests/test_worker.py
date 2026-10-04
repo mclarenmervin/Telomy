@@ -196,3 +196,72 @@ def test_a_failing_scheduler_does_not_break_the_job():
         EventAgent(OPEN_EVENT), delayed=BoomDelayed(),
         settings=make_settings(), now=SCHEDULE_NOW,
     )
+
+
+class PromotingDelayed:
+    def __init__(self, to_promote=0):
+        self._to_promote = to_promote
+        self.promotions = []
+        self.scheduled = []
+
+    def promote_due(self, target, now, limit=100):
+        self.promotions.append(now)
+        return self._to_promote
+
+    def schedule(self, job, due_at):
+        self.scheduled.append((job, due_at))
+
+
+def test_process_one_sweeps_the_delayed_queue_before_reading_work():
+    delayed, agent = PromotingDelayed(to_promote=1), FakeAgent()
+
+    process_one(StubQueue([JOB]), agent, timeout=1, delayed=delayed,
+                settings=make_settings())
+
+    assert len(delayed.promotions) == 1
+    assert len(agent.calls) == 1
+
+
+def test_process_one_still_sweeps_when_there_is_no_work():
+    delayed = PromotingDelayed()
+
+    handled = process_one(StubQueue([]), FakeAgent(), timeout=1, delayed=delayed,
+                          settings=make_settings())
+
+    assert handled is False
+    assert len(delayed.promotions) == 1
+
+
+def test_a_failing_sweep_does_not_stop_the_worker_from_working():
+    class BoomDelayed:
+        def promote_due(self, target, now, limit=100):
+            raise ConnectionError("redis gone")
+
+        def schedule(self, job, due_at):
+            pass
+
+    agent = FakeAgent()
+
+    handled = process_one(StubQueue([JOB]), agent, timeout=1, delayed=BoomDelayed(),
+                          settings=make_settings())
+
+    assert handled is True
+    assert len(agent.calls) == 1
+
+
+def test_run_builds_a_delayed_queue_from_the_configured_key():
+    from app.worker import main as worker_main
+
+    with patch.object(worker_main.redis.Redis, "from_url"), \
+         patch.object(worker_main, "get_supabase_client"), \
+         patch.object(worker_main, "get_narration_model", return_value=None), \
+         patch.object(worker_main, "build_agent"), \
+         patch.object(worker_main, "DelayedQueue") as mock_delayed, \
+         patch.object(worker_main, "process_one", side_effect=KeyboardInterrupt):
+        try:
+            worker_main.run()
+        except KeyboardInterrupt:
+            pass
+
+        args, _ = mock_delayed.call_args
+        assert args[1] == "events:delayed"
