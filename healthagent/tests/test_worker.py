@@ -98,3 +98,101 @@ def test_run_configures_socket_timeout_with_margin_over_dequeue_timeout():
 
         _, kwargs = mock_from_url.call_args
         assert kwargs.get("socket_timeout", 0) >= 15
+
+
+from datetime import datetime, timedelta, timezone
+
+from tests.fakes import make_settings
+
+UTC = timezone.utc
+SCHEDULE_NOW = datetime(2026, 10, 4, 21, 0, tzinfo=UTC)
+OPEN_EVENT = {"status": "started", "started_at": (SCHEDULE_NOW - timedelta(minutes=5)).isoformat()}
+
+
+class SpyDelayed:
+    def __init__(self):
+        self.scheduled = []
+
+    def schedule(self, job, due_at):
+        self.scheduled.append((job, due_at))
+
+
+class EventAgent:
+    """Returns the state a real graph run returns, including the loaded event."""
+
+    def __init__(self, event):
+        self._event = event
+        self.calls = []
+
+    def invoke(self, state):
+        self.calls.append(state)
+        return {**state, "event": self._event}
+
+
+def test_a_started_job_schedules_the_first_check_in():
+    delayed, agent = SpyDelayed(), EventAgent(OPEN_EVENT)
+    settings = make_settings()
+
+    process_event_job(
+        {"event_id": "e1", "user_id": "u1", "status": "started"},
+        agent, delayed=delayed, settings=settings, now=SCHEDULE_NOW,
+    )
+
+    assert len(delayed.scheduled) == 1
+    job, due_at = delayed.scheduled[0]
+    assert job == {"event_id": "e1", "user_id": "u1", "status": "in_progress"}
+    assert due_at == SCHEDULE_NOW + timedelta(seconds=settings.check_in_interval_seconds)
+
+
+def test_an_in_progress_job_reschedules_itself():
+    delayed, agent = SpyDelayed(), EventAgent(OPEN_EVENT)
+
+    process_event_job(
+        {"event_id": "e1", "user_id": "u1", "status": "in_progress"},
+        agent, delayed=delayed, settings=make_settings(), now=SCHEDULE_NOW,
+    )
+
+    assert [j["status"] for j, _ in delayed.scheduled] == ["in_progress"]
+
+
+def test_an_ended_event_stops_rescheduling():
+    delayed = SpyDelayed()
+    agent = EventAgent({"status": "ended", "started_at": OPEN_EVENT["started_at"]})
+
+    process_event_job(
+        {"event_id": "e1", "user_id": "u1", "status": "in_progress"},
+        agent, delayed=delayed, settings=make_settings(), now=SCHEDULE_NOW,
+    )
+
+    assert delayed.scheduled == []
+
+
+def test_scheduling_is_skipped_entirely_when_no_delayed_queue_is_configured():
+    agent = EventAgent(OPEN_EVENT)
+
+    process_event_job({"event_id": "e1", "user_id": "u1", "status": "started"}, agent)
+
+    assert len(agent.calls) == 1
+
+
+def test_a_failing_agent_does_not_schedule_a_follow_up():
+    delayed = SpyDelayed()
+
+    process_event_job(
+        {"event_id": "e1", "user_id": "u1", "status": "started"},
+        FakeAgent(fail=True), delayed=delayed, settings=make_settings(), now=SCHEDULE_NOW,
+    )
+
+    assert delayed.scheduled == []
+
+
+def test_a_failing_scheduler_does_not_break_the_job():
+    class BoomDelayed:
+        def schedule(self, job, due_at):
+            raise ConnectionError("redis gone")
+
+    process_event_job(  # must not raise
+        {"event_id": "e1", "user_id": "u1", "status": "started"},
+        EventAgent(OPEN_EVENT), delayed=BoomDelayed(),
+        settings=make_settings(), now=SCHEDULE_NOW,
+    )
