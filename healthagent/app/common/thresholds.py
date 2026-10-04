@@ -22,6 +22,16 @@ class Thresholds:
     hr_attention_delta: float = 15.0
     stress_attention_delta: float = 15.0
     hrv_attention_delta: float = 15.0
+    # Mid-event check-ins are deliberately stricter than the retrospective
+    # attention thresholds above: a false alarm delivered mid-event costs more
+    # trust than a missed one, because the user is being interrupted.
+    check_in_hr_delta: float = 12.0
+    check_in_hr_z: float = 2.0
+    check_in_hrv_drop_pct: float = 25.0
+    # A rule parameter, not a timer one: it decides whether a window mean is old
+    # enough to mean anything, so it belongs with the other validated rule
+    # inputs rather than in service config.
+    check_in_min_elapsed_seconds: float = 900.0
 
 
 # (low, high) inclusive bounds a value must fall within to be believed.
@@ -32,6 +42,11 @@ RANGES = {
     "hr_attention_delta": (5.0, 50.0),
     "stress_attention_delta": (5.0, 50.0),
     "hrv_attention_delta": (5.0, 50.0),
+    "check_in_hr_delta": (5.0, 50.0),
+    "check_in_hr_z": (1.0, 6.0),
+    "check_in_hrv_drop_pct": (10.0, 60.0),
+    # 0 is allowed so a demo or a test can disable the wait deliberately.
+    "check_in_min_elapsed_seconds": (0.0, 7200.0),
 }
 
 

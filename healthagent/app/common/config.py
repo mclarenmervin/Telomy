@@ -27,6 +27,9 @@ class Settings:
     max_llm_calls: int = 3
     max_tool_calls: int = 8
     wall_clock_seconds: int = 60
+    check_in_interval_seconds: int = 600
+    check_in_max_seconds: int = 28800
+    delayed_queue_name: str = "events:delayed"
 
 
 def _llm_overrides() -> dict[str, dict[str, str]]:
@@ -62,4 +65,7 @@ def get_settings() -> Settings:
         max_llm_calls=int(os.environ.get("MAX_LLM_CALLS", "3")),
         max_tool_calls=int(os.environ.get("MAX_TOOL_CALLS", "8")),
         wall_clock_seconds=int(os.environ.get("WALL_CLOCK_SECONDS", "60")),
+        check_in_interval_seconds=int(os.environ.get("CHECK_IN_INTERVAL_SECONDS", "600")),
+        check_in_max_seconds=int(os.environ.get("CHECK_IN_MAX_SECONDS", "28800")),
+        delayed_queue_name=os.environ.get("DELAYED_QUEUE_NAME", "events:delayed"),
     )

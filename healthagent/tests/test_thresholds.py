@@ -81,6 +81,10 @@ EXPECTED_BOUNDS = [
     ("hr_attention_delta", 5.0, 50.0, 15.0),
     ("stress_attention_delta", 5.0, 50.0, 15.0),
     ("hrv_attention_delta", 5.0, 50.0, 15.0),
+    ("check_in_hr_delta", 5.0, 50.0, 12.0),
+    ("check_in_hr_z", 1.0, 6.0, 2.0),
+    ("check_in_hrv_drop_pct", 10.0, 60.0, 25.0),
+    ("check_in_min_elapsed_seconds", 0.0, 7200.0, 900.0),
 ]
 
 
@@ -122,3 +126,24 @@ def test_boundary_values_are_accepted_on_their_fields(monkeypatch, value):
         monkeypatch.setenv(name.upper(), value)
         assert getattr(get_thresholds(), name) == float(value)
         monkeypatch.delenv(name.upper())
+
+
+def test_check_in_defaults_are_strict():
+    thresholds = get_thresholds()
+
+    assert thresholds.check_in_hr_delta == 12.0
+    assert thresholds.check_in_hr_z == 2.0
+    assert thresholds.check_in_hrv_drop_pct == 25.0
+    assert thresholds.check_in_min_elapsed_seconds == 900.0
+
+
+def test_check_in_threshold_outside_its_range_falls_back_to_the_default(monkeypatch):
+    monkeypatch.setenv("CHECK_IN_HR_Z", "0.1")
+
+    assert get_thresholds().check_in_hr_z == 2.0
+
+
+def test_check_in_threshold_is_overridable_within_range(monkeypatch):
+    monkeypatch.setenv("CHECK_IN_HR_DELTA", "20")
+
+    assert get_thresholds().check_in_hr_delta == 20.0

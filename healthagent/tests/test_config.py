@@ -80,3 +80,30 @@ def test_db_url_is_none_when_unset(monkeypatch):
         monkeypatch.setenv(key, "x")
     monkeypatch.delenv("SUPABASE_DB_URL", raising=False)
     assert get_settings().supabase_db_url is None
+
+
+def _required_env(monkeypatch):
+    """The three vars get_settings() demands; the check-in settings have defaults."""
+    monkeypatch.setenv("SUPABASE_URL", "https://x.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "service-key")
+    monkeypatch.setenv("WEBHOOK_SECRET", "shh")
+
+
+def test_check_in_timer_defaults(monkeypatch):
+    _required_env(monkeypatch)
+    monkeypatch.delenv("CHECK_IN_INTERVAL_SECONDS", raising=False)
+    monkeypatch.delenv("CHECK_IN_MAX_SECONDS", raising=False)
+    monkeypatch.delenv("DELAYED_QUEUE_NAME", raising=False)
+
+    settings = get_settings()
+
+    assert settings.check_in_interval_seconds == 600
+    assert settings.check_in_max_seconds == 28800
+    assert settings.delayed_queue_name == "events:delayed"
+
+
+def test_check_in_interval_is_overridable(monkeypatch):
+    _required_env(monkeypatch)
+    monkeypatch.setenv("CHECK_IN_INTERVAL_SECONDS", "300")
+
+    assert get_settings().check_in_interval_seconds == 300
