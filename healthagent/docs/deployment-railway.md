@@ -12,6 +12,7 @@ Railway gives the agent a permanent URL so the app works for anyone, on any devi
 | Supabase | Supabase (unchanged) |
 | Gateway (`/webhooks/activity-sessions`) | Railway service, public URL |
 | Activity worker (the agent) | Railway service, no public URL |
+| Event worker (events + mid-event check-ins) | Railway service, no public URL |
 | Redis (the queue between them) | Railway managed Redis |
 
 The phone never talks to the agent. It writes a row to `activity_sessions`; the Postgres trigger
@@ -30,14 +31,20 @@ service's Root Directory to `healthagent`** — the Dockerfiles do `COPY app ./a
    Generate a public domain for this one. Health check path: `/health`.
 3. **activity-worker** — Root Directory `healthagent`, Dockerfile Path
    `docker/Dockerfile.activity-worker`. No public domain.
+4. **worker** — Root Directory `healthagent`, Dockerfile Path
+   `docker/Dockerfile.worker`. No public domain. **Required** for events and for
+   mid-event check-ins: this is the only process that sweeps the `events:delayed`
+   timer, so without it an open event is never looked at again and no check-in
+   can ever fire.
 
 `Dockerfile.gateway` reads `$PORT` (Railway assigns it) and falls back to 8000 so
 `docker-compose` keeps working locally.
 
-The existing `worker` (the older realtime event worker) is optional for this feature; deploy it
-the same way as activity-worker if you want it.
+The `worker` service was optional while only activity reports existed. It is not optional any
+more — mid-event check-ins live entirely in it (see
+[the check-ins design](superpowers/specs/2026-10-04-mid-event-check-ins-design.md)).
 
-## Variables (set on gateway and activity-worker both)
+## Variables (set on gateway, activity-worker and worker)
 
 Generate the exact block from your local `.env` instead of retyping it:
 
@@ -46,7 +53,7 @@ cd healthagent
 ./scripts/railway_env.sh | pbcopy
 ```
 
-Paste that into Railway's **RAW Editor** (Service → Variables) on both services, or once into
+Paste that into Railway's **RAW Editor** (Service → Variables) on all three services, or once into
 project-level **Shared Variables**. The script warns on stderr if a key is missing from `.env` or
 if `SUPABASE_DB_URL` points at the transaction pooler (6543) instead of the session pooler (5432).
 

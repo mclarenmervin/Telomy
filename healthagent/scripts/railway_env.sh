@@ -40,10 +40,22 @@ LLM_PROVIDER=openai
 LLM_MODEL=${LLM_MODEL_OVERRIDE:-gpt-5.4-mini}
 QUEUE_NAME=events:realtime
 ACTIVITY_QUEUE_NAME=activity:realtime
+DELAYED_QUEUE_NAME=events:delayed
 MAX_LLM_CALLS=2
 MAX_TOOL_CALLS=8
 WALL_CLOCK_SECONDS=60
+CHECK_IN_INTERVAL_SECONDS=${CHECK_IN_INTERVAL_OVERRIDE:-600}
+CHECK_IN_MIN_ELAPSED_SECONDS=${CHECK_IN_MIN_ELAPSED_OVERRIDE:-900}
+CHECK_IN_MAX_SECONDS=28800
 EOF
+
+# The three check-in rule thresholds are deliberately NOT emitted: they are
+# range-validated with sane defaults, and pinning them here would mean every
+# tuning change needs a redeploy of three services. Set them in Railway only
+# when you are actually tuning.
+#
+#   CHECK_IN_INTERVAL_OVERRIDE=60 CHECK_IN_MIN_ELAPSED_OVERRIDE=0 \
+#     ./scripts/railway_env.sh    # demo cadence: a check every minute, no warm-up
 
 # Per-purpose overrides, emitted only when set locally. Groq cannot run the
 # activity agent (no tools + response schema in one request) but is fine for the
