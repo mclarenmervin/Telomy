@@ -122,3 +122,150 @@ def test_user_id_is_never_changed_by_the_graph():
     result = run(db, FakeLLM())
 
     assert result["user_id"] == ALICE
+
+
+from app.analytics.check_in import PRIORITY, REASON_HR
+
+IN_PROGRESS_NOW = START + timedelta(minutes=45)
+
+
+def make_open_db(owner=ALICE, status="started", event_type="alcohol", with_readings=True):
+    """An event that is still open, with readings up to IN_PROGRESS_NOW."""
+    event = {
+        "id": EVENT_ID, "user_id": owner, "event_type": event_type, "status": status,
+        "started_at": START.isoformat(), "ended_at": None,
+    }
+    readings = []
+    if with_readings:
+        readings = generate_readings(
+            ALICE, IN_PROGRESS_NOW, days=14, seed=3,
+            events=[(event_type, START, IN_PROGRESS_NOW)],
+        )
+    return FakeSupabase({"events": [event], "health_measurements": readings})
+
+
+def run_in_progress(db, llm, user=ALICE, now=IN_PROGRESS_NOW):
+    agent = build_agent(ContextLoader(db), llm, db)
+    return agent.invoke({
+        "user_id": user, "event_id": EVENT_ID,
+        "status": "in_progress", "now": now.isoformat(),
+    })
+
+
+def test_in_progress_check_writes_a_check_in_when_a_rule_fires():
+    db, llm = make_open_db(event_type="sauna"), FakeLLM("Your heart rate is climbing.")
+
+    run_in_progress(db, llm)
+
+    rows = db.tables["predictions"]
+    assert len(rows) == 1
+    assert rows[0]["kind"] == f"check_in:{REASON_HR}"
+    assert rows[0]["user_id"] == ALICE
+    assert rows[0]["summary"] == "Your heart rate is climbing."
+
+
+def test_a_quiet_in_progress_check_writes_nothing_and_skips_the_llm():
+    db, llm = make_open_db(event_type="eating"), FakeLLM()
+
+    run_in_progress(db, llm)
+
+    assert db.tables.get("predictions", []) == []
+    assert llm.calls == 0
+
+
+def test_an_in_progress_check_with_no_readings_stays_silent():
+    db, llm = make_open_db(with_readings=False), FakeLLM()
+
+    run_in_progress(db, llm)
+
+    assert db.tables.get("predictions", []) == []
+    assert llm.calls == 0
+
+
+def test_a_reason_already_delivered_is_never_sent_twice():
+    """Regression: the same reason buzzing every ten minutes is how users switch
+    notifications off. A *different* reason may still fire (design §3.3)."""
+    db, llm = make_open_db(event_type="sauna"), FakeLLM()
+    db.tables["predictions"] = [
+        {"user_id": ALICE, "event_id": EVENT_ID, "kind": f"check_in:{REASON_HR}",
+         "summary": "already said"},
+    ]
+
+    run_in_progress(db, llm)
+
+    # The already-delivered row must be untouched: if the rule re-fired on the
+    # same reason, the upsert on (event_id, kind) would overwrite this summary
+    # with a fresh narration and the user would be buzzed about it twice.
+    hr_rows = [r for r in db.tables["predictions"] if r["kind"] == f"check_in:{REASON_HR}"]
+    assert len(hr_rows) == 1
+    assert hr_rows[0]["summary"] == "already said"
+
+
+def test_every_reason_already_delivered_means_silence_and_no_llm_call():
+    db, llm = make_open_db(event_type="sauna"), FakeLLM()
+    db.tables["predictions"] = [
+        {"user_id": ALICE, "event_id": EVENT_ID, "kind": f"check_in:{reason}",
+         "summary": "already said"}
+        for reason in PRIORITY
+    ]
+
+    run_in_progress(db, llm)
+
+    assert len(db.tables["predictions"]) == len(PRIORITY)
+    assert llm.calls == 0
+
+
+def test_an_event_that_ended_before_the_check_ran_produces_nothing():
+    """Regression: the timer fires after the user tapped stop."""
+    db, llm = make_open_db(event_type="sauna", status="ended"), FakeLLM()
+
+    run_in_progress(db, llm)
+
+    assert db.tables.get("predictions", []) == []
+    assert llm.calls == 0
+
+
+def test_an_in_progress_check_on_another_users_event_produces_nothing():
+    db, llm = make_open_db(owner=BOB, event_type="sauna"), FakeLLM()
+
+    run_in_progress(db, llm, user=ALICE)
+
+    assert db.tables.get("predictions", []) == []
+    assert llm.calls == 0
+
+
+def test_an_unsafe_check_in_is_replaced_and_flagged():
+    db = make_open_db(event_type="sauna")
+    llm = FakeLLM("This is a diagnosis of atrial fibrillation.")
+
+    run_in_progress(db, llm)
+
+    row = db.tables["predictions"][0]
+    assert row["summary"] == SAFE_FALLBACK
+    assert "diagnosis" in row["guardrail_flags"]
+
+
+def test_a_check_in_without_an_llm_still_reaches_the_user():
+    db = make_open_db(event_type="sauna")
+
+    run_in_progress(db, None)
+
+    row = db.tables["predictions"][0]
+    assert "in progress" in row["summary"].lower()
+
+
+def test_a_check_before_the_min_elapsed_guard_stays_silent():
+    db, llm = make_open_db(event_type="sauna"), FakeLLM()
+
+    run_in_progress(db, llm, now=START + timedelta(minutes=5))
+
+    assert db.tables.get("predictions", []) == []
+    assert llm.calls == 0
+
+
+def test_in_progress_does_not_mutate_the_user_id():
+    db = make_open_db(event_type="sauna")
+
+    result = run_in_progress(db, FakeLLM())
+
+    assert result["user_id"] == ALICE
