@@ -5,7 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/supabase_config.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../settings/services/notification_service.dart';
+import '../../settings/providers/notification_provider.dart';
+import '../data/check_in_permission.dart';
 import '../data/life_event_service.dart';
 import '../models/event_check_in.dart';
 import '../models/life_event.dart';
@@ -23,8 +24,8 @@ final lifeEventServiceProvider = Provider<LifeEventService>(
   (ref) => LifeEventService(Supabase.instance.client),
 );
 
-final lifeEventNotificationsProvider = Provider<NotificationService>(
-  (ref) => NotificationService(),
+final checkInPermissionProvider = Provider<CheckInPermission>(
+  (ref) => CheckInPermission(ref.read(notificationServiceProvider)),
 );
 
 final lifeEventProvider =
@@ -122,7 +123,7 @@ class LifeEventController extends Notifier<LifeEventState> {
     // the real delivery and the card is the record.
     unawaited(
       ref
-          .read(lifeEventNotificationsProvider)
+          .read(notificationServiceProvider)
           .showNow(
             id: checkIn.reason.hashCode & 0x7fffffff,
             title: checkIn.needsEscalation
@@ -169,6 +170,10 @@ class LifeEventController extends Notifier<LifeEventState> {
     final userId = _userId;
     if (userId == null || state.busy) return;
     state = state.copyWith(busy: true, clearError: true);
+    // Asked here, not at launch: the user has just asked us to watch something,
+    // which is the only moment the request explains itself. Never blocks the
+    // event being created.
+    await ref.read(checkInPermissionProvider).ensure();
     try {
       final event = await _service.start(userId: userId, eventType: type.key);
       if (event == null) {
