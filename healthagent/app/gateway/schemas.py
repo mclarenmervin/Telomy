@@ -33,3 +33,19 @@ class ActivityWebhookPayload(BaseModel):
     type: Literal["INSERT", "UPDATE", "DELETE"]
     table: str
     record: ActivitySessionRecord
+
+
+class LabUploadRecord(BaseModel):
+    """Only what decides whether to enqueue. The paths and digests are
+    deliberately not modelled: the worker re-reads the authoritative row, so a
+    replayed webhook cannot pin extraction to a stale location."""
+
+    id: str
+    user_id: str
+    status: str
+
+
+class LabUploadWebhookPayload(BaseModel):
+    type: Literal["INSERT", "UPDATE", "DELETE"]
+    table: str
+    record: LabUploadRecord

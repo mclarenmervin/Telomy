@@ -37,6 +37,9 @@ class Settings:
     delayed_queue_name: str = "events:delayed"
     score_queue_name: str = "scores:batch"
     score_delayed_queue_name: str = "scores:delayed"
+    # Its own lane: extracting a photographed panel is slow and must not sit in
+    # front of a user waiting on a score.
+    lab_queue_name: str = "labs:batch"
 
 
 def _llm_overrides() -> dict[str, dict[str, str]]:
@@ -82,4 +85,5 @@ def get_settings() -> Settings:
         score_delayed_queue_name=os.environ.get(
             "SCORE_DELAYED_QUEUE_NAME", "scores:delayed"
         ),
+        lab_queue_name=os.environ.get("LAB_QUEUE_NAME", "labs:batch"),
     )
