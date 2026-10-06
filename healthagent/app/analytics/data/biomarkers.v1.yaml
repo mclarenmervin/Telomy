@@ -1,0 +1,431 @@
+# Telomy biomarker catalog — the global reference range set.
+#
+# THIS FILE IS MEDICAL CONTENT. It is the source of truth for every range the
+# platform grades against, and it is deliberately in git rather than in a table
+# so that changes get diffs, blame and a pull request. It must be reviewed by a
+# clinician before it is relied upon in production.
+#
+# STATUS: v1 draft — ranges compiled from the cited literature, NOT yet clinically
+# reviewed. Ship nothing user-facing from this file until that review happens.
+#
+# Two ranges per marker, which is the whole point:
+#   standard  — the usual clinical reference interval. Inside it you are
+#               statistically unremarkable, which is not the same as well.
+#   optimal   — associated with lowest long-term risk in longevity and outcome
+#               literature. A result can be standard-normal and still flagged.
+#   critical  — outside this, escalate immediately and deterministically,
+#               regardless of anything else.
+#
+# units: factor (and optional offset) to convert THAT unit INTO canonical:
+#   canonical = value * factor + offset
+#
+# sex: omit for markers whose ranges do not differ; otherwise provide
+# `ranges_by_sex` with `male` / `female` keys. A marker with sex-specific ranges
+# and an unknown sex returns no result rather than a default.
+
+version: global.v1
+
+biomarkers:
+
+  # ── Metabolic ──────────────────────────────────────────────────────────────
+  - id: glucose_fasting
+    name: Fasting glucose
+    system: metabolic
+    canonical_unit: mg/dL
+    units:
+      mg/dL: 1.0
+      mmol/L: 18.0182
+    standard: [70, 99]
+    optimal: [70, 85]
+    critical: [40, 400]
+    citation: "Tirosh A et al. (2011) Normal fasting plasma glucose and risk. PMID 21220444"
+
+  - id: hba1c
+    name: HbA1c
+    system: metabolic
+    canonical_unit: "%"
+    units:
+      "%": 1.0
+      mmol/mol: { factor: 0.0915, offset: 2.15 }   # NGSP% = IFCC/10.929 + 2.15
+    standard: [4.0, 5.6]
+    optimal: [4.8, 5.2]
+    critical: [3.0, 15.0]
+    citation: "Levine ME et al. (2018) PhenoAge. PMID 29676998; ADA Standards of Care"
+
+  - id: insulin_fasting
+    name: Fasting insulin
+    system: metabolic
+    canonical_unit: uIU/mL
+    units:
+      uIU/mL: 1.0
+      pmol/L: 0.1440
+    standard: [2.6, 24.9]
+    optimal: [2.6, 5.0]
+    critical: [0.5, 100.0]
+    citation: "Centenarian cohort studies of fasting insulin. PMID 12970313"
+
+  # ── Cardiovascular / lipids ────────────────────────────────────────────────
+  - id: ldl_cholesterol
+    name: LDL cholesterol
+    system: cardiovascular
+    canonical_unit: mg/dL
+    units:
+      mg/dL: 1.0
+      mmol/L: 38.67
+    standard: [0, 100]
+    optimal: [0, 70]
+    critical: [0, 400]
+    citation: "Ference BA et al. (2017) LDL-C and ASCVD, EAS/ESC. PMID 28444290"
+
+  - id: hdl_cholesterol
+    name: HDL cholesterol
+    system: cardiovascular
+    canonical_unit: mg/dL
+    units:
+      mg/dL: 1.0
+      mmol/L: 38.67
+    standard: [40, 100]
+    optimal: [60, 90]
+    critical: [15, 150]
+    citation: "Sirtori CR (2006) HDL and cardiovascular risk. PMID 16843445"
+
+  - id: triglycerides
+    name: Triglycerides
+    system: cardiovascular
+    canonical_unit: mg/dL
+    units:
+      mg/dL: 1.0
+      mmol/L: 88.57
+    standard: [0, 150]
+    optimal: [0, 100]
+    critical: [0, 1000]
+    citation: "Nordestgaard BG (2016) Triglyceride-rich lipoproteins. PMID 27918805"
+
+  - id: apob
+    name: Apolipoprotein B
+    system: cardiovascular
+    canonical_unit: mg/dL
+    units:
+      mg/dL: 1.0
+      g/L: 100.0
+    standard: [0, 100]
+    optimal: [0, 60]
+    critical: [0, 250]
+    citation: "Sniderman AD et al. (2019) ApoB and cardiovascular risk. PMID 30584050"
+
+  - id: lipoprotein_a
+    name: Lipoprotein(a)
+    system: cardiovascular
+    canonical_unit: nmol/L
+    units:
+      nmol/L: 1.0
+      mg/dL: 2.15
+    standard: [0, 125]
+    optimal: [0, 75]
+    critical: [0, 500]
+    citation: "Tsimikas S (2017) Lipoprotein(a) as a risk factor. PMID 29141781"
+
+  # ── Inflammation ───────────────────────────────────────────────────────────
+  - id: hs_crp
+    name: hs-CRP
+    system: inflammatory
+    canonical_unit: mg/L
+    units:
+      mg/L: 1.0
+      mg/dL: 10.0
+    standard: [0, 3.0]
+    optimal: [0, 1.0]
+    critical: [0, 100.0]
+    citation: "Ridker PM (2003) Clinical application of C-reactive protein. PMID 12711671"
+
+  - id: homocysteine
+    name: Homocysteine
+    system: inflammatory
+    canonical_unit: umol/L
+    units:
+      umol/L: 1.0
+      mg/L: 7.397
+    standard: [0, 15.0]
+    optimal: [0, 9.0]
+    critical: [0, 100.0]
+    citation: "Smith AD et al. (2010) Homocysteine lowering by B vitamins. PMID 20838622"
+
+  # ── Hepatic ────────────────────────────────────────────────────────────────
+  - id: alt
+    name: ALT
+    system: hepatic
+    canonical_unit: U/L
+    units:
+      U/L: 1.0
+      IU/L: 1.0
+    standard: [0, 56]
+    optimal: [0, 25]
+    critical: [0, 1000]
+    citation: "NAFLD clinical chemistry literature; Prati D et al. (2002) PMID 11926784"
+
+  - id: ast
+    name: AST
+    system: hepatic
+    canonical_unit: U/L
+    units:
+      U/L: 1.0
+      IU/L: 1.0
+    standard: [0, 40]
+    optimal: [0, 25]
+    critical: [0, 1000]
+    citation: "NAFLD clinical chemistry literature; Prati D et al. (2002) PMID 11926784"
+
+  - id: ggt
+    name: GGT
+    system: hepatic
+    canonical_unit: U/L
+    units:
+      U/L: 1.0
+      IU/L: 1.0
+    standard: [0, 55]
+    optimal: [0, 25]
+    critical: [0, 1000]
+    citation: "Whitfield JB (2001) Gamma glutamyl transferase. PMID 11724178"
+
+  - id: albumin
+    name: Albumin
+    system: hepatic
+    canonical_unit: g/dL
+    units:
+      g/dL: 1.0
+      g/L: 0.1
+    standard: [3.5, 5.0]
+    optimal: [4.2, 5.0]
+    critical: [2.0, 6.5]
+    citation: "Levine ME et al. (2018) PhenoAge. PMID 29676998"
+
+  # ── Renal ──────────────────────────────────────────────────────────────────
+  - id: creatinine
+    name: Creatinine
+    system: renal
+    canonical_unit: mg/dL
+    units:
+      mg/dL: 1.0
+      umol/L: 0.011312
+    ranges_by_sex:
+      male:
+        standard: [0.74, 1.35]
+        # Lower creatinine means higher eGFR, but very low also means low muscle
+        # mass, so optimal sits in the lower-middle of the standard interval
+        # rather than below it.
+        optimal: [0.74, 1.00]
+      female:
+        standard: [0.59, 1.04]
+        optimal: [0.60, 0.90]
+    critical: [0.2, 10.0]
+    citation: "KDIGO clinical practice guidelines; laboratory reference intervals"
+
+  - id: egfr
+    name: eGFR
+    system: renal
+    canonical_unit: mL/min/1.73m2
+    units:
+      mL/min/1.73m2: 1.0
+      mL/min: 1.0
+    standard: [60, 200]
+    optimal: [90, 200]
+    critical: [15, 250]
+    citation: "KDIGO 2012 clinical practice guideline for CKD"
+
+  - id: uric_acid
+    name: Uric acid
+    system: renal
+    canonical_unit: mg/dL
+    units:
+      mg/dL: 1.0
+      umol/L: 0.016807
+    ranges_by_sex:
+      male:
+        standard: [3.4, 7.0]
+        optimal: [3.4, 5.5]
+      female:
+        standard: [2.4, 6.0]
+        optimal: [2.4, 5.0]
+    critical: [1.0, 15.0]
+    citation: "Feig DI et al. (2008) Uric acid and cardiovascular risk. PMID 18946066"
+
+  # ── Thyroid ────────────────────────────────────────────────────────────────
+  - id: tsh
+    name: TSH
+    system: thyroid
+    canonical_unit: mIU/L
+    units:
+      mIU/L: 1.0
+      uIU/mL: 1.0
+    standard: [0.4, 4.0]
+    optimal: [1.0, 2.5]
+    critical: [0.01, 50.0]
+    citation: "Garber JR et al. AACE/ETA hypothyroidism guidelines. PMID 22961224"
+
+  - id: free_t3
+    name: Free T3
+    system: thyroid
+    canonical_unit: pg/mL
+    units:
+      pg/mL: 1.0
+      pmol/L: 0.651
+    standard: [2.3, 4.2]
+    optimal: [3.0, 4.2]
+    critical: [0.5, 15.0]
+    citation: "Endocrine Society thyroid function reference intervals"
+
+  - id: free_t4
+    name: Free T4
+    system: thyroid
+    canonical_unit: ng/dL
+    units:
+      ng/dL: 1.0
+      pmol/L: 0.0777
+    standard: [0.8, 1.8]
+    optimal: [1.0, 1.5]
+    critical: [0.2, 7.0]
+    citation: "Endocrine Society thyroid function reference intervals"
+
+  # ── Vitamins and minerals ──────────────────────────────────────────────────
+  - id: vitamin_d_25oh
+    name: Vitamin D (25-OH)
+    system: vitamins
+    canonical_unit: ng/mL
+    units:
+      ng/mL: 1.0
+      nmol/L: 0.4006
+    standard: [30, 100]
+    optimal: [40, 80]
+    critical: [5, 150]
+    citation: "Holick MF et al. Endocrine Society vitamin D guideline. PMID 21646368"
+
+  - id: vitamin_b12
+    name: Vitamin B12
+    system: vitamins
+    canonical_unit: pg/mL
+    units:
+      pg/mL: 1.0
+      pmol/L: 1.355
+    standard: [200, 900]
+    optimal: [500, 900]
+    critical: [100, 2000]
+    citation: "Stabler SP (2013) Vitamin B12 deficiency. PMID 23301732"
+
+  - id: ferritin
+    name: Ferritin
+    system: minerals
+    canonical_unit: ng/mL
+    units:
+      ng/mL: 1.0
+      ug/L: 1.0
+    ranges_by_sex:
+      male:
+        standard: [30, 400]
+        optimal: [70, 200]
+      female:
+        standard: [15, 200]
+        optimal: [50, 150]
+    critical: [5, 1500]
+    citation: "WHO guidance on ferritin concentrations (2020); iron status literature"
+
+  - id: magnesium
+    name: Magnesium
+    system: minerals
+    canonical_unit: mg/dL
+    units:
+      mg/dL: 1.0
+      mmol/L: 2.431
+    standard: [1.7, 2.2]
+    optimal: [2.0, 2.2]
+    critical: [1.0, 4.0]
+    citation: "Costello RB et al. (2016) Magnesium status interpretation. PMID 27385293"
+
+  # ── Haematology ────────────────────────────────────────────────────────────
+  - id: haemoglobin
+    name: Haemoglobin
+    system: haematology
+    canonical_unit: g/dL
+    units:
+      g/dL: 1.0
+      g/L: 0.1
+    ranges_by_sex:
+      male:
+        standard: [13.5, 17.5]
+        optimal: [14.0, 16.5]
+      female:
+        standard: [12.0, 15.5]
+        optimal: [13.0, 15.0]
+    critical: [6.0, 22.0]
+    citation: "WHO haemoglobin thresholds for anaemia (2011)"
+
+  - id: rdw
+    name: Red cell distribution width
+    system: haematology
+    canonical_unit: "%"
+    units:
+      "%": 1.0
+    standard: [11.5, 15.0]
+    optimal: [11.5, 13.0]
+    critical: [10.0, 30.0]
+    citation: "Levine ME et al. (2018) PhenoAge. PMID 29676998"
+
+  - id: wbc
+    name: White blood cell count
+    system: haematology
+    canonical_unit: 10^3/uL
+    units:
+      10^3/uL: 1.0
+      10^9/L: 1.0
+    standard: [4.0, 11.0]
+    optimal: [4.5, 6.5]
+    critical: [1.0, 50.0]
+    citation: "Levine ME et al. (2018) PhenoAge. PMID 29676998"
+
+  - id: lymphocyte_percent
+    name: Lymphocyte percentage
+    system: haematology
+    canonical_unit: "%"
+    units:
+      "%": 1.0
+    standard: [20, 45]
+    optimal: [30, 45]
+    critical: [5, 80]
+    citation: "Levine ME et al. (2018) PhenoAge. PMID 29676998"
+
+  # ── Hormonal / longevity ───────────────────────────────────────────────────
+  - id: igf_1
+    name: IGF-1
+    system: hormonal
+    canonical_unit: ng/mL
+    units:
+      ng/mL: 1.0
+      ug/L: 1.0
+      nmol/L: 7.649
+    standard: [50, 300]
+    optimal: [120, 180]
+    critical: [20, 600]
+    citation: "Milman S et al. (2014) Low IGF-1 and longevity. PMID 24719268"
+
+  - id: dhea_s
+    name: DHEA-S
+    system: hormonal
+    canonical_unit: ug/dL
+    units:
+      ug/dL: 1.0
+      umol/L: 36.846
+    standard: [138, 475]
+    optimal: [200, 400]
+    critical: [20, 1000]
+    citation: "Endocrine Society adrenal androgen reference intervals"
+
+  - id: cortisol_morning
+    name: Morning cortisol
+    system: hormonal
+    canonical_unit: ug/dL
+    units:
+      ug/dL: 1.0
+      nmol/L: 0.03625
+    standard: [6, 23]
+    optimal: [10, 18]
+    critical: [1, 60]
+    citation: "Endocrine Society adrenal function reference intervals"

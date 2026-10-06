@@ -20,3 +20,5 @@ psycopg-pool==3.3.3
 # supabase, but the gateway imports them directly, so they are pinned here too.
 pyjwt==2.14.0
 cryptography==50.0.1
+# The biomarker catalog is YAML so that medical content reviews as a diff.
+PyYAML==6.0.3
