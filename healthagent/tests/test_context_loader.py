@@ -108,3 +108,56 @@ def test_sent_check_in_reasons_ignores_other_events():
     ]})
 
     assert ContextLoader(db).sent_check_in_reasons(ALICE, EVENT_ID) == set()
+
+
+def test_range_overrides_returns_the_users_own_and_their_clinics():
+    """One read per user. Grading a 40-marker panel must not be 40 round trips."""
+    db = FakeSupabase({
+        "clinic_members": [{"user_id": ALICE, "clinic_id": "c1"}],
+        "reference_range_overrides": [
+            {"scope": "user", "user_id": ALICE, "clinic_id": None,
+             "biomarker_id": "hba1c", "standard_low": 4.0, "standard_high": 7.0,
+             "optimal_low": 4.8, "optimal_high": 5.4, "version": "user.v1",
+             "citation": "Endocrinologist note"},
+            {"scope": "clinic", "user_id": None, "clinic_id": "c1",
+             "biomarker_id": "ldl_cholesterol", "standard_low": 0, "standard_high": 130,
+             "optimal_low": 0, "optimal_high": 80, "version": "clinic.v2",
+             "citation": "Clinic protocol"},
+        ],
+    })
+
+    rows = ContextLoader(db).range_overrides(ALICE)
+
+    assert {r["biomarker_id"] for r in rows} == {"hba1c", "ldl_cholesterol"}
+
+
+def test_range_overrides_excludes_another_clinics_rows():
+    db = FakeSupabase({
+        "clinic_members": [{"user_id": ALICE, "clinic_id": "c1"}],
+        "reference_range_overrides": [
+            {"scope": "clinic", "user_id": None, "clinic_id": "c2",
+             "biomarker_id": "hba1c", "standard_low": 4.0, "standard_high": 9.0,
+             "optimal_low": 4.8, "optimal_high": 5.4, "version": "clinic.v9",
+             "citation": "Someone else's protocol"},
+        ],
+    })
+
+    assert ContextLoader(db).range_overrides(ALICE) == []
+
+
+def test_range_overrides_excludes_another_users_personal_rows():
+    db = FakeSupabase({
+        "clinic_members": [],
+        "reference_range_overrides": [
+            {"scope": "user", "user_id": BOB, "clinic_id": None,
+             "biomarker_id": "hba1c", "standard_low": 4.0, "standard_high": 9.0,
+             "optimal_low": 4.8, "optimal_high": 5.4, "version": "user.v1",
+             "citation": "Bob's note"},
+        ],
+    })
+
+    assert ContextLoader(db).range_overrides(ALICE) == []
+
+
+def test_range_overrides_is_empty_when_there_are_none():
+    assert ContextLoader(FakeSupabase({})).range_overrides(ALICE) == []

@@ -106,6 +106,45 @@ class ContextLoader:
             if str(row.get("kind", "")).startswith(CHECK_IN_PREFIX)
         }
 
+    def range_overrides(self, user_id: str) -> list[dict]:
+        """Every reference-range override that applies to this person.
+
+        Read once per user, not once per marker: grading a 40-marker panel must
+        not be 40 round trips. Precedence between the rows (user beats clinic
+        beats global) is decided by `app.analytics.reference_ranges`, not here —
+        one place, so two screens cannot disagree about whether a result is
+        normal.
+        """
+        clinics = [
+            row["clinic_id"]
+            for row in (
+                self._db.table("clinic_members")
+                .select("clinic_id")
+                .eq("user_id", user_id)
+                .execute()
+                .data
+            )
+        ]
+
+        rows = (
+            self._db.table("reference_range_overrides")
+            .select("*")
+            .eq("scope", "user")
+            .eq("user_id", user_id)
+            .execute()
+            .data
+        )
+        for clinic_id in clinics:
+            rows += (
+                self._db.table("reference_range_overrides")
+                .select("*")
+                .eq("scope", "clinic")
+                .eq("clinic_id", clinic_id)
+                .execute()
+                .data
+            )
+        return rows
+
     def activity_session(self, user_id: str, session_id: str) -> dict | None:
         rows = (
             self._db.table("activity_sessions")
