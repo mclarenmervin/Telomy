@@ -53,6 +53,16 @@ String objectPathFor(String prefix, int pageIndex, String extension) {
 bool isAllowedExtension(String extension) =>
     allowedExtensions.contains(extension.toLowerCase());
 
+/// The extension of a picked file, from its name.
+///
+/// Derived here rather than taken from the picker: the field it exposes varies
+/// between plugin versions, and the storage path depends on getting this right.
+String extensionOf(String fileName) {
+  final dot = fileName.lastIndexOf('.');
+  if (dot < 0 || dot == fileName.length - 1) return '';
+  return fileName.substring(dot + 1).toLowerCase();
+}
+
 bool isWithinSizeCap(int bytes) => bytes <= maxUploadBytes;
 
 /// The digest of one file's bytes.

@@ -6,6 +6,7 @@ import '../../journal/models/journal_entry.dart';
 import '../../journal/providers/wellness_provider.dart';
 import '../../journal/screens/entry_editor.dart';
 import '../data/lab_analysis.dart';
+import '../widgets/lab_reports_section.dart';
 
 class LabsScreen extends ConsumerStatefulWidget {
   const LabsScreen({super.key});
@@ -29,10 +30,17 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
           'Keep report values and reference ranges together over time.',
         ),
         const SizedBox(height: 20),
+        // Uploading a report comes first: reading the values off a PDF is less
+        // work for the user than typing them, and typing stays available for
+        // anyone who prefers it or whose report we cannot read.
+        const LabReportsSection(),
+        const SizedBox(height: 24),
+        const Divider(),
+        const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: () => openEntryEditor(context, EntryKind.lab),
           icon: const Icon(Icons.add),
-          label: const Text('Add lab result'),
+          label: const Text('Add a value by hand'),
         ),
         const SizedBox(height: 18),
         TextField(

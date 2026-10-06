@@ -72,6 +72,25 @@ void main() {
     });
   });
 
+  group('the extension of a picked file', () {
+    test('it comes from the name', () {
+      // Derived from the name rather than taken from the picker, whose field
+      // for this varies between plugin versions -- and the storage path, which
+      // the policies key on, depends on getting it right.
+      expect(extensionOf('Report Sept 2026.pdf'), 'pdf');
+      expect(extensionOf('scan.JPG'), 'jpg');
+    });
+
+    test('a name with dots in it uses the last one', () {
+      expect(extensionOf('lal.pathlabs.report.pdf'), 'pdf');
+    });
+
+    test('a name with no extension gives empty rather than guessing', () {
+      expect(extensionOf('report'), '');
+      expect(extensionOf('report.'), '');
+    });
+  });
+
   group('the report digest', () {
     test('it is stable for the same files in the same order', () {
       expect(reportDigest(['a', 'b']), reportDigest(['a', 'b']));
