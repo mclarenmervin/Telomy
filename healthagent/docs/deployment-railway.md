@@ -124,6 +124,45 @@ the password contains `@`, `/`, `#` or `?`, URL-encode it or the connection stri
 A crash-looping gateway almost always means `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` or
 `WEBHOOK_SECRET` is absent — `get_settings()` raises `KeyError` on startup for those three.
 
+## Migrations run themselves
+
+Set the **gateway** service's **Pre-Deploy Command** to:
+
+```
+python -m app.migrate.main
+```
+
+Railway runs it after the build and before the new version takes traffic. If it
+fails, the deploy fails and the old version keeps serving — which is what you
+want, because starting new code against an old schema produces errors nobody
+can explain.
+
+Set it on **one service only**. The runner takes a Postgres advisory lock, so a
+second one would simply wait and then find nothing to do, but there is no
+reason to pay for that.
+
+**What counts as a migration.** Only `db/NNN_*.sql`. `db/dev_harness.sql`
+grants `anon` RLS policies for local browser testing and must never run in
+production, so declaring a numbered prefix is how a file opts in.
+
+**Applied migrations are history.** Each is recorded with a checksum, and
+editing one that has already run is refused — this database would have done one
+thing and the next would do another. Add a new migration instead.
+
+**An existing database** that was migrated by hand is recorded without
+re-running anything:
+
+```
+python -m app.migrate.main --baseline
+```
+
+`python -m app.migrate.main --dry-run` prints what would run and changes
+nothing.
+
+**`SUPABASE_DB_URL` must be the session pooler on port 5432**, as the
+checkpointer already requires. Without it the migration step fails the deploy
+rather than skipping silently.
+
 ## Switching the readiness model
 
 `READINESS_MODEL` selects which model the score worker runs. It is `v1` by

@@ -3,5 +3,7 @@ WORKDIR /code
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
+# Needed by the pre-deploy migration step.
+COPY db ./db
 # Railway (and most PaaS) assign the port at runtime; fall back to 8000 locally.
 CMD ["sh", "-c", "uvicorn app.gateway.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

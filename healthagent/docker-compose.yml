@@ -9,6 +9,13 @@ services:
       timeout: 2s
       retries: 10
 
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.migrate
+    env_file: .env
+    profiles: ["tools"]
+
   gateway:
     build:
       context: .
