@@ -60,12 +60,14 @@ select pg_temp.refuses($$
 $$, 'a clinic override with no clinic is refused');
 
 -- The same document twice would double every value on the chart.
-insert into lab_uploads (user_id, storage_path, content_sha256)
-values (:uid, 'c3c4eefd/2026/a.pdf', 'sha256:abc');
+-- `storage_path` became `storage_prefix` in 007: a report is a folder of files,
+-- not a single file, and the digest is now over the ordered set of file digests.
+insert into lab_uploads (user_id, storage_prefix, content_sha256)
+values (:uid, 'c3c4eefd/2026/a/', 'sha256:abc');
 
 select pg_temp.refuses($$
-  insert into lab_uploads (user_id, storage_path, content_sha256)
-  values ('c3c4eefd-b60c-438e-8cdc-0f3f0fde7617', 'c3c4eefd/2026/b.pdf', 'sha256:abc')
+  insert into lab_uploads (user_id, storage_prefix, content_sha256)
+  values ('c3c4eefd-b60c-438e-8cdc-0f3f0fde7617', 'c3c4eefd/2026/b/', 'sha256:abc')
 $$, 'a duplicate upload of the same document is refused');
 
 -- A quantitative result with no number is not a result.
