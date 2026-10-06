@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../journal/providers/wellness_provider.dart';
+import '../../scores/data/score_source.dart';
+import '../../scores/providers/score_provider.dart';
+import '../../scores/widgets/score_origin_note.dart';
 import '../data/readiness_service.dart';
 
 class ReadinessScreen extends ConsumerStatefulWidget {
@@ -65,9 +68,32 @@ class _ReadinessScreenState extends ConsumerState<ReadinessScreen> {
               sleepGoal: data?.goal('sleepGoal', 8) ?? 8,
               activityGoal: data?.goal('activityGoal', 30) ?? 30,
             );
+            // The server computes the same score from the user's full
+            // history. During the shadow period the local estimate still
+            // drives the screen while the two are compared; the note below
+            // says which one is on screen.
+            final server = ref
+                .watch(serverScoreProvider((kind: 'readiness', day: date)))
+                .asData
+                ?.value;
+            final resolved = resolveScore(
+              server: server,
+              offline: result.score,
+              forDay: date,
+            );
+            final divergence =
+                divergenceBetween(server: server, offline: result.score);
+            ref.read(shadowLogProvider).record(
+                  kind: 'readiness',
+                  day: date,
+                  divergence: divergence,
+                );
+
             return Column(
               children: [
                 _ReadinessHero(result),
+                const SizedBox(height: 8),
+                ScoreOriginNote(resolved: resolved, divergence: divergence),
                 const SizedBox(height: 12),
                 Card(
                   child: Padding(
