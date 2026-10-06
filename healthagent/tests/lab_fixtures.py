@@ -140,6 +140,54 @@ def _footer(pdf, page_number, page_count):
     pdf.drawString(PAGE_WIDTH - 120, 40, f"Page {page_number} of {page_count}")
 
 
+def reference_first_pdf(rows=None) -> bytes:
+    """The same panel, with the reference interval printed *before* the result.
+
+    Both orders ship. This layout is what makes the column detection load
+    bearing rather than decorative: under "the first number after the label",
+    every fixture that prints the result first passes while the scanner is
+    quietly wrong, and this one returns 70 for a fasting glucose of 142 — a
+    plausible number that nothing downstream could ever flag.
+    """
+    rows = DEFAULT_ROWS if rows is None else rows
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+
+    ref_x, result_x, unit_x = 250, 410, 470
+    y = PAGE_HEIGHT - 170
+
+    pdf.setFont("Helvetica-Bold", 9)
+    pdf.drawString(COL_TEST, y, "TEST")
+    pdf.drawString(ref_x, y, "BIOLOGICAL REF. INTERVAL")
+    pdf.drawString(result_x, y, "RESULT")
+    pdf.drawString(unit_x, y, "UNIT")
+
+    pdf.setFont("Helvetica", 9)
+    for name, result, unit, reference in rows:
+        y -= 18
+        pdf.drawString(COL_TEST, y, name)
+        pdf.drawString(ref_x, y, reference)
+        pdf.drawString(result_x, y, result)
+        pdf.drawString(unit_x, y, unit)
+
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+def flagged_rows():
+    """Results carrying the lab's own out-of-range flag, as most reports print.
+
+    The flag belongs to the cell, not to the value, and we do not re-derive it —
+    we have our own ranges and the lab's view of "high" is not ours.
+    """
+    return [
+        ("Glucose, Fasting", "142 H", "mg/dL", "70 - 100"),
+        ("Haemoglobin", "10.1 L", "g/dL", "13.0 - 17.0"),
+        ("Ferritin", "60", "ng/mL", "22 - 322"),
+    ]
+
+
 def image_only_pdf() -> bytes:
     """A page with no text layer at all — a photograph wrapped in a PDF.
 
