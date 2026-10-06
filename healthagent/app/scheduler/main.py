@@ -19,6 +19,7 @@ from app.common.config import get_settings
 from app.common.logging_config import configure_logging, get_logger
 from app.common.queue import DelayedQueue, JobQueue
 from app.common.supabase_client import get_supabase_client
+from app.scheduler.lab_sweep import sweep_uploads
 from app.scheduler.plan import (
     NIGHTLY_HOUR_UTC,
     active_user_ids,
@@ -35,9 +36,22 @@ TICK_SECONDS = 60
 SWEEP_WINDOW = timedelta(minutes=5)
 
 
+# Stuck uploads are reconciled far more often than once a night: the stall
+# window is half an hour, and someone watching a spinner should not wait until
+# 03:00 UTC for it to resolve into an error they can act on.
+LAB_SWEEP_EVERY_MINUTES = 10
+
+
 def _inside_sweep_window(now: datetime) -> bool:
     start = now.replace(hour=NIGHTLY_HOUR_UTC, minute=0, second=0, microsecond=0)
     return start <= now < start + SWEEP_WINDOW
+
+
+def _due_for_lab_sweep(now: datetime) -> bool:
+    """Stateless, like everything else here: the clock decides, not a stored
+    last-run. With a 60s tick this fires once per interval, and a missed tick
+    costs one cycle of reconciliation rather than correctness."""
+    return now.minute % LAB_SWEEP_EVERY_MINUTES == 0
 
 
 def tick(supabase, delayed, work_queue, now: datetime | None = None) -> None:
@@ -49,6 +63,9 @@ def tick(supabase, delayed, work_queue, now: datetime | None = None) -> None:
             promoted = delayed.promote_due(work_queue, now)
             if promoted:
                 logger.info(f"promoted {promoted} due job(s)")
+
+        if _due_for_lab_sweep(now):
+            sweep_uploads(supabase, now)
 
         if not _inside_sweep_window(now):
             return

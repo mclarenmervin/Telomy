@@ -53,6 +53,65 @@ def due_score_jobs(user_ids, now: datetime | None = None) -> list[dict]:
     ]
 
 
+LAB_STALL_MINUTES = 30
+
+# Reasons a swept upload failed, written to lab_uploads.error so the app can say
+# something true rather than "something went wrong".
+STALLED_REASON = (
+    "We started reading this report but did not finish. Please try uploading it again."
+)
+NO_FILES_REASON = (
+    "The upload did not complete, so there is no file to read. Please try again."
+)
+
+
+def stalled_upload_ids(uploads, now: datetime | None = None) -> list[str]:
+    """Uploads left in `extracting` past the stall window.
+
+    A worker killed mid-report leaves the row claimed forever: the status guard
+    that stops a webhook retry re-extracting also stops anything ever picking it
+    up again. Without this sweep the upload is invisibly stuck, and the user is
+    looking at a spinner that will never resolve.
+    """
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=LAB_STALL_MINUTES)
+    stalled = []
+    for upload in uploads:
+        if upload.get("status") != "extracting":
+            continue
+        changed = _parsed(upload.get("updated_at") or upload.get("created_at"))
+        if changed is not None and changed < cutoff:
+            stalled.append(upload["id"])
+    return stalled
+
+
+def orphaned_upload_ids(uploads, file_owner_ids) -> list[str]:
+    """Uploads with no file rows at all.
+
+    The phone uploads to Storage and then inserts the row, so a crash between
+    the two leaves a report with nothing to read. It must fail with a reason
+    rather than sit at `uploaded` waiting for a webhook that already fired.
+    """
+    owners = set(file_owner_ids)
+    return [
+        upload["id"]
+        for upload in uploads
+        if upload.get("status") == "uploaded" and upload["id"] not in owners
+    ]
+
+
+def _parsed(value) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 def next_nightly_run(now: datetime | None = None) -> datetime:
     """The next nightly sweep. On the hour exactly means tomorrow, not now —
     otherwise the scheduler spins."""
