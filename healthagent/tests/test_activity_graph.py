@@ -60,7 +60,14 @@ def test_repeat_delivery_does_not_duplicate():
 
 
 def test_data_gaps_reach_the_persisted_report():
-    db = FakeSupabase({"activity_sessions": [SESSION] + PAST, "predictions": []})
+    """A report we hold but cannot open is the live unconfigured case now that
+    lab reports have a storage backend."""
+    db = FakeSupabase({
+        "activity_sessions": [SESSION] + PAST,
+        "predictions": [],
+        "lab_uploads": [{"id": "u1", "user_id": USER, "storage_provider": "r2",
+                         "status": "uploaded", "created_at": "2026-10-01T09:00:00+00:00"}],
+    })
     _invoke(db)
     gaps = {g["source"]: g["status"] for g in db.tables["predictions"][0]["analysis"]["data_gaps"]}
     assert gaps["documents"] == "unconfigured"

@@ -7,16 +7,87 @@ USER, OTHER = "user-1", "user-2"
 
 
 def test_unconfigured_is_not_the_same_as_empty():
-    """Review Focus 2: 'we could not look' must never read as 'you have none'."""
-    loader = ContextLoader(FakeSupabase({"meals": []}))
+    """Review Focus 2: 'we could not look' must never read as 'you have none'.
+
+    Lab reports have a backend as of F3, so the distinction is now carried by a
+    document class that does not: genetics exports have no bucket yet. The
+    property is the same and it still has to hold somewhere real.
+    """
+    loader = ContextLoader(FakeSupabase({"meals": [], "lab_uploads": []}))
     empty = loader.logs(USER, "meals", days=30, limit=10)
     assert empty["status"] == "empty"
     assert empty["items"] == []
 
-    unconfigured = loader.documents(USER, kind="lab_report", limit=5)
+    unconfigured = loader.documents(USER, kind="genetic_record", limit=5)
     assert unconfigured["status"] == "unconfigured"
     assert "reason" in unconfigured
     assert unconfigured["status"] != "empty"
+
+
+# ── Lab reports ──────────────────────────────────────────────────────────────
+
+UPLOAD = {
+    "id": "upload-1",
+    "user_id": USER,
+    "storage_provider": "supabase",
+    "status": "extracted",
+    "collected_at": "2026-09-28T07:30:00+00:00",
+    "reported_at": "2026-09-29T11:00:00+00:00",
+    "lab_name": "Dr Lal PathLabs",
+    "patient_name": "A Patient",
+    "page_count": 3,
+    "is_history": False,
+    "created_at": "2026-10-01T09:00:00+00:00",
+}
+
+
+def test_lab_reports_are_no_longer_unconfigured():
+    """The storage backend exists now, so 'we cannot look' would be a lie."""
+    loader = ContextLoader(FakeSupabase({"lab_uploads": [UPLOAD]}))
+
+    result = loader.documents(USER, kind="lab_report", limit=5)
+
+    assert result["status"] == "ok"
+    assert result["items"][0]["lab_name"] == "Dr Lal PathLabs"
+
+
+def test_a_user_with_no_uploads_is_empty_not_unconfigured():
+    loader = ContextLoader(FakeSupabase({"lab_uploads": []}))
+
+    assert loader.documents(USER)["status"] == "empty"
+
+
+def test_documents_are_scoped_to_the_caller():
+    """The worker holds service-role credentials, so this filter is the only
+    thing between one user's reports and another's."""
+    other = dict(UPLOAD, id="upload-2", user_id=OTHER, lab_name="Thyrocare")
+    loader = ContextLoader(FakeSupabase({"lab_uploads": [UPLOAD, other]}))
+
+    items = loader.documents(OTHER)["items"]
+
+    assert [i["lab_name"] for i in items] == ["Thyrocare"]
+
+
+def test_a_document_we_have_no_adapter_for_reads_as_unreadable():
+    """Imaging lands on R2 later. Until that adapter exists, a report stored
+    there is one we cannot open — which is not the same as one that is empty,
+    and must not be narrated as 'you have no reports'."""
+    on_r2 = dict(UPLOAD, storage_provider="r2")
+    loader = ContextLoader(FakeSupabase({"lab_uploads": [on_r2]}))
+
+    result = loader.documents(USER)
+
+    assert result["status"] == "unconfigured"
+    assert "r2" in result["reason"]
+
+
+def test_an_upload_still_being_read_says_so():
+    """A report mid-extraction is neither absent nor ready. The agent needs to
+    be able to say 'that is still processing' rather than 'you have none'."""
+    pending = dict(UPLOAD, status="extracting")
+    loader = ContextLoader(FakeSupabase({"lab_uploads": [pending]}))
+
+    assert loader.documents(USER)["items"][0]["status"] == "extracting"
 
 
 def test_logs_reject_a_kind_outside_the_allowlist():

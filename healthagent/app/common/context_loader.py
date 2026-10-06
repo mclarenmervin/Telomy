@@ -14,6 +14,14 @@ LOG_KINDS = frozenset({
 
 SESSION_FIELDS = "id,activity_type,started_at,ended_at,duration_seconds,summary"
 
+# Document classes with a storage backend. Genetics exports and, later, imaging
+# have none, and asking for one of those is answered with `unconfigured` rather
+# than an empty list.
+LAB_DOCUMENT_KINDS = frozenset({"lab_report", "lab_reports"})
+
+# Providers `app.common.documents` has an adapter for.
+READABLE_PROVIDERS = frozenset({"supabase"})
+
 
 def _ok(items) -> dict:
     """`empty` means we looked and found nothing — never confuse it with `unconfigured`."""
@@ -258,6 +266,39 @@ class ContextLoader:
         return _ok(rows)
 
     def documents(self, user_id: str, kind: str | None = None, limit: int = 5) -> dict:
-        """No object-storage backend is wired yet, so this reports `unconfigured` —
-        which must never be narrated as the user having no documents."""
-        return _unconfigured("no document storage backend is configured")
+        """The user's uploaded documents.
+
+        Lab reports have a backend as of F3 and are read from `lab_uploads`.
+        Every other class still reports `unconfigured`, which must never be
+        narrated as the user having none — "we could not look" and "you have
+        none" are different statements and the agent is told to keep them apart.
+
+        No file contents and no signed URLs here. This is the agent's context,
+        and the agent has no business downloading a 20MB PDF; it needs to know a
+        report exists, when the sample was taken and whether we have finished
+        reading it.
+        """
+        if kind is not None and kind not in LAB_DOCUMENT_KINDS:
+            return _unconfigured(f"no document storage backend is configured for {kind}")
+
+        rows = (
+            self._db.table("lab_uploads")
+            .select(
+                "id,status,storage_provider,collected_at,reported_at,lab_name,"
+                "patient_name,page_count,is_history,created_at"
+            )
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+
+        # A report on a provider this build cannot open is unreadable, not
+        # absent. Imaging moves to R2 later; until that adapter exists, saying
+        # "you have no reports" to someone who has one would be a lie.
+        readable = [r for r in rows if r.get("storage_provider") in READABLE_PROVIDERS]
+        if rows and not readable:
+            providers = sorted({str(r.get("storage_provider")) for r in rows})
+            return _unconfigured("no storage adapter for " + ", ".join(providers))
+        return _ok(readable)

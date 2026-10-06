@@ -69,7 +69,16 @@ def test_a_good_session_continues():
 
 
 def test_load_context_distinguishes_empty_from_unconfigured():
-    loader = ContextLoader(FakeSupabase({"activity_sessions": [SESSION], "meals": []}))
+    """Lab reports gained a backend in F3, so the unconfigured case is now a
+    report we hold but cannot open — one stored on a provider this build has no
+    adapter for. Still the same property: 'we could not look' must not collapse
+    into 'you have none'."""
+    loader = ContextLoader(FakeSupabase({
+        "activity_sessions": [SESSION],
+        "meals": [],
+        "lab_uploads": [{"id": "u1", "user_id": USER, "storage_provider": "r2",
+                         "status": "uploaded", "created_at": "2026-10-01T09:00:00+00:00"}],
+    }))
     out = make_load_context(loader)({"session": SESSION}, _runtime())
     gaps = {g["source"]: g["status"] for g in out["data_gaps"]}
     assert gaps["documents"] == "unconfigured"
