@@ -147,4 +147,8 @@ def get_verifier() -> JwtVerifier:
 def current_user_id(authorization: str | None = Header(default=None)) -> str:
     """FastAPI dependency. The ONLY sanctioned way an endpoint learns who is
     calling — never a path, query or body parameter."""
+    # Checked before the verifier is built: an anonymous request is a 401, and
+    # must not surface as a 500 because some unrelated setting is absent.
+    if not authorization:
+        raise _unauthorized("no authorization header")
     return get_verifier().user_id(authorization)

@@ -89,6 +89,10 @@ class FakeQuery:
         self._range = (first, last)
         return self
 
+    def limit(self, count):
+        self._range = (0, max(0, count - 1))
+        return self
+
     def insert(self, rows):
         self._op, self._payload = "insert", rows
         return self
