@@ -46,6 +46,21 @@ biomarkers:
   # ── Metabolic ──────────────────────────────────────────────────────────────
   - id: glucose_fasting
     name: Fasting glucose
+    aliases:
+      - "Glucose, Fasting"
+      - "Fasting Blood Sugar"
+      - "FBS"
+      - "Blood Sugar Fasting"
+      - "Plasma Glucose Fasting"
+      - "Glucose Fasting (F)"
+      - "Sugar Fasting"
+      - "Glucose, Post Prandial"
+      - "Post Prandial Blood Sugar"
+      - "PPBS"
+      - "Blood Sugar Post Prandial"
+      - "Glucose, Random"
+      - "Random Blood Sugar"
+      - "RBS"
     system: metabolic
     canonical_unit: mg/dL
     units:
@@ -58,6 +73,16 @@ biomarkers:
 
   - id: hba1c
     name: HbA1c
+    aliases:
+      - "HbA1c"
+      - "Hb A1c"
+      - "Glycosylated Haemoglobin"
+      - "Glycosylated Hemoglobin"
+      - "Glycated Haemoglobin"
+      - "Glycated Hemoglobin"
+      - "Glycosylated Haemoglobin (HbA1c)"
+      - "A1c"
+      - "HbA1C Glycated Haemoglobin"
     system: metabolic
     canonical_unit: "%"
     units:
@@ -70,6 +95,11 @@ biomarkers:
 
   - id: insulin_fasting
     name: Fasting insulin
+    aliases:
+      - "Insulin, Fasting"
+      - "Fasting Insulin"
+      - "Serum Insulin Fasting"
+      - "Insulin (Fasting)"
     system: metabolic
     canonical_unit: uIU/mL
     units:
@@ -83,6 +113,14 @@ biomarkers:
   # ── Cardiovascular / lipids ────────────────────────────────────────────────
   - id: ldl_cholesterol
     name: LDL cholesterol
+    aliases:
+      - "LDL Cholesterol"
+      - "LDL"
+      - "Cholesterol LDL"
+      - "LDL-C"
+      - "Low Density Lipoprotein"
+      - "LDL Cholesterol Direct"
+      - "Cholesterol, LDL"
     system: cardiovascular
     canonical_unit: mg/dL
     units:
@@ -95,6 +133,13 @@ biomarkers:
 
   - id: hdl_cholesterol
     name: HDL cholesterol
+    aliases:
+      - "HDL Cholesterol"
+      - "HDL"
+      - "Cholesterol HDL"
+      - "HDL-C"
+      - "High Density Lipoprotein"
+      - "Cholesterol, HDL"
     system: cardiovascular
     canonical_unit: mg/dL
     units:
@@ -107,6 +152,12 @@ biomarkers:
 
   - id: triglycerides
     name: Triglycerides
+    aliases:
+      - "Triglycerides"
+      - "Triglyceride"
+      - "TG"
+      - "Serum Triglycerides"
+      - "Triglycerides, Serum"
     system: cardiovascular
     canonical_unit: mg/dL
     units:
@@ -119,6 +170,11 @@ biomarkers:
 
   - id: apob
     name: Apolipoprotein B
+    aliases:
+      - "Apolipoprotein B"
+      - "Apo B"
+      - "ApoB"
+      - "Apolipoprotein B-100"
     system: cardiovascular
     canonical_unit: mg/dL
     units:
@@ -131,6 +187,11 @@ biomarkers:
 
   - id: lipoprotein_a
     name: Lipoprotein(a)
+    aliases:
+      - "Lipoprotein (a)"
+      - "Lp(a)"
+      - "Lipoprotein a"
+      - "LP A"
     system: cardiovascular
     canonical_unit: nmol/L
     units:
@@ -144,6 +205,13 @@ biomarkers:
   # ── Inflammation ───────────────────────────────────────────────────────────
   - id: hs_crp
     name: hs-CRP
+    aliases:
+      - "hs-CRP"
+      - "High Sensitivity C Reactive Protein"
+      - "hsCRP"
+      - "CRP, High Sensitivity"
+      - "C-Reactive Protein (High Sensitivity)"
+      - "CRP Hs"
     system: inflammatory
     canonical_unit: mg/L
     units:
@@ -156,6 +224,10 @@ biomarkers:
 
   - id: homocysteine
     name: Homocysteine
+    aliases:
+      - "Homocysteine"
+      - "Serum Homocysteine"
+      - "Homocysteine, Total"
     system: inflammatory
     canonical_unit: umol/L
     units:
@@ -169,6 +241,14 @@ biomarkers:
   # ── Hepatic ────────────────────────────────────────────────────────────────
   - id: alt
     name: ALT
+    aliases:
+      - "ALT"
+      - "SGPT"
+      - "Alanine Aminotransferase"
+      - "ALT (SGPT)"
+      - "SGPT (ALT)"
+      - "Alanine Transaminase"
+      - "ALT SGPT"
     system: hepatic
     canonical_unit: U/L
     units:
@@ -181,6 +261,14 @@ biomarkers:
 
   - id: ast
     name: AST
+    aliases:
+      - "AST"
+      - "SGOT"
+      - "Aspartate Aminotransferase"
+      - "AST (SGOT)"
+      - "SGOT (AST)"
+      - "Aspartate Transaminase"
+      - "AST SGOT"
     system: hepatic
     canonical_unit: U/L
     units:
@@ -193,6 +281,12 @@ biomarkers:
 
   - id: ggt
     name: GGT
+    aliases:
+      - "GGT"
+      - "Gamma GT"
+      - "Gamma Glutamyl Transferase"
+      - "Gamma Glutamyl Transpeptidase"
+      - "GGTP"
     system: hepatic
     canonical_unit: U/L
     units:
@@ -205,6 +299,10 @@ biomarkers:
 
   - id: albumin
     name: Albumin
+    aliases:
+      - "Albumin"
+      - "Serum Albumin"
+      - "Albumin, Serum"
     system: hepatic
     canonical_unit: g/dL
     units:
@@ -218,6 +316,10 @@ biomarkers:
   # ── Renal ──────────────────────────────────────────────────────────────────
   - id: creatinine
     name: Creatinine
+    aliases:
+      - "Creatinine"
+      - "Serum Creatinine"
+      - "Creatinine, Serum"
     system: renal
     canonical_unit: mg/dL
     units:
@@ -238,6 +340,13 @@ biomarkers:
 
   - id: egfr
     name: eGFR
+    aliases:
+      - "eGFR"
+      - "Estimated GFR"
+      - "GFR, Estimated"
+      - "e-GFR"
+      - "Glomerular Filtration Rate, Estimated"
+      - "EGFR Estimated"
     system: renal
     canonical_unit: mL/min/1.73m2
     units:
@@ -250,6 +359,10 @@ biomarkers:
 
   - id: uric_acid
     name: Uric acid
+    aliases:
+      - "Uric Acid"
+      - "Serum Uric Acid"
+      - "Uric Acid, Serum"
     system: renal
     canonical_unit: mg/dL
     units:
@@ -268,6 +381,13 @@ biomarkers:
   # ── Thyroid ────────────────────────────────────────────────────────────────
   - id: tsh
     name: TSH
+    aliases:
+      - "TSH"
+      - "Thyroid Stimulating Hormone"
+      - "TSH Ultrasensitive"
+      - "Thyroid Stimulating Hormone (TSH)"
+      - "S. TSH"
+      - "TSH 3rd Generation"
     system: thyroid
     canonical_unit: mIU/L
     units:
@@ -280,6 +400,12 @@ biomarkers:
 
   - id: free_t3
     name: Free T3
+    aliases:
+      - "Free T3"
+      - "FT3"
+      - "T3 Free"
+      - "Triiodothyronine Free"
+      - "Free Triiodothyronine"
     system: thyroid
     canonical_unit: pg/mL
     units:
@@ -292,6 +418,12 @@ biomarkers:
 
   - id: free_t4
     name: Free T4
+    aliases:
+      - "Free T4"
+      - "FT4"
+      - "T4 Free"
+      - "Thyroxine Free"
+      - "Free Thyroxine"
     system: thyroid
     canonical_unit: ng/dL
     units:
@@ -305,6 +437,14 @@ biomarkers:
   # ── Vitamins and minerals ──────────────────────────────────────────────────
   - id: vitamin_d_25oh
     name: Vitamin D (25-OH)
+    aliases:
+      - "Vitamin D, 25 - Hydroxy"
+      - "25-OH Vitamin D"
+      - "Vitamin D Total"
+      - "25 Hydroxy Vitamin D"
+      - "Vitamin D (25-OH)"
+      - "Vitamin D"
+      - "Vitamin D 25 Hydroxy Cholecalciferol"
     system: vitamins
     canonical_unit: ng/mL
     units:
@@ -317,6 +457,13 @@ biomarkers:
 
   - id: vitamin_b12
     name: Vitamin B12
+    aliases:
+      - "Vitamin B12"
+      - "B12"
+      - "Cyanocobalamin"
+      - "Vitamin B-12"
+      - "Serum Vitamin B12"
+      - "Vitamin B12 Cyanocobalamin"
     system: vitamins
     canonical_unit: pg/mL
     units:
@@ -329,6 +476,10 @@ biomarkers:
 
   - id: ferritin
     name: Ferritin
+    aliases:
+      - "Ferritin"
+      - "Serum Ferritin"
+      - "Ferritin, Serum"
     system: minerals
     canonical_unit: ng/mL
     units:
@@ -346,6 +497,10 @@ biomarkers:
 
   - id: magnesium
     name: Magnesium
+    aliases:
+      - "Magnesium"
+      - "Serum Magnesium"
+      - "Magnesium, Serum"
     system: minerals
     canonical_unit: mg/dL
     units:
@@ -359,6 +514,12 @@ biomarkers:
   # ── Haematology ────────────────────────────────────────────────────────────
   - id: haemoglobin
     name: Haemoglobin
+    aliases:
+      - "Haemoglobin"
+      - "Hemoglobin"
+      - "Hb"
+      - "Hgb"
+      - "Haemoglobin (Hb)"
     system: haematology
     canonical_unit: g/dL
     units:
@@ -376,6 +537,11 @@ biomarkers:
 
   - id: rdw
     name: Red cell distribution width
+    aliases:
+      - "RDW"
+      - "Red Cell Distribution Width"
+      - "RDW-CV"
+      - "RDW CV"
     system: haematology
     canonical_unit: "%"
     units:
@@ -387,6 +553,14 @@ biomarkers:
 
   - id: wbc
     name: White blood cell count
+    aliases:
+      - "WBC"
+      - "White Blood Cell Count"
+      - "Total Leucocyte Count"
+      - "TLC"
+      - "WBC Count"
+      - "Total WBC Count"
+      - "Leucocyte Count, Total"
     system: haematology
     canonical_unit: 10^3/uL
     units:
@@ -399,6 +573,12 @@ biomarkers:
 
   - id: lymphocyte_percent
     name: Lymphocyte percentage
+    aliases:
+      - "Lymphocytes"
+      - "Lymphocyte"
+      - "Lymphocyte Percentage"
+      - "Lymphocytes %"
+      - "Lymphocyte %"
     system: haematology
     canonical_unit: "%"
     units:
@@ -411,6 +591,12 @@ biomarkers:
   # ── Hormonal / longevity ───────────────────────────────────────────────────
   - id: igf_1
     name: IGF-1
+    aliases:
+      - "IGF-1"
+      - "Insulin Like Growth Factor 1"
+      - "Somatomedin C"
+      - "IGF1"
+      - "Insulin-Like Growth Factor-1 (IGF-1)"
     system: hormonal
     canonical_unit: ng/mL
     units:
@@ -424,6 +610,12 @@ biomarkers:
 
   - id: dhea_s
     name: DHEA-S
+    aliases:
+      - "DHEA-S"
+      - "DHEA Sulphate"
+      - "DHEA Sulfate"
+      - "DHEAS"
+      - "Dehydroepiandrosterone Sulphate"
     system: hormonal
     canonical_unit: ug/dL
     units:
@@ -436,6 +628,13 @@ biomarkers:
 
   - id: cortisol_morning
     name: Morning cortisol
+    aliases:
+      - "Cortisol"
+      - "Cortisol Morning"
+      - "Morning Cortisol"
+      - "Cortisol (AM)"
+      - "Serum Cortisol"
+      - "Cortisol 8 AM"
     system: hormonal
     canonical_unit: ug/dL
     units:

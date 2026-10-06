@@ -10,6 +10,7 @@ safety failure, not a config nuisance, and it should stop the process rather
 than silently grade someone against nonsense.
 """
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -93,6 +94,19 @@ class Conversion:
         return (value - self.offset) / self.factor
 
 
+def normalise_label(text: str | None) -> str:
+    """Fold a printed test name into a comparable key.
+
+    `HbA1c`, `HBA1C`, `Hb A1c` and `Glycosylated Haemoglobin (HbA1c)` are one
+    marker printed four ways, and labs vary punctuation and case freely. Every
+    non-alphanumeric run becomes a single space, which is enough to collapse the
+    spellings that actually occur without merging markers that differ.
+    """
+    if not text:
+        return ""
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", str(text).lower()).split())
+
+
 @dataclass(frozen=True)
 class Biomarker:
     id: str
@@ -105,6 +119,7 @@ class Biomarker:
     standard: Range | None = None
     optimal: Range | None = None
     by_sex: dict[str, dict[str, Range]] | None = None
+    aliases: tuple[str, ...] = ()
 
     @property
     def sex_specific(self) -> bool:
@@ -204,6 +219,14 @@ def _build(entry: dict) -> Biomarker:
         standard = _range(entry["standard"], f"{marker_id}.standard")
         optimal = _range(entry["optimal"], f"{marker_id}.optimal")
 
+    # The label as printed is how a lab report refers to this marker, and the
+    # marker's own name is always one of them.
+    aliases = tuple(dict.fromkeys(
+        normalise_label(alias)
+        for alias in [entry.get("name") or marker_id, marker_id, *(entry.get("aliases") or [])]
+        if normalise_label(alias)
+    ))
+
     marker = Biomarker(
         id=marker_id,
         name=entry.get("name") or marker_id,
@@ -215,6 +238,7 @@ def _build(entry: dict) -> Biomarker:
         standard=standard,
         optimal=optimal,
         by_sex=by_sex,
+        aliases=aliases,
     )
 
     if by_sex:
@@ -252,6 +276,28 @@ def get(biomarker_id: str) -> Biomarker | None:
 
 def catalog_version() -> str:
     return load_catalog()[0]
+
+
+@lru_cache(maxsize=1)
+def alias_index() -> dict[str, str]:
+    """{normalised printed label: biomarker_id}.
+
+    An alias claimed by two markers is refused at load time rather than
+    resolved. Order-dependent mapping would mean the losing marker's results are
+    silently misfiled under the winner — a wrong number attributed to the right
+    person, which is the hardest kind of error to notice.
+    """
+    _, markers = load_catalog()
+    index: dict[str, str] = {}
+    for marker in markers.values():
+        for alias in marker.aliases:
+            owner = index.get(alias)
+            if owner is not None and owner != marker.id:
+                raise CatalogError(
+                    f"alias {alias!r} is claimed by both {owner} and {marker.id}"
+                )
+            index[alias] = marker.id
+    return index
 
 
 @lru_cache(maxsize=1)
