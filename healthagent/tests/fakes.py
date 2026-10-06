@@ -61,6 +61,14 @@ class FakeQuery:
         self._filters.append(lambda r: r.get(column) is not None and r.get(column) <= value)
         return self
 
+    def lt(self, column, value):
+        self._filters.append(lambda r: r.get(column) is not None and r.get(column) < value)
+        return self
+
+    def gt(self, column, value):
+        self._filters.append(lambda r: r.get(column) is not None and r.get(column) > value)
+        return self
+
     @property
     def not_(self):
         query = self
