@@ -40,3 +40,23 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scheduler
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  score-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.score-worker
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped

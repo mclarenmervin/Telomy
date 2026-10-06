@@ -35,6 +35,8 @@ class Settings:
     check_in_interval_seconds: int = 600
     check_in_max_seconds: int = 28800
     delayed_queue_name: str = "events:delayed"
+    score_queue_name: str = "scores:batch"
+    score_delayed_queue_name: str = "scores:delayed"
 
 
 def _llm_overrides() -> dict[str, dict[str, str]]:
@@ -76,4 +78,8 @@ def get_settings() -> Settings:
         ),
         check_in_max_seconds=int(os.environ.get("CHECK_IN_MAX_SECONDS", "28800")),
         delayed_queue_name=os.environ.get("DELAYED_QUEUE_NAME", "events:delayed"),
+        score_queue_name=os.environ.get("SCORE_QUEUE_NAME", "scores:batch"),
+        score_delayed_queue_name=os.environ.get(
+            "SCORE_DELAYED_QUEUE_NAME", "scores:delayed"
+        ),
     )

@@ -13,6 +13,8 @@ Railway gives the agent a permanent URL so the app works for anyone, on any devi
 | Gateway (`/webhooks/activity-sessions`) | Railway service, public URL |
 | Activity worker (the agent) | Railway service, no public URL |
 | Event worker (events + mid-event check-ins) | Railway service, no public URL |
+| Scheduler (nightly score sweep) | Railway service, one replica |
+| Score worker (computes score_snapshots) | Railway service, no public URL |
 | Redis (the queue between them) | Railway managed Redis |
 
 The phone never talks to the agent. It writes a row to `activity_sessions`; the Postgres trigger
@@ -36,6 +38,13 @@ service's Root Directory to `healthagent`** — the Dockerfiles do `COPY app ./a
    mid-event check-ins: this is the only process that sweeps the `events:delayed`
    timer, so without it an open event is never looked at again and no check-in
    can ever fire.
+5. **scheduler** — Root Directory `healthagent`, Dockerfile Path
+   `docker/Dockerfile.scheduler`. No public domain. **Run exactly one replica.**
+   It decides when work happens and computes nothing itself.
+6. **score-worker** — Root Directory `healthagent`, Dockerfile Path
+   `docker/Dockerfile.score-worker`. No public domain. Consumes `scores:batch`
+   and writes `score_snapshots`, which is what the app reads instead of
+   recomputing scores on the phone.
 
 `Dockerfile.gateway` reads `$PORT` (Railway assigns it) and falls back to 8000 so
 `docker-compose` keeps working locally.
