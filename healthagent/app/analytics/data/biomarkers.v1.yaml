@@ -25,6 +25,22 @@
 
 version: global.v1
 
+# ── Clinical sign-off ────────────────────────────────────────────────────────
+#
+# While `reviewed` is false, `reference_ranges.grade_for_display` returns
+# `ungraded` for everything: the app shows the number as printed on the report
+# and makes no claim about what it means. Critical bounds are the one exception
+# and still escalate, because a critical value cannot wait for a review meeting.
+#
+# To open the gate, a clinician reviews this file as a pull request and sets all
+# three fields in the same commit. `reviewed: true` without a named reviewer and
+# a date is refused at load time — there would be no audit trail, which is the
+# entire reason this content lives in git.
+clinical_review:
+  reviewed: false
+  reviewer:
+  reviewed_at:
+
 biomarkers:
 
   # ── Metabolic ──────────────────────────────────────────────────────────────

@@ -33,6 +33,48 @@ class Range:
 
 
 @dataclass(frozen=True)
+class ClinicalReview:
+    """Whether a clinician has signed off these ranges, and who.
+
+    The catalog ships unreviewed, and while it is unreviewed we may show someone
+    the number printed on their report but must make no claim about what it
+    means. `reference_ranges.grade_for_display` is where that is enforced.
+
+    Critical bounds are the deliberate exception and are handled separately: a
+    bound we are unsure about is still a far better reason to escalate than
+    silence is.
+    """
+
+    reviewed: bool
+    reviewer: str | None = None
+    reviewed_at: str | None = None
+
+
+def _parse_review(raw: dict, where: str) -> ClinicalReview:
+    """The review block, refusing a claim it cannot evidence.
+
+    `reviewed: true` is deliberately not something that can be typed on the way
+    past. Without a named reviewer and a date there is no audit trail, and an
+    audit trail is the entire reason medical content lives in git.
+    """
+    block = raw.get("clinical_review") or {}
+    if not isinstance(block, dict):
+        raise CatalogError(f"{where}: clinical_review must be a mapping")
+
+    reviewed = bool(block.get("reviewed", False))
+    reviewer = str(block.get("reviewer") or "").strip() or None
+    reviewed_at = str(block.get("reviewed_at") or "").strip() or None
+
+    if reviewed and not reviewer:
+        raise CatalogError(f"{where}: clinical_review.reviewed is true but names no reviewer")
+    if reviewed and not reviewed_at:
+        raise CatalogError(
+            f"{where}: clinical_review.reviewed is true but carries no reviewed_at date"
+        )
+    return ClinicalReview(reviewed=reviewed, reviewer=reviewer, reviewed_at=reviewed_at)
+
+
+@dataclass(frozen=True)
 class Conversion:
     """canonical = value * factor + offset.
 
@@ -190,6 +232,9 @@ def load_catalog(path: Path | None = None) -> tuple[str, dict[str, Biomarker]]:
     version = raw.get("version")
     if not version:
         raise CatalogError("catalog has no version")
+    # Validated here as well as in `review_status`, so a malformed review block
+    # stops the process at startup rather than the first time someone is graded.
+    _parse_review(raw, str(path or CATALOG_PATH))
     markers: dict[str, Biomarker] = {}
     for entry in raw.get("biomarkers", []):
         marker = _build(entry)
@@ -207,3 +252,15 @@ def get(biomarker_id: str) -> Biomarker | None:
 
 def catalog_version() -> str:
     return load_catalog()[0]
+
+
+@lru_cache(maxsize=1)
+def review_status() -> ClinicalReview:
+    """Has a clinician signed these ranges off?
+
+    Cached and read from the catalog separately from the marker set, which costs
+    one extra read of a small file at startup and buys a narrow dependency: the
+    gate asks one question and does not need the whole catalog parsed to answer
+    it. Tests that repoint `CATALOG_PATH` must clear this cache too.
+    """
+    return _parse_review(yaml.safe_load(CATALOG_PATH.read_text()), str(CATALOG_PATH))

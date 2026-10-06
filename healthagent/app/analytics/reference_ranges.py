@@ -136,3 +136,49 @@ def grade(value: float | None, resolved: ResolvedRange | None) -> str:
 def worst(grades) -> str:
     """Roll several grades up to the one that should drive the headline."""
     return max(grades, key=lambda g: _SEVERITY.get(g, 0), default=UNGRADED)
+
+
+def grade_for_display(value: float | None, resolved: ResolvedRange | None) -> str:
+    """The grade a **user** may be shown. Use this, not `grade`, for anything
+    user-facing.
+
+    `grade` is the arithmetic. This is the arithmetic plus the one question the
+    arithmetic cannot answer: has a clinician agreed these ranges are right?
+    While `biomarkers.v1.yaml` is an unreviewed v1 draft, every result comes back
+    `ungraded` — we show the number as printed and make no claim about it.
+
+    Note that this suppresses *abnormal* verdicts as well as reassuring ones. The
+    gate is not "withhold bad news"; it is "make no clinical claim", and calling
+    something abnormal is as much a claim as calling it optimal.
+    """
+    if not catalog.review_status().reviewed:
+        return UNGRADED
+    return grade(value, resolved)
+
+
+def is_critical(biomarker_id: str, value: float | None) -> bool:
+    """Is this value outside the bounds at which we tell someone to seek care?
+
+    Deliberately **not** gated on clinician review, and deliberately **not**
+    routed through `RangeResolver`. Both of those are safety decisions:
+
+    **Not gated**, because a critical value cannot wait for a review meeting.
+    The clinician queue is for recommendations, never for emergencies.
+
+    **Not resolved**, because `resolve()` returns None for a sex-specific marker
+    when the subject's sex is unknown — which is correct for grading and
+    catastrophic here. Haemoglobin's standard range differs by sex; its critical
+    bounds do not. Going through the resolver would mean a haemoglobin of 4.1
+    escalates nothing for every user whose sex we do not hold.
+
+    Critical bounds come from the catalog and are never overridable, so there is
+    nothing per-user to resolve in the first place.
+    """
+    if value is None:
+        return False
+    marker = catalog.get(biomarker_id)
+    if marker is None:
+        # No bounds, so no basis. Escalating on a label we failed to map would
+        # fire on every unmapped row in every report.
+        return False
+    return not marker.critical.contains(value)
