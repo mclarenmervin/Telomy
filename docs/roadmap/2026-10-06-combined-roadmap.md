@@ -49,18 +49,42 @@ is not. Wave 2 makes it true.
 
 ### Wave 0 — Close what is already open (this week)
 
-Not in either document. All three are live defects or live risk.
+Not in either document. Live defects, not polish.
 
-| # | Item | Why now |
+| # | Item | Status |
 |---|---|---|
-| 0.1 | **Reset demo thresholds on Railway** | `CHECK_IN_MIN_ELAPSED_SECONDS=0` means a real user is interrupted after 60 seconds of data |
-| 0.2 | **One source of truth for scores** | Readiness and Biological Age are computed in Dart on the phone *and* narrated from Python. They cannot agree. Everything in Wave 1 depends on a number having one definition |
-| 0.3 | **Remove `demo_seed` rows** | ~2,700 synthetic readings on the demo user, after the investor demo |
+| 0.1 | Remove synthetic `demo_seed` readings and the test event | **Done 2026-10-06** — 2,724 rows and 4 predictions deleted |
+| 0.2 | Restore production check-in thresholds on Railway | **Outstanding — do before any real user logs an event** |
+| 0.3 | **One source of truth for scores** | **Outstanding — blocks Wave 1** |
+| 0.4 | Tune check-in thresholds against real wearable variance | **Outstanding — see §3.1** |
 
-0.2 is the real work: the deterministic REST endpoints from the platform Build
-Order, step 4. It is unglamorous and it blocks the two highest-value features
-in the roadmap, because a provenance chip on a number that has two definitions
-is worse than no chip.
+0.3 is the real work: the deterministic REST endpoints from the platform Build
+Order, step 4. Readiness and Biological Age are currently computed in Dart on
+the phone *and* narrated from Python by the agent, so they cannot agree. It is
+unglamorous and it blocks the two highest-value features in the roadmap,
+because a provenance chip on a number with two definitions is worse than no
+chip.
+
+#### 3.1 The thresholds were never validated against real data
+
+The check-in rules were tuned against synthetic readings with a standard
+deviation near 1 bpm. Real wearable data runs closer to 10–15 bpm over a
+14-day all-day window, which includes sleep. Because `hr_elevated` requires
+both a 12 bpm absolute delta **and** a 2-sigma deviation, that second leg
+dominates: on real data it implies a 20–30 bpm rise, so the rule will fire far
+more rarely than the "12 bpm" figure suggests.
+
+Two consequences for real users:
+
+- **Under-firing is the likely failure mode**, not nagging. A user may log
+  events for weeks and never hear anything, which reads as a broken feature.
+- **The baseline window is the lever.** A time-of-day-matched or
+  awake-only baseline would cut the spread substantially and make the
+  sigma test mean what it was intended to mean.
+
+This needs real labelled events to settle, which is the same data the detector
+needs. Until then, instrument it: log every rule evaluation and its margin, so
+the firing rate can be measured rather than guessed.
 
 ### Wave 1 — The trust layer (weeks 1–4)
 
