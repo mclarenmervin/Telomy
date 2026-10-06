@@ -22,3 +22,11 @@ pyjwt==2.14.0
 cryptography==50.0.1
 # The biomarker catalog is YAML so that medical content reviews as a diff.
 PyYAML==6.0.3
+# Lab PDFs. pdfplumber over pypdf because it exposes per-word bounding boxes,
+# which is what lets the scanner tell a result from the reference range printed
+# beside it; over PyMuPDF because that is AGPL.
+pdfplumber==0.11.10
+# Test-only: builds the synthetic lab reports the extraction tests run against.
+# Fixtures need real layout — columns, a header block, a footer — because a
+# fixture that is too clean passes while testing nothing.
+reportlab==5.0.1
