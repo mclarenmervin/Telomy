@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/time/device_timezone.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../health/models/health_measurement.dart';
 import '../../health/data/mock_health_repository.dart';
@@ -23,11 +27,32 @@ final wellnessProvider =
 
 class WellnessController extends AsyncNotifier<WellnessData> {
   Future<void> _queue = Future.value();
+  bool _timezoneChecked = false;
   @override
   Future<WellnessData> build() async {
     final user = ref.watch(authProvider).asData?.value;
     if (user == null) return const WellnessData();
-    return ref.watch(wellnessRepositoryProvider).load();
+    final data = await ref.watch(wellnessRepositoryProvider).load();
+    // Record the device timezone so the backend can compute a day the way this
+    // phone does. Without it the server scores on UTC boundaries while the app
+    // scores on local ones. Fire and forget: nothing here should block a load.
+    if (!_timezoneChecked) {
+      _timezoneChecked = true;
+      unawaited(_recordTimezone(data.profile));
+    }
+    return data;
+  }
+
+  Future<void> _recordTimezone(Map<String, String> profile) async {
+    final zone = await readDeviceTimezone();
+    final updated = withDeviceTimezone(profile, zone);
+    if (identical(updated, profile)) return;
+    try {
+      await saveProfile(updated);
+    } catch (_) {
+      // A timezone we could not persist is a score computed in UTC, not a
+      // broken app. It retries on the next launch.
+    }
   }
 
   Future<void> change(WellnessData Function(WellnessData) update) {
