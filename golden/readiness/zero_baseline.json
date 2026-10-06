@@ -1,0 +1,61 @@
+{
+  "name": "zero_baseline",
+  "date": "2026-10-01T00:00:00",
+  "sleep_goal": 8,
+  "activity_goal": 30,
+  "measurements": [
+    {
+      "measurement_type": "hrv",
+      "value": 0.0,
+      "recorded_at": "2026-09-30T00:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 0.0,
+      "recorded_at": "2026-09-29T00:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 0.0,
+      "recorded_at": "2026-09-28T00:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 0.0,
+      "recorded_at": "2026-09-27T00:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 10.0,
+      "recorded_at": "2026-10-01T07:00:00"
+    },
+    {
+      "measurement_type": "stress",
+      "value": 20.0,
+      "recorded_at": "2026-10-01T09:00:00"
+    }
+  ],
+  "expected": {
+    "score": 73,
+    "model_version": "readiness-v1",
+    "missing_inputs": [
+      "Previous activity",
+      "Resting heart rate",
+      "Sleep consistency",
+      "Sleep duration",
+      "Temperature deviation"
+    ],
+    "drivers": [
+      {
+        "name": "HRV",
+        "score": 70,
+        "weight": 0.22
+      },
+      {
+        "name": "Stress",
+        "score": 80.0,
+        "weight": 0.08
+      }
+    ]
+  }
+}

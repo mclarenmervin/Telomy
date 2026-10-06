@@ -1,0 +1,32 @@
+{
+  "name": "too_sparse_to_score",
+  "date": "2026-10-01T00:00:00",
+  "sleep_goal": 8,
+  "activity_goal": 30,
+  "measurements": [
+    {
+      "measurement_type": "stress",
+      "value": 40.0,
+      "recorded_at": "2026-10-01T09:00:00"
+    }
+  ],
+  "expected": {
+    "score": null,
+    "model_version": "readiness-v1",
+    "missing_inputs": [
+      "HRV",
+      "Previous activity",
+      "Resting heart rate",
+      "Sleep consistency",
+      "Sleep duration",
+      "Temperature deviation"
+    ],
+    "drivers": [
+      {
+        "name": "Stress",
+        "score": 60.0,
+        "weight": 0.08
+      }
+    ]
+  }
+}

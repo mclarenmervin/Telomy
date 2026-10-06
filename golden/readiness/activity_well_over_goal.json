@@ -1,0 +1,500 @@
+{
+  "name": "activity_well_over_goal",
+  "date": "2026-10-01T00:00:00",
+  "sleep_goal": 8,
+  "activity_goal": 30,
+  "measurements": [
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-30T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-30T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-30T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-29T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-29T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-29T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-28T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-28T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-28T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-27T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-27T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-27T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-26T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-26T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-26T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-25T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-25T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-25T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-24T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-24T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-24T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-23T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-23T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-23T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-22T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-22T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-22T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-21T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-21T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-21T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-20T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-20T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-20T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-19T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-19T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-19T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-18T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-18T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-18T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-17T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-17T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-17T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-16T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-16T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-16T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-15T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-15T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-15T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-14T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-14T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-14T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-13T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-13T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-13T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-12T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-12T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-12T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-11T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-11T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-11T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-10T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-10T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-10T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-09T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-09T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-09T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-08T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-08T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-08T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-07T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-07T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-07T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-06T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-06T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-06T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-05T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-05T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-05T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-04T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-04T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-04T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-03T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-03T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-03T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-02T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-02T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-02T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-09-01T03:00:00"
+    },
+    {
+      "measurement_type": "restingHeartRate",
+      "value": 60.0,
+      "recorded_at": "2026-09-01T03:00:00"
+    },
+    {
+      "measurement_type": "temperature",
+      "value": 36.5,
+      "recorded_at": "2026-09-01T03:00:00"
+    },
+    {
+      "measurement_type": "hrv",
+      "value": 55.0,
+      "recorded_at": "2026-10-01T07:00:00"
+    },
+    {
+      "measurement_type": "activity",
+      "value": 120.0,
+      "recorded_at": "2026-09-30T00:00:00"
+    },
+    {
+      "measurement_type": "stress",
+      "value": 55.0,
+      "recorded_at": "2026-10-01T09:00:00"
+    }
+  ],
+  "expected": {
+    "score": 50,
+    "model_version": "readiness-v1",
+    "missing_inputs": [
+      "Resting heart rate",
+      "Sleep consistency",
+      "Sleep duration",
+      "Temperature deviation"
+    ],
+    "drivers": [
+      {
+        "name": "HRV",
+        "score": 70.0,
+        "weight": 0.22
+      },
+      {
+        "name": "Previous activity",
+        "score": 0,
+        "weight": 0.08
+      },
+      {
+        "name": "Stress",
+        "score": 45.0,
+        "weight": 0.08
+      }
+    ]
+  }
+}
