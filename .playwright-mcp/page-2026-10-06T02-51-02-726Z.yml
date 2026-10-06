@@ -1,0 +1,617 @@
+- generic [ref=f2e3]:
+  - generic [ref=f2e4]:
+    - generic [ref=f2e7]:
+      - heading "Nostavia Health raises ₹50 Lakh in funding." [level=2] [ref=f2e8]
+      - paragraph [ref=f2e9]: Building the intelligence infrastructure for the next generation of preventive healthcare, embedded into the diagnostic labs and clinics people already trust.
+      - link "READ FULL STORY" [ref=f2e11] [cursor=pointer]:
+        - /url: https://lnkd.in/p/dBqTFF95
+    - banner [ref=f2e16]:
+      - generic [ref=f2e17]:
+        - link [ref=f2e18] [cursor=pointer]:
+          - /url: /
+          - img "Nostavia Health" [ref=f2e19]
+        - generic [ref=f2e20]:
+          - button "PLATFORM & SERVICES" [ref=f2e22] [cursor=pointer]
+          - link "CLINICAL EVIDENCE" [ref=f2e23] [cursor=pointer]:
+            - /url: /clinical
+          - link "SECURITY & PRIVACY" [ref=f2e24] [cursor=pointer]:
+            - /url: /security
+          - link "COMPANY" [ref=f2e25] [cursor=pointer]:
+            - /url: /company
+        - link "REQUEST A DEMO" [ref=f2e27] [cursor=pointer]:
+          - /url: /demo
+    - main [ref=f2e28]:
+      - generic [ref=f2e29]:
+        - generic [ref=f2e30]:
+          - generic [ref=f2e31]:
+            - generic [ref=f2e32]:
+              - img "Nostavia Digital Health Intelligence Layer Visual" [ref=f2e33]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: 0110 0011
+                    - generic: 1001 0110
+                  - generic:
+                    - generic: 01100 00111
+                    - generic: 20000 00001
+                  - generic:
+                    - generic: 0011 1100
+                    - generic: 0101 1010
+                  - generic:
+                    - generic: 0000 000000
+                    - generic: 00000 00000
+            - generic [ref=f2e34]:
+              - generic [ref=f2e35]:
+                - generic [ref=f2e36]: Enabling
+                - generic [ref=f2e37]: Autonomous Intelligence
+              - generic [ref=f2e38]:
+                - generic [ref=f2e39]:
+                  - paragraph [ref=f2e40]: The intelligence layer for the health economy. Ingest lab reports, wearable telemetry, and nutrition data into continuous, white-labeled AI companion infrastructure.
+                  - link "REQUEST A DEMO" [ref=f2e42] [cursor=pointer]:
+                    - /url: /demo
+                - generic [ref=f2e43]: for Healthcare
+          - generic [ref=f2e47]:
+            - generic [ref=f2e48]: POWERING LEADING HEALTH CLIENTS
+            - generic [ref=f2e50]:
+              - generic [ref=f2e51] [cursor=pointer]:
+                - img "360 ATHLETIX"
+              - generic [ref=f2e52] [cursor=pointer]:
+                - img "ClinicX"
+              - generic [ref=f2e53] [cursor=pointer]:
+                - img "TBI"
+              - generic [ref=f2e54] [cursor=pointer]:
+                - img "Kiosk Health"
+              - generic [ref=f2e55] [cursor=pointer]:
+                - img "Live 360"
+              - generic [ref=f2e56] [cursor=pointer]:
+                - img "Atmaram Healthcare"
+              - generic [ref=f2e57] [cursor=pointer]:
+                - img "ETLAWM"
+              - generic [ref=f2e58] [cursor=pointer]:
+                - img "360 ATHLETIX"
+              - generic [ref=f2e59] [cursor=pointer]:
+                - img "ClinicX"
+              - generic [ref=f2e60] [cursor=pointer]:
+                - img "TBI"
+              - generic [ref=f2e61] [cursor=pointer]:
+                - img "Kiosk Health"
+              - generic [ref=f2e62] [cursor=pointer]:
+                - img "Live 360"
+              - generic [ref=f2e63] [cursor=pointer]:
+                - img "Atmaram Healthcare"
+              - generic [ref=f2e64] [cursor=pointer]:
+                - img "ETLAWM"
+              - generic [ref=f2e65] [cursor=pointer]:
+                - img "360 ATHLETIX"
+              - generic [ref=f2e66] [cursor=pointer]:
+                - img "ClinicX"
+              - generic [ref=f2e67] [cursor=pointer]:
+                - img "TBI"
+              - generic [ref=f2e68] [cursor=pointer]:
+                - img "Kiosk Health"
+              - generic [ref=f2e69] [cursor=pointer]:
+                - img "Live 360"
+              - generic [ref=f2e70] [cursor=pointer]:
+                - img "Atmaram Healthcare"
+              - generic [ref=f2e71] [cursor=pointer]:
+                - img "ETLAWM"
+              - generic [ref=f2e72] [cursor=pointer]:
+                - img "360 ATHLETIX"
+              - generic [ref=f2e73] [cursor=pointer]:
+                - img "ClinicX"
+              - generic [ref=f2e74] [cursor=pointer]:
+                - img "TBI"
+              - generic [ref=f2e75] [cursor=pointer]:
+                - img "Kiosk Health"
+              - generic [ref=f2e76] [cursor=pointer]:
+                - img "Live 360"
+              - generic [ref=f2e77] [cursor=pointer]:
+                - img "Atmaram Healthcare"
+              - generic [ref=f2e78] [cursor=pointer]:
+                - img "ETLAWM"
+        - generic [ref=f2e80]:
+          - generic [ref=f2e81]:
+            - generic [ref=f2e82]: THE MARKET REALITY
+            - heading "83% of diagnostic reports are read once and never opened again." [level=2] [ref=f2e83]
+            - paragraph [ref=f2e84]: Most health companies collect enormous clinical data and cannot interpret it. The relationship ends where the intelligence should begin.
+          - generic [ref=f2e85]:
+            - generic [ref=f2e86]:
+              - heading "Static Reports" [level=3] [ref=f2e93]
+              - paragraph [ref=f2e94]: Lab panels delivered as PDFs. No trends, no context, no reason to return. The report is technically accurate and practically useless.
+            - generic [ref=f2e95]:
+              - heading "Fragmented Wearable Data" [level=3] [ref=f2e104]
+              - paragraph [ref=f2e105]: Steps in one app, sleep in another, labs in a PDF. The patient is split across six dashboards that never talk to each other.
+            - generic [ref=f2e106]:
+              - heading "Zero Post-Visit Intelligence" [level=3] [ref=f2e111]
+              - paragraph [ref=f2e112]: The hospital visit ends. Nothing follows the patient home. Chronic conditions drift unmanaged between appointments.
+        - generic [ref=f2e114]:
+          - generic [ref=f2e115]:
+            - generic [ref=f2e116]:
+              - generic [ref=f2e117]: WHO IT'S FOR
+              - heading "What are you building?" [level=2] [ref=f2e118]
+            - generic [ref=f2e119]:
+              - button "Previous sector" [ref=f2e120] [cursor=pointer]
+              - button "Next sector" [ref=f2e123] [cursor=pointer]
+          - generic [ref=f2e126]:
+            - generic [ref=f2e127]:
+              - button "Diagnostic Labs" [ref=f2e128] [cursor=pointer]
+              - button "Clinics & Longevity" [ref=f2e130] [cursor=pointer]
+              - button "Wellness & Apps" [ref=f2e132] [cursor=pointer]
+              - button "Hospitals & Health Systems" [ref=f2e134] [cursor=pointer]
+            - generic [ref=f2e136]:
+              - generic [ref=f2e137]:
+                - generic [ref=f2e138]:
+                  - heading "Turn every panel into a reason to come back." [level=3] [ref=f2e139]
+                  - paragraph [ref=f2e140]: Smart Reports generated for every routine test under your brand. Re-Test Recall that finds which dormant patients are due and why, from your own database.
+                - generic [ref=f2e141]:
+                  - generic [ref=f2e142]:
+                    - generic [ref=f2e143]: "`Smart Reports`"
+                    - generic [ref=f2e144]: "`Re-Test Recall`"
+                    - generic [ref=f2e145]: "`Marker trends`"
+                    - generic [ref=f2e146]: "`Wearable fusion`"
+                  - generic [ref=f2e147]: "Measured on: re-test conversion."
+                  - link "Explore diagnostic labs →" [ref=f2e149] [cursor=pointer]:
+                    - /url: /industries/diagnostic-labs
+              - img "Diagnostic Lab Telemetry & Biomarker Analysis" [ref=f2e151]
+          - generic [ref=f2e152]:
+            - generic [ref=f2e153]: "ALSO POWERING:"
+            - link "Supplement Brands" [ref=f2e154] [cursor=pointer]:
+              - /url: /industries/supplements
+            - generic [ref=f2e155]: •
+            - link "Payers & Insurers" [ref=f2e156] [cursor=pointer]:
+              - /url: /industries/payer
+            - generic [ref=f2e157]: •
+            - link "Public Health & CSR" [ref=f2e158] [cursor=pointer]:
+              - /url: /industries/public-sector
+            - generic [ref=f2e159]: •
+            - link "Life Sciences & Pharma" [ref=f2e160] [cursor=pointer]:
+              - /url: /industries/life-sciences
+        - generic [ref=f2e162]:
+          - generic [ref=f2e163]:
+            - generic [ref=f2e164]: EMBEDDABLE PLATFORM & SDKS
+            - heading "Five ways in. Pick the one that matches what you already have." [level=2] [ref=f2e165]
+          - generic [ref=f2e166]:
+            - generic [ref=f2e167]:
+              - generic [ref=f2e168]:
+                - generic [ref=f2e173]:
+                  - heading "Intelligence SDK" [level=3] [ref=f2e174]
+                  - generic [ref=f2e175]: Lab parsing, food scans & AI concierge
+                - paragraph [ref=f2e176]: For platforms that already run an application. Decoding, protocols, the concierge and all intelligence modules embed into your existing product. Your user experience is unchanged.
+              - link "View SDK →" [ref=f2e178] [cursor=pointer]:
+                - /url: /solutions/gravity
+            - generic [ref=f2e179]:
+              - generic [ref=f2e180]:
+                - generic [ref=f2e186]:
+                  - heading "Wearables SDK" [level=3] [ref=f2e187]
+                  - generic [ref=f2e188]: Single API for Apple, Oura, WHOOP and more
+                - paragraph [ref=f2e189]: One integration normalises every major device — replacing a dozen separate provider integrations and the custom parsing that comes with each.
+              - link "View SDK →" [ref=f2e191] [cursor=pointer]:
+                - /url: /solutions/galaxy
+            - generic [ref=f2e192]:
+              - generic [ref=f2e193]:
+                - generic [ref=f2e197]:
+                  - heading "White-Label App" [level=3] [ref=f2e198]
+                  - generic [ref=f2e199]: Complete iOS & Android app under your brand
+                - paragraph [ref=f2e200]: For labs and clinics with no application of their own. Your name on the store listing. All technology, AI routing and device handling operated by us. No engineering team required on your side.
+              - link "View white-label →" [ref=f2e202] [cursor=pointer]:
+                - /url: /solutions/storyhealth
+            - generic [ref=f2e203]:
+              - generic [ref=f2e204]:
+                - generic [ref=f2e210]:
+                  - heading "AI Agents (including voice)" [level=3] [ref=f2e211]
+                  - generic [ref=f2e212]: Always-on patient support & voice booking agent
+                - paragraph [ref=f2e213]: Nostavia Front Desk answers every call in local languages, names a specific doctor, and turns an enquiry into a booked visit across phone, WhatsApp & web under your brand.
+              - link "View AI Agents →" [ref=f2e215] [cursor=pointer]:
+                - /url: /solutions/front-desk
+            - generic [ref=f2e216]:
+              - generic [ref=f2e217]:
+                - generic [ref=f2e222]:
+                  - heading "Hospital Patient Front Door" [level=3] [ref=f2e223]
+                  - generic [ref=f2e224]: Branded 5-module platform & recovery engine
+                - paragraph [ref=f2e225]: "The complete enterprise front door for hospitals: preventive smart reports, discharge-to-recovery engine, leakage audit and live attribution dashboard."
+              - link "View Platform →" [ref=f2e227] [cursor=pointer]:
+                - /url: /solutions/hospitals
+        - generic [ref=f2e230]:
+          - generic [ref=f2e231]:
+            - generic [ref=f2e232]: INTELLIGENCE MODULES
+            - heading "The modules are the product. Everything else is plumbing." [level=2] [ref=f2e233]
+            - paragraph [ref=f2e234]: Every module runs on the same biological context, sharing context and learning from one source of truth.
+            - link "Book a demo" [ref=f2e236] [cursor=pointer]:
+              - /url: /demo
+          - generic [ref=f2e237]:
+            - img "Artistic Health AI Glass Background" [ref=f2e238]
+            - generic [ref=f2e239]:
+              - generic [ref=f2e241]:
+                - generic [ref=f2e242]:
+                  - generic [ref=f2e246]:
+                    - generic [ref=f2e247]: Digital Twin
+                    - generic [ref=f2e248]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e249]: A high-fidelity model of the person's health that shows their future self under current habits.
+                - generic [ref=f2e250]:
+                  - generic [ref=f2e255]:
+                    - generic [ref=f2e256]: Biological Age
+                    - generic [ref=f2e257]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e258]: How old the body actually is, measured against the number on the passport.
+                - generic [ref=f2e259]:
+                  - generic [ref=f2e263]:
+                    - generic [ref=f2e264]: Digital Twin
+                    - generic [ref=f2e265]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e266]: A high-fidelity model of the person's health that shows their future self under current habits.
+                - generic [ref=f2e267]:
+                  - generic [ref=f2e272]:
+                    - generic [ref=f2e273]: Biological Age
+                    - generic [ref=f2e274]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e275]: How old the body actually is, measured against the number on the passport.
+                - generic [ref=f2e276]:
+                  - generic [ref=f2e280]:
+                    - generic [ref=f2e281]: Digital Twin
+                    - generic [ref=f2e282]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e283]: A high-fidelity model of the person's health that shows their future self under current habits.
+                - generic [ref=f2e284]:
+                  - generic [ref=f2e289]:
+                    - generic [ref=f2e290]: Biological Age
+                    - generic [ref=f2e291]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e292]: How old the body actually is, measured against the number on the passport.
+              - generic [ref=f2e294]:
+                - generic [ref=f2e295]:
+                  - generic [ref=f2e299]:
+                    - generic [ref=f2e300]: Pace of Aging
+                    - generic [ref=f2e301]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e302]: How fast it's wearing right now. 0.8× or 1.2× — a rate, not a static score.
+                - generic [ref=f2e303]:
+                  - generic [ref=f2e307]:
+                    - generic [ref=f2e308]: Disease Risk
+                    - generic [ref=f2e309]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e310]: Metabolic, cardiovascular and age-related risk, generated from patterns rather than single markers.
+                - generic [ref=f2e311]:
+                  - generic [ref=f2e315]:
+                    - generic [ref=f2e316]: Pace of Aging
+                    - generic [ref=f2e317]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e318]: How fast it's wearing right now. 0.8× or 1.2× — a rate, not a static score.
+                - generic [ref=f2e319]:
+                  - generic [ref=f2e323]:
+                    - generic [ref=f2e324]: Disease Risk
+                    - generic [ref=f2e325]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e326]: Metabolic, cardiovascular and age-related risk, generated from patterns rather than single markers.
+                - generic [ref=f2e327]:
+                  - generic [ref=f2e331]:
+                    - generic [ref=f2e332]: Pace of Aging
+                    - generic [ref=f2e333]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e334]: How fast it's wearing right now. 0.8× or 1.2× — a rate, not a static score.
+                - generic [ref=f2e335]:
+                  - generic [ref=f2e339]:
+                    - generic [ref=f2e340]: Disease Risk
+                    - generic [ref=f2e341]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e342]: Metabolic, cardiovascular and age-related risk, generated from patterns rather than single markers.
+              - generic [ref=f2e344]:
+                - generic [ref=f2e345]:
+                  - generic [ref=f2e351]:
+                    - generic [ref=f2e352]: Health Domain Scoring
+                    - generic [ref=f2e353]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e354]: Cellular, metabolic, inflammatory and more — each scored and status-flagged independently.
+                - generic [ref=f2e355]:
+                  - generic [ref=f2e360]:
+                    - generic [ref=f2e361]: Correlation Engine
+                    - generic [ref=f2e362]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e363]: The engine underneath the others. Surfaces relationships across systems that no single marker reveals.
+                - generic [ref=f2e364]:
+                  - generic [ref=f2e370]:
+                    - generic [ref=f2e371]: Health Domain Scoring
+                    - generic [ref=f2e372]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e373]: Cellular, metabolic, inflammatory and more — each scored and status-flagged independently.
+                - generic [ref=f2e374]:
+                  - generic [ref=f2e379]:
+                    - generic [ref=f2e380]: Correlation Engine
+                    - generic [ref=f2e381]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e382]: The engine underneath the others. Surfaces relationships across systems that no single marker reveals.
+                - generic [ref=f2e383]:
+                  - generic [ref=f2e389]:
+                    - generic [ref=f2e390]: Health Domain Scoring
+                    - generic [ref=f2e391]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e392]: Cellular, metabolic, inflammatory and more — each scored and status-flagged independently.
+                - generic [ref=f2e393]:
+                  - generic [ref=f2e398]:
+                    - generic [ref=f2e399]: Correlation Engine
+                    - generic [ref=f2e400]: INTELLIGENCE MODULE
+                  - paragraph [ref=f2e401]: The engine underneath the others. Surfaces relationships across systems that no single marker reveals.
+        - generic [ref=f2e403]:
+          - generic [ref=f2e404]:
+            - text: BUILD & PRICE YOUR STACK
+            - heading "Build your stack. See your price." [level=2] [ref=f2e405]
+            - paragraph [ref=f2e406]: Activate modules, toggle white-label — the pricing updates in real time. Ship it under your brand. Add more as you grow.
+          - generic [ref=f2e407]:
+            - generic [ref=f2e408]:
+              - generic [ref=f2e409]:
+                - generic [ref=f2e415]:
+                  - generic [ref=f2e416]: YOUR NOSTAVIA STACK
+                  - generic [ref=f2e417]: 5 / 20 modules active
+                - generic [ref=f2e418]:
+                  - button "Activate All" [ref=f2e419] [cursor=pointer]
+                  - button "Reset" [ref=f2e420] [cursor=pointer]
+              - generic [ref=f2e421]:
+                - generic [ref=f2e422] [cursor=pointer]:
+                  - heading "Smart Reports" [level=3] [ref=f2e430]
+                  - paragraph [ref=f2e431]: Lab PDF parsing & biomarker decoding
+                  - generic [ref=f2e432]: IN YOUR STACK
+                - generic [ref=f2e433] [cursor=pointer]:
+                  - heading "Wearable Telemetry" [level=3] [ref=f2e443]
+                  - paragraph [ref=f2e444]: Apple, Oura, WHOOP, Garmin fusion
+                  - generic [ref=f2e445]: IN YOUR STACK
+                - generic [ref=f2e446] [cursor=pointer]:
+                  - heading "AI Health Companion" [level=3] [ref=f2e454]
+                  - paragraph [ref=f2e455]: Conversational health AI concierge
+                  - generic [ref=f2e456]: IN YOUR STACK
+                - generic [ref=f2e457] [cursor=pointer]:
+                  - heading "Personalisation Engine" [level=3] [ref=f2e464]
+                  - paragraph [ref=f2e465]: Adaptive habit & intervention tailoring
+                  - generic [ref=f2e466]: IN YOUR STACK
+                - generic [ref=f2e467] [cursor=pointer]:
+                  - heading "Food Intelligence" [level=3] [ref=f2e475]
+                  - paragraph [ref=f2e476]: Glycemic bio-impact & meal scanning
+                  - generic [ref=f2e477]: IN YOUR STACK
+                - generic [ref=f2e478] [cursor=pointer]:
+                  - generic [ref=f2e479]: +$50/mo
+                  - heading "Re-Test Recall Engine" [level=3] [ref=f2e487]
+                  - paragraph [ref=f2e488]: Automated 90-day re-test campaigns
+                  - generic [ref=f2e489]: TAP TO ACTIVATE
+                - generic [ref=f2e490] [cursor=pointer]:
+                  - generic [ref=f2e491]: +$50/mo
+                  - heading "Cardiovascular Intelligence" [level=3] [ref=f2e497]
+                  - paragraph [ref=f2e498]: HRV, arterial health & pulse wave analysis
+                  - generic [ref=f2e499]: TAP TO ACTIVATE
+                - generic [ref=f2e500] [cursor=pointer]:
+                  - generic [ref=f2e501]: +$50/mo
+                  - heading "Performance Intelligence" [level=3] [ref=f2e506]
+                  - paragraph [ref=f2e507]: Athletic recovery, VO2 max & readiness
+                  - generic [ref=f2e508]: TAP TO ACTIVATE
+                - generic [ref=f2e509] [cursor=pointer]:
+                  - generic [ref=f2e510]: +$50/mo
+                  - heading "Women's Health Engine" [level=3] [ref=f2e518]
+                  - paragraph [ref=f2e519]: Cycle tracking, hormonal phases & fertility
+                  - generic [ref=f2e520]: TAP TO ACTIVATE
+                - generic [ref=f2e521] [cursor=pointer]:
+                  - generic [ref=f2e522]: +$50/mo
+                  - heading "Mental & Behavioral Health" [level=3] [ref=f2e535]
+                  - paragraph [ref=f2e536]: Stress resilience, mood logging & mindfulness
+                  - generic [ref=f2e537]: TAP TO ACTIVATE
+                - generic [ref=f2e538] [cursor=pointer]:
+                  - heading "Clinical Intake Briefs" [level=3] [ref=f2e543]
+                  - paragraph [ref=f2e544]: Pre-consultation chart synthesis
+                  - generic [ref=f2e545]: TAP TO ACTIVATE
+                - generic [ref=f2e546] [cursor=pointer]:
+                  - heading "Adaptive Protocols" [level=3] [ref=f2e552]
+                  - paragraph [ref=f2e553]: Condition-aware care pathways
+                  - generic [ref=f2e554]: TAP TO ACTIVATE
+              - button "View All 20 Modules" [ref=f2e556] [cursor=pointer]
+            - generic [ref=f2e561]:
+              - generic [ref=f2e562]:
+                - generic [ref=f2e563]: LIMITED-PERIOD OFFER
+                - paragraph [ref=f2e568]: White-Label Pro at $299/mo — no upfront cost on annual plan. Lock this rate before it reverts.
+              - generic [ref=f2e569]:
+                - generic [ref=f2e570]:
+                  - generic [ref=f2e571]: YOUR WHITE-LABEL ESTIMATE
+                  - generic [ref=f2e572]: White-Label Pro
+                  - paragraph [ref=f2e573]: Your fully branded iOS & Android health app
+                - generic [ref=f2e574]:
+                  - generic [ref=f2e575]: $299/ mo
+                  - generic [ref=f2e576]:
+                    - button "USD" [ref=f2e577] [cursor=pointer]
+                    - button "AED" [ref=f2e578] [cursor=pointer]
+                    - button "INR" [ref=f2e579] [cursor=pointer]
+                - generic [ref=f2e581]:
+                  - generic [ref=f2e582]: Unlimited MAU
+                  - generic [ref=f2e585]: Fully branded iOS & Android app
+                  - generic [ref=f2e588]: All base modules included
+                  - generic [ref=f2e591]: Priority 2-hour support
+                  - generic [ref=f2e594]: No upfront cost on annual plan
+                  - generic [ref=f2e597]: Premium intelligence modules at $50/mo each
+                - generic [ref=f2e607] [cursor=pointer]:
+                  - generic [ref=f2e608]: White-Label App
+                  - generic [ref=f2e609]: Branded iOS & Android
+                - link "Deploy your white-label app" [ref=f2e613] [cursor=pointer]:
+                  - /url: /demo
+              - generic [ref=f2e616]:
+                - generic [ref=f2e617]: ENTERPRISE
+                - paragraph [ref=f2e618]: Custom AI training on your data, on-site onboarding, and unlimited scale. Starting from $2,499/mo.
+                - link "Contact Enterprise sales →" [ref=f2e619] [cursor=pointer]:
+                  - /url: /demo
+              - generic [ref=f2e620]:
+                - generic [ref=f2e621]: HOSPITAL & HEALTH SYSTEMS
+                - paragraph [ref=f2e623]: Performance-linked partner pricing with the Leakage Audit and Attribution Engine.
+                - link "View Hospital pricing →" [ref=f2e624] [cursor=pointer]:
+                  - /url: /industries/hospitals#pricing
+        - generic [ref=f2e626]:
+          - generic [ref=f2e627]:
+            - generic [ref=f2e628]: SPECIALISED SERVICES
+            - heading "Four things you currently pay people to do — or don't do at all." [level=2] [ref=f2e629]
+          - generic [ref=f2e630]:
+            - generic [ref=f2e631]:
+              - generic [ref=f2e632]:
+                - heading "Smart Report as a Service" [level=3] [ref=f2e633]
+                - paragraph [ref=f2e634]: The interpretation a clinician would spend twenty minutes writing, generated for every routine panel, under your brand.
+              - generic [ref=f2e635]:
+                - generic [ref=f2e636]: Per report.
+                - link "Explore →" [ref=f2e637] [cursor=pointer]:
+                  - /url: /solutions/comet
+            - generic [ref=f2e638]:
+              - generic [ref=f2e639]:
+                - heading "Clinical Intake Briefs" [level=3] [ref=f2e640]
+                - paragraph [ref=f2e641]: "The unpaid chart review before every new-patient consult, done by the engine: reports parsed, outliers flagged, history to one page."
+              - generic [ref=f2e642]:
+                - generic [ref=f2e643]: Per consult.
+                - link "Explore →" [ref=f2e644] [cursor=pointer]:
+                  - /url: /solutions/cured
+            - generic [ref=f2e645]:
+              - generic [ref=f2e646]:
+                - heading "Re-Test Recall Campaigns" [level=3] [ref=f2e647]
+                - paragraph [ref=f2e648]: We find which of your dormant patients are due for a re-test and why, from your own historical data, and re-engage them in your name.
+              - generic [ref=f2e649]:
+                - generic [ref=f2e650]: Per campaign or per converted re-test.
+                - link "Explore →" [ref=f2e651] [cursor=pointer]:
+                  - /url: /solutions/humbi
+            - generic [ref=f2e652]:
+              - generic [ref=f2e653]:
+                - heading "Solutions Engineering" [level=3] [ref=f2e654]
+                - paragraph [ref=f2e655]: Custom intelligence work on your data, by the team that built the core.
+              - generic [ref=f2e656]:
+                - generic [ref=f2e657]: Per engagement.
+                - link "Explore →" [ref=f2e658] [cursor=pointer]:
+                  - /url: /solutions/supplements
+        - generic [ref=f2e660]:
+          - generic [ref=f2e661]:
+            - generic [ref=f2e662]:
+              - generic [ref=f2e663]: CUSTOMER STORIES
+              - heading "Real outcomes from real deployments" [level=2] [ref=f2e664]
+              - paragraph [ref=f2e665]: See how leading diagnostic networks, longevity clinics, and health platforms are transforming themselves.
+            - generic [ref=f2e666]:
+              - button "Previous case study" [ref=f2e667] [cursor=pointer]
+              - button "Next case study" [ref=f2e670] [cursor=pointer]
+          - generic [ref=f2e673]:
+            - generic [ref=f2e674]: Dubai Longevity
+            - generic [ref=f2e676]:
+              - generic [ref=f2e677]:
+                - paragraph [ref=f2e678]: Aligned with Dubai Longevity Authority Law No. 17 of 2026, Nostavia's SOMA Dual-Brain engine automated pre-consultation chart review for preventive care specialists in Dubai.
+                - link "SEE FULL CASE STUDY" [ref=f2e680] [cursor=pointer]:
+                  - /url: /industries/clinics
+              - generic [ref=f2e681]:
+                - generic [ref=f2e682]:
+                  - generic [ref=f2e683]: 15 Mins
+                  - generic [ref=f2e684]: Saved per patient consultation
+                - generic [ref=f2e685]:
+                  - generic [ref=f2e686]: 100+
+                  - generic [ref=f2e687]: Biomarkers decoded into sub-ranges
+                - generic [ref=f2e688]:
+                  - generic [ref=f2e689]: 100%
+                  - generic [ref=f2e690]: In-region UAE health data privacy
+        - generic [ref=f2e693]:
+          - generic [ref=f2e694]:
+            - generic [ref=f2e695]:
+              - generic [ref=f2e696]: BUILT FOR REGULATED DATA
+              - heading "Security & compliance architecture" [level=2] [ref=f2e697]
+              - paragraph [ref=f2e698]: Enterprise-grade privacy at the edge, DPDP compliance, and global health data residency engineered directly into the data pipeline.
+            - link "Security & compliance →" [ref=f2e700] [cursor=pointer]:
+              - /url: /security
+          - generic [ref=f2e701]:
+            - generic [ref=f2e703]:
+              - generic [ref=f2e704]: ARCHITECTURE
+              - heading "Privacy at the edge" [level=3] [ref=f2e710]
+              - paragraph [ref=f2e711]: Identifiers stripped on-device before any cloud inference.
+            - generic [ref=f2e713]:
+              - generic [ref=f2e714]: COMPLIANCE
+              - heading "DPDP-aligned" [level=3] [ref=f2e720]
+              - paragraph [ref=f2e721]: Explicit consent, purpose limitation and data minimisation in the pipeline.
+            - generic [ref=f2e723]:
+              - generic [ref=f2e724]: RESIDENCY
+              - heading "Global-ready" [level=3] [ref=f2e730]
+              - paragraph [ref=f2e731]: In-region data handling aligned to US, European, Indian, and UAE health-data residency rules.
+            - generic [ref=f2e733]:
+              - generic [ref=f2e734]: SOVEREIGNTY
+              - heading "You own the data" [level=3] [ref=f2e740]
+              - paragraph [ref=f2e741]: Your customers, your relationship, your data. We operate the intelligence.
+        - generic [ref=f2e743]:
+          - generic [ref=f2e744]:
+            - generic [ref=f2e745]:
+              - generic [ref=f2e746]: COMMERCIAL SCALE & GOVERNANCE
+              - heading "Built for scale. Validated by leaders." [level=2] [ref=f2e747]
+            - link "Meet the clinical bench →" [ref=f2e748] [cursor=pointer]:
+              - /url: /company
+          - generic [ref=f2e749]:
+            - generic [ref=f2e750]:
+              - generic [ref=f2e751]:
+                - generic [ref=f2e752]: 10M+
+                - heading "Enterprise Production Scale" [level=3] [ref=f2e753]
+                - paragraph [ref=f2e754]: Nostavia's clinical AI infrastructure processes complex lab panels, continuous wearable telemetry, and personalized protocol routing in active production for diagnostic networks, health systems, and longevity clinics globally.
+              - generic [ref=f2e755]: Live in Production across Global Healthcare Networks
+            - generic [ref=f2e758]:
+              - generic [ref=f2e759]:
+                - heading "Enterprise Client Deployments" [level=3] [ref=f2e760]
+                - paragraph [ref=f2e761]: Deployed as white-labeled core infrastructure across premier diagnostic lab networks and multi-location health platforms — delivering 3.8x patient recall rates and 64% admin efficiency.
+              - generic [ref=f2e762]: 3.8x Recall Lift · 64% Workflow Velocity
+            - generic [ref=f2e763]:
+              - generic [ref=f2e764]:
+                - heading "Global Tech Alliances" [level=3] [ref=f2e765]
+                - paragraph [ref=f2e766]: "Supported and accelerated by tier-one global technology partner programs: NVIDIA Inception, Google for Startups Healthcare AI, Microsoft, and ElevenLabs AI Grants."
+              - generic [ref=f2e767]: NVIDIA · GOOGLE CLOUD · MICROSOFT · ELEVENLABS
+            - generic [ref=f2e768]:
+              - generic [ref=f2e769]:
+                - heading "Institutional Clinical Governance" [level=3] [ref=f2e770]
+                - paragraph [ref=f2e771]: Governed by GMC-registered physicians, senior computational biology researchers from IISc Bangalore, and UCL-trained clinical pharmacology leadership to validate all decision-support outputs prior to partner deployment.
+              - generic [ref=f2e772]:
+                - generic [ref=f2e773]: GMC Physicians · IISc Bangalore · UCL
+                - link "Details" [ref=f2e774] [cursor=pointer]:
+                  - /url: /company
+        - generic [ref=f2e778]:
+          - heading "Integrate once. Your users never see us." [level=2] [ref=f2e779]
+          - paragraph [ref=f2e780]: Thirty minutes on live product, not slides. Send a sample lab report in advance and we'll run it through the engine and show you the output on your own panel.
+          - generic [ref=f2e781]:
+            - link "Book a demo" [ref=f2e782] [cursor=pointer]:
+              - /url: /demo
+            - link "Read the docs" [ref=f2e785] [cursor=pointer]:
+              - /url: /company
+  - contentinfo [ref=f2e786]:
+    - generic [ref=f2e787]:
+      - generic [ref=f2e788]:
+        - generic [ref=f2e789]:
+          - link [ref=f2e790] [cursor=pointer]:
+            - /url: /
+            - img "Nostavia Health" [ref=f2e791]
+          - paragraph [ref=f2e792]: Nostavia is the intelligence layer health companies embed inside their own products. Continuous biomarker interpretation, SOMA dual-brain architecture, and adaptive clinical protocols.
+          - generic [ref=f2e793]:
+            - generic [ref=f2e794]: Nostavia Technologies Pvt. Ltd.
+            - generic [ref=f2e795]: Headquartered in Lucknow, India · Serving India & UAE
+          - generic [ref=f2e796]:
+            - generic [ref=f2e797]: SOMA Edge Privacy
+            - generic [ref=f2e801]: DPDP 2023 Aligned
+            - generic [ref=f2e805]: Dubai Law 17/2026 Ready
+          - generic [ref=f2e809]:
+            - generic [ref=f2e810]: GET THE NOSTAVIA HEALTH APP
+            - generic [ref=f2e811]:
+              - link "Download on the App Store" [ref=f2e812] [cursor=pointer]:
+                - /url: https://apps.apple.com/us/app/nostavia-health/id6760108353
+                - generic [ref=f2e815]:
+                  - generic [ref=f2e816]: Download on the
+                  - generic [ref=f2e817]: App Store
+              - link "GET IT ON Google Play" [ref=f2e818] [cursor=pointer]:
+                - /url: https://play.google.com/store/apps/details?id=com.nostavia.nostavia_health&hl=en_IN
+                - generic [ref=f2e821]:
+                  - generic [ref=f2e822]: GET IT ON
+                  - generic [ref=f2e823]: Google Play
+        - generic [ref=f2e824]:
+          - generic [ref=f2e825]: PLATFORM
+          - link "Intelligence SDK" [ref=f2e826] [cursor=pointer]:
+            - /url: /platform#intelligence-sdk
+          - link "Wearables SDK" [ref=f2e827] [cursor=pointer]:
+            - /url: /platform#wearables-sdk
+          - link "White-Label App" [ref=f2e828] [cursor=pointer]:
+            - /url: /platform#white-label-app
+          - link "AI Agents (Voice & Chat)" [ref=f2e829] [cursor=pointer]:
+            - /url: /solutions/front-desk
+          - link "Specialised Services" [ref=f2e830] [cursor=pointer]:
+            - /url: /platform#services
+        - generic [ref=f2e831]:
+          - generic [ref=f2e832]: INDUSTRIES
+          - link "Diagnostic Labs" [ref=f2e833] [cursor=pointer]:
+            - /url: /industries/diagnostic-labs
+          - link "Clinics & Longevity" [ref=f2e834] [cursor=pointer]:
+            - /url: /industries/clinics
+          - link "Hospitals" [ref=f2e835] [cursor=pointer]:
+            - /url: /industries/hospitals
+          - link "Supplements" [ref=f2e836] [cursor=pointer]:
+            - /url: /industries/supplements
+        - generic [ref=f2e837]:
+          - generic [ref=f2e838]: COMPANY
+          - link "Pricing" [ref=f2e839] [cursor=pointer]:
+            - /url: /pricing
+          - link "Security & Privacy" [ref=f2e840] [cursor=pointer]:
+            - /url: /security
+          - link "Clinical Governance" [ref=f2e841] [cursor=pointer]:
+            - /url: /clinical
+          - link "About & Founders" [ref=f2e842] [cursor=pointer]:
+            - /url: /company
+          - link "Book a Demo" [ref=f2e843] [cursor=pointer]:
+            - /url: /demo
+          - link "Crunchbase" [ref=f2e844] [cursor=pointer]:
+            - /url: https://www.crunchbase.com/organization/nostavia-health
+      - generic [ref=f2e849]:
+        - generic [ref=f2e850]: © 2026 Nostavia Technologies Pvt. Ltd. All rights reserved.
+        - generic [ref=f2e851]: Built for precision longevity & population health.

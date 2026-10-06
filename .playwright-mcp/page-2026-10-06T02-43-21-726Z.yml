@@ -1,0 +1,664 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e7]:
+      - heading "Nostavia Health raises ₹50 Lakh in funding." [level=2] [ref=e8]
+      - paragraph [ref=e9]: Building the intelligence infrastructure for the next generation of preventive healthcare, embedded into the diagnostic labs and clinics people already trust.
+      - link "READ FULL STORY" [ref=e11] [cursor=pointer]:
+        - /url: https://lnkd.in/p/dBqTFF95
+    - banner [ref=e16]:
+      - generic [ref=e17]:
+        - link [ref=e18] [cursor=pointer]:
+          - /url: /
+          - img "Nostavia Health" [ref=e19]
+        - generic [ref=e20]:
+          - button "PLATFORM & SERVICES" [ref=e22] [cursor=pointer]
+          - link "CLINICAL EVIDENCE" [ref=e23] [cursor=pointer]:
+            - /url: /clinical
+          - link "SECURITY & PRIVACY" [ref=e24] [cursor=pointer]:
+            - /url: /security
+          - link "COMPANY" [ref=e25] [cursor=pointer]:
+            - /url: /company
+        - link "REQUEST A DEMO" [ref=e27] [cursor=pointer]:
+          - /url: /demo
+    - main [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: CLINICAL & ALGORITHMIC TRANSPARENCY
+          - heading "Clinical software that cannot explain itself should not be trusted with health decisions." [level=1] [ref=e33]
+          - paragraph [ref=e34]: "This document sets out the scientific basis of every major computation in the Nostavia platform: the models we use, the literature they come from, the thresholds we consider clinically meaningful, where AI is involved, and where it is deliberately not."
+          - generic [ref=e35]:
+            - generic [ref=e36]: Version 1.0
+            - generic [ref=e37]: "|"
+            - generic [ref=e38]: August 2026
+            - generic [ref=e39]: "|"
+            - generic [ref=e40]: Public
+        - generic [ref=e42]:
+          - complementary [ref=e43]:
+            - navigation [ref=e44]:
+              - generic [ref=e45]: Contents
+              - button "1. Clinical Philosophy" [ref=e46] [cursor=pointer]
+              - button "2. Clinical Governance" [ref=e47] [cursor=pointer]
+              - button "3. Biological Age" [ref=e48] [cursor=pointer]
+              - button "4. Wearable Scoring" [ref=e49] [cursor=pointer]
+              - button "5. Biomarker Interpretation" [ref=e50] [cursor=pointer]
+              - button "6. Pattern Discovery" [ref=e51] [cursor=pointer]
+              - button "7. Nutrition Intelligence" [ref=e52] [cursor=pointer]
+              - button "8. Behavioural Modelling" [ref=e53] [cursor=pointer]
+              - 'button "9. AI: Scope & Limits" [ref=e54] [cursor=pointer]'
+              - button "10. Safety Systems" [ref=e55] [cursor=pointer]
+              - button "11. Data & Privacy" [ref=e56] [cursor=pointer]
+              - button "12. What We Don’t Publish" [ref=e57] [cursor=pointer]
+              - button "13. Known Limitations" [ref=e58] [cursor=pointer]
+              - button "14. Reference Library" [ref=e59] [cursor=pointer]
+              - button "15. Medical Disclaimer" [ref=e60] [cursor=pointer]
+              - button "16. Document Control" [ref=e61] [cursor=pointer]
+          - generic [ref=e62]:
+            - generic [ref=e64]:
+              - generic [ref=e65]:
+                - generic [ref=e66]: SECTION 01
+                - heading "Clinical Philosophy" [level=2] [ref=e67]
+              - generic [ref=e68]:
+                - paragraph [ref=e69]: Nostavia is built on a distinction that most health software ignores.
+                - paragraph [ref=e70]:
+                  - strong [ref=e71]: Normal ranges
+                  - text: are derived from the general population, including people with undiagnosed chronic disease. A result inside a normal range means you are statistically unremarkable. It does not mean you are well.
+                - paragraph [ref=e72]:
+                  - strong [ref=e73]: Optimal ranges
+                  - text: are derived from longevity research, centenarian cohorts, cardiovascular outcome trials and performance physiology. They describe the physiological state associated with the lowest long-term risk.
+                - paragraph [ref=e74]: Every interpretation the platform produces is graded against both. A result can be normal and still be flagged for attention. A result outside the normal range is always escalated, never softened.
+              - table [ref=e77]:
+                - rowgroup [ref=e78]:
+                  - row [ref=e79]:
+                    - columnheader "Capability" [ref=e80]
+                    - columnheader "Conventional" [ref=e81]
+                    - columnheader "Nostavia" [ref=e82]
+                - rowgroup [ref=e83]:
+                  - row [ref=e84]:
+                    - cell "Reference ranges" [ref=e85]
+                    - cell "Single standard clinical range" [ref=e86]
+                    - 'cell "Dual grading: optimal, normal, abnormal" [ref=e87]'
+                  - row [ref=e88]:
+                    - cell "Lab interpretation" [ref=e89]
+                    - cell "Flags values outside range" [ref=e90]
+                    - cell "Cross-panel correlation with wearable and lifestyle context" [ref=e91]
+                  - row [ref=e92]:
+                    - cell "Wearable data" [ref=e93]
+                    - cell "Step and calorie counting" [ref=e94]
+                    - cell "Published physiological models for load, recovery and autonomic state" [ref=e95]
+                  - row [ref=e96]:
+                    - cell "Biological age" [ref=e97]
+                    - cell "Not offered" [ref=e98]
+                    - cell "Multi-biomarker deviation model with published clocks where available" [ref=e99]
+                  - row [ref=e100]:
+                    - cell "Nutrition" [ref=e101]
+                    - cell "Calorie estimation" [ref=e102]
+                    - cell "Metabolic response, processing grade, timing appropriateness" [ref=e103]
+                  - row [ref=e104]:
+                    - cell "Pattern discovery" [ref=e105]
+                    - cell "Manual review" [ref=e106]
+                    - cell "Automated correlation with significance filtering" [ref=e107]
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - generic [ref=e111]: SECTION 02
+                - heading "Clinical Governance" [level=2] [ref=e112]
+              - paragraph [ref=e114]: The reference ranges, thresholds and interpretive language in the platform are reviewed by Nostavia's clinical advisory bench, which includes GMC-registered clinicians, research scientists and qualified nutrition specialists.
+              - generic [ref=e115]:
+                - generic [ref=e116]:
+                  - heading "No autonomous diagnosis" [level=3] [ref=e120]
+                  - paragraph [ref=e121]: The platform interprets and contextualises. It does not diagnose, and it does not prescribe.
+                - generic [ref=e122]:
+                  - heading "Clinician override" [level=3] [ref=e127]
+                  - paragraph [ref=e128]: Partner clinicians can adjust reference ranges, suppress modules, and control the language shown to their patients. Our defaults are defaults, not mandates.
+                - generic [ref=e129]:
+                  - heading "Traceability" [level=3] [ref=e134]
+                  - paragraph [ref=e135]: Every score and range maps to a published source. Where a threshold is our own composite judgement, we say so rather than implying literature support that does not exist.
+                - generic [ref=e136]:
+                  - heading "Conservative escalation" [level=3] [ref=e140]
+                  - paragraph [ref=e141]: Where a signal has established clinical significance, the platform surfaces it prominently and directs the person to a qualified clinician rather than attempting to manage it.
+            - generic [ref=e143]:
+              - generic [ref=e144]:
+                - generic [ref=e145]: SECTION 03
+                - heading "Biological Age" [level=2] [ref=e146]
+              - generic [ref=e147]:
+                - paragraph [ref=e148]: Nostavia estimates biological age using a biomarker deviation model, in the tradition of PhenoAge (Levine et al., 2018) and the Klemera-Doubal method (2006).
+                - paragraph [ref=e149]:
+                  - strong [ref=e150]: Method.
+                  - text: Each biomarker's distance from its optimal range is converted into an aging surplus or deficit expressed in years, weighted by the strength of that marker's association with mortality and healthspan in the literature, and combined with chronological age.
+              - generic [ref=e151]:
+                - heading "Safeguards built into the model" [level=3] [ref=e152]
+                - list [ref=e153]:
+                  - listitem [ref=e154]:
+                    - generic [ref=e155]: "1"
+                    - generic [ref=e156]: A minimum number of valid biomarkers is required before any estimate is produced. Sparse data returns no result rather than a confident guess.
+                  - listitem [ref=e157]:
+                    - generic [ref=e158]: "2"
+                    - generic [ref=e159]: Each individual marker’s contribution is capped, so no single abnormal value can dominate the estimate.
+                  - listitem [ref=e160]:
+                    - generic [ref=e161]: "3"
+                    - generic [ref=e162]: The final output is bounded relative to chronological age to prevent implausible results.
+              - generic [ref=e163]:
+                - paragraph [ref=e164]:
+                  - strong [ref=e165]: "Contributing markers:"
+                  - text: fasting glucose, HbA1c, HDL and LDL cholesterol, triglycerides, creatinine, ALT, haemoglobin, TSH and vitamin D.
+                - paragraph [ref=e166]:
+                  - strong [ref=e167]: Epigenetic clocks.
+                  - text: "Where a person has completed validated epigenetic testing through a third-party laboratory, Nostavia displays and tracks the results rather than recomputing them: Horvath, Hannum, PhenoAge, GrimAge and DunedinPACE."
+              - paragraph [ref=e169]:
+                - strong [ref=e170]: What this is not.
+                - text: Our biomarker-derived biological age is a metabolic estimate, not an epigenetic measurement. It is not interchangeable with a methylation clock, and we label it accordingly everywhere it appears.
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - generic [ref=e174]: SECTION 04
+                - heading "Wearable & Physiological Scoring" [level=2] [ref=e175]
+              - paragraph [ref=e177]: Nostavia converts raw sensor data from Apple Watch, Fitbit, Garmin, Oura and WHOOP into composite scores. Each score is built on a published physiological model rather than an invented metric.
+              - table [ref=e180]:
+                - rowgroup [ref=e181]:
+                  - row [ref=e182]:
+                    - columnheader "Score" [ref=e183]
+                    - columnheader "Underlying Model" [ref=e184]
+                    - columnheader "Source" [ref=e185]
+                - rowgroup [ref=e186]:
+                  - row [ref=e187]:
+                    - cell "Training load / strain" [ref=e188]
+                    - cell "TRIMP, exponentially weighted by HR reserve" [ref=e189]
+                    - cell "Banister (1991)" [ref=e190]
+                  - row [ref=e191]:
+                    - cell "Cardio load" [ref=e192]
+                    - cell "Training Stress Score methodology" [ref=e193]
+                    - cell "Coggan & Allen (2010)" [ref=e194]
+                  - row [ref=e195]:
+                    - cell "Recovery" [ref=e196]
+                    - cell "HRV + resting HR vs personal baseline + sleep quality" [ref=e197]
+                    - cell "Buchheit (2014)" [ref=e198]
+                  - row [ref=e199]:
+                    - cell "Stress" [ref=e200]
+                    - cell "Dual-branch autonomic assessment" [ref=e201]
+                    - cell "Kim et al. (2018); Schumann et al." [ref=e202]
+                  - row [ref=e203]:
+                    - cell "Energy / readiness" [ref=e204]
+                    - cell "Two-process sleep-wake model with circadian weighting" [ref=e205]
+                    - cell "Borbély; Dijk & Czeisler (1995)" [ref=e206]
+                  - row [ref=e207]:
+                    - cell "Sleep quality" [ref=e208]
+                    - cell "Duration vs NSF guidance + sleep efficiency" [ref=e209]
+                    - cell "Hirshkowitz et al. (2015); Buysse et al. (1989)" [ref=e210]
+                  - row [ref=e211]:
+                    - cell "Max heart rate" [ref=e212]
+                    - 'cell "Tanaka formula: 208 − 0.7 × age" [ref=e213]'
+                    - cell "Tanaka et al. (2001)" [ref=e214]
+              - generic [ref=e215]:
+                - generic [ref=e216]:
+                  - heading "Personal baselines" [level=4] [ref=e217]
+                  - paragraph [ref=e218]: Recovery and stress are computed against the individual's own rolling baseline. A resting heart rate of 58 is unremarkable for one person and a warning sign for another.
+                - generic [ref=e219]:
+                  - heading "VO₂ max" [level=4] [ref=e220]
+                  - paragraph [ref=e221]: Read from the device where available and classified against ACSM age and sex-specific percentile tiers. Not estimated where the device does not provide it.
+                - generic [ref=e222]:
+                  - heading "Heart rate recovery" [level=4] [ref=e223]
+                  - paragraph [ref=e224]: A blunted recovery below 12 bpm is associated with elevated cardiovascular mortality risk. The platform flags this prominently and directs the person to a physician.
+            - generic [ref=e226]:
+              - generic [ref=e227]:
+                - generic [ref=e228]: SECTION 05
+                - heading "Biomarker Interpretation" [level=2] [ref=e229]
+              - generic [ref=e230]:
+                - paragraph [ref=e231]: "Nostavia supports interpretation across more than 100 biomarkers spanning ten organ systems: metabolic health, cardiovascular, hepatic, renal, thyroid, hormonal, vitamins, minerals and electrolytes, haematology, and emerging longevity markers."
+                - paragraph [ref=e232]: Where a result sits inside the standard range but outside the optimal range, it is presented as an opportunity rather than a problem.
+              - generic [ref=e233]:
+                - heading "Optimal vs Standard Ranges" [level=3] [ref=e234]
+                - table [ref=e237]:
+                  - rowgroup [ref=e238]:
+                    - row [ref=e239]:
+                      - columnheader "Biomarker" [ref=e240]
+                      - columnheader "Standard" [ref=e241]
+                      - columnheader "Optimal" [ref=e242]
+                      - columnheader "Basis" [ref=e243]
+                  - rowgroup [ref=e244]:
+                    - row [ref=e245]:
+                      - cell "HbA1c" [ref=e246]
+                      - cell "4.0–5.6 %" [ref=e247]
+                      - cell "4.8–5.2 %" [ref=e248]
+                      - cell "Levine et al. (2018); ADA" [ref=e249]
+                    - row [ref=e250]:
+                      - cell "Fasting glucose" [ref=e251]
+                      - cell "70–99 mg/dL" [ref=e252]
+                      - cell "70–85 mg/dL" [ref=e253]
+                      - cell "Tirosh et al. (2011)" [ref=e254]
+                    - row [ref=e255]:
+                      - cell "Fasting insulin" [ref=e256]
+                      - cell "2.6–24.9 µIU/mL" [ref=e257]
+                      - cell "2.6–5.0 µIU/mL" [ref=e258]
+                      - cell "Centenarian cohorts" [ref=e259]
+                    - row [ref=e260]:
+                      - cell "LDL cholesterol" [ref=e261]
+                      - cell "<100 mg/dL" [ref=e262]
+                      - cell "<70 mg/dL" [ref=e263]
+                      - cell "Ference et al. (2017)" [ref=e264]
+                    - row [ref=e265]:
+                      - cell "HDL cholesterol" [ref=e266]
+                      - cell "40–100 mg/dL" [ref=e267]
+                      - cell "60–90 mg/dL" [ref=e268]
+                      - cell "Sirtori (2006)" [ref=e269]
+                    - row [ref=e270]:
+                      - cell "Triglycerides" [ref=e271]
+                      - cell "<150 mg/dL" [ref=e272]
+                      - cell "<100 mg/dL" [ref=e273]
+                      - cell "Nordestgaard (2016)" [ref=e274]
+                    - row [ref=e275]:
+                      - cell "ApoB" [ref=e276]
+                      - cell "<100 mg/dL" [ref=e277]
+                      - cell "<60 mg/dL" [ref=e278]
+                      - cell "Sniderman et al. (2019)" [ref=e279]
+                    - row [ref=e280]:
+                      - cell "hs-CRP" [ref=e281]
+                      - cell "0–3 mg/L" [ref=e282]
+                      - cell "<1 mg/L" [ref=e283]
+                      - cell "Ridker (2003)" [ref=e284]
+                    - row [ref=e285]:
+                      - cell "Homocysteine" [ref=e286]
+                      - cell "<15 µmol/L" [ref=e287]
+                      - cell "<9 µmol/L" [ref=e288]
+                      - cell "Smith et al. (2010)" [ref=e289]
+                    - row [ref=e290]:
+                      - cell "Vitamin D (25-OH)" [ref=e291]
+                      - cell "30–100 ng/mL" [ref=e292]
+                      - cell "40–80 ng/mL" [ref=e293]
+                      - cell "Holick et al., Endocrine Soc" [ref=e294]
+                    - row [ref=e295]:
+                      - cell "TSH" [ref=e296]
+                      - cell "0.4–4.0 mIU/L" [ref=e297]
+                      - cell "1.0–2.5 mIU/L" [ref=e298]
+                      - cell "Garber et al., AACE/ETA" [ref=e299]
+                    - row [ref=e300]:
+                      - cell "ALT / AST" [ref=e301]
+                      - cell "<56 U/L" [ref=e302]
+                      - cell "<25 U/L" [ref=e303]
+                      - cell "NAFLD literature" [ref=e304]
+                    - row [ref=e305]:
+                      - cell "Creatinine" [ref=e306]
+                      - cell "0.7–1.3 mg/dL" [ref=e307]
+                      - cell "0.6–1.0 mg/dL" [ref=e308]
+                      - cell "KDIGO" [ref=e309]
+                    - row [ref=e310]:
+                      - cell "eGFR" [ref=e311]
+                      - cell ">60 mL/min" [ref=e312]
+                      - cell ">90 mL/min" [ref=e313]
+                      - cell "KDIGO" [ref=e314]
+                    - row [ref=e315]:
+                      - cell "Ferritin" [ref=e316]
+                      - cell "30–400 ng/mL" [ref=e317]
+                      - cell "70–150 ng/mL" [ref=e318]
+                      - cell "WHO guidance" [ref=e319]
+                    - row [ref=e320]:
+                      - cell "IGF-1" [ref=e321]
+                      - cell "50–300 ng/mL" [ref=e322]
+                      - cell "120–180 ng/mL" [ref=e323]
+                      - cell "Milman et al. (2014)" [ref=e324]
+                    - row [ref=e325]:
+                      - cell "DHEA-S" [ref=e326]
+                      - cell "138–475 µg/dL" [ref=e327]
+                      - cell "200–400 µg/dL" [ref=e328]
+                      - cell "Endocrine Society" [ref=e329]
+                - paragraph [ref=e330]: Partner institutions can override any of these ranges to match their own clinical protocols or local laboratory standards.
+              - generic [ref=e331]:
+                - generic [ref=e332]:
+                  - heading "Unit standardisation" [level=4] [ref=e333]
+                  - paragraph [ref=e334]: All incoming results are normalised to canonical units before interpretation, so a report in mmol/L and one in mg/dL produce identical clinical reasoning.
+                - generic [ref=e335]:
+                  - heading "Extended panels" [level=4] [ref=e336]
+                  - paragraph [ref=e337]: Gut microbiome, pharmacogenomic and wellness genetics (MTHFR, APOE, COMT, VDR, CYP1A2), epigenetic age, and heavy metals panels.
+                - generic [ref=e338]:
+                  - heading "Research-grade markers" [level=4] [ref=e340]
+                  - paragraph [ref=e341]: NAD+, telomere length, sirtuin and mTOR activity, and certain inflammatory cytokines are labelled as research-grade and excluded from biological age and risk outputs.
+            - generic [ref=e343]:
+              - generic [ref=e344]:
+                - generic [ref=e345]: SECTION 06
+                - heading "Pattern Discovery" [level=2] [ref=e346]
+              - generic [ref=e347]:
+                - paragraph [ref=e348]: Nostavia's correlation engine identifies relationships between health signals over time using Pearson correlation on aligned time-series data.
+                - paragraph [ref=e349]: A correlation is only surfaced when it clears a minimum data volume, exceeds a minimum coefficient magnitude, and matches a physiologically plausible direction. Statistical association alone is never sufficient. Every reportable pattern has a stated clinical rationale.
+              - generic [ref=e350]:
+                - heading "Relationships the engine tests" [level=3] [ref=e351]
+                - list [ref=e352]:
+                  - listitem [ref=e353]:
+                    - generic [ref=e356]: Sleep duration against next-day HRV and resting heart rate
+                  - listitem [ref=e357]:
+                    - generic [ref=e360]: Diet quality score against next-day autonomic markers
+                  - listitem [ref=e361]:
+                    - generic [ref=e364]: Late evening eating against overnight recovery
+                  - listitem [ref=e365]:
+                    - generic [ref=e368]: Sustained training load against recovery trajectory
+                  - listitem [ref=e369]:
+                    - generic [ref=e372]: "Multi-signal patterns: short sleep alongside elevated glycaemic markers, or declining HRV alongside elevated inflammatory markers"
+              - paragraph [ref=e374]:
+                - strong [ref=e375]: Association ≠ Causation.
+                - text: Correlations are presented as observations about that individual, with an explicit note that association is not causation. The platform does not tell someone that one thing caused another.
+            - generic [ref=e377]:
+              - generic [ref=e378]:
+                - generic [ref=e379]: SECTION 07
+                - heading "Nutrition Intelligence" [level=2] [ref=e380]
+              - paragraph [ref=e382]: "Nostavia analyses food from a photograph and returns more than a calorie estimate: predicted metabolic response, degree of processing, appropriateness for the time of day, and effect on nutrient absorption."
+              - generic [ref=e383]:
+                - generic [ref=e384]:
+                  - heading "Two-stage analysis" [level=4] [ref=e389]
+                  - paragraph [ref=e390]: A fast pass identifies the meal and estimates macronutrients within seconds. A deeper pass produces the full metabolic profile.
+                - generic [ref=e391]:
+                  - heading "Closed-loop validation" [level=4] [ref=e395]
+                  - paragraph [ref=e396]: After a scanned meal, the platform compares its predicted metabolic response against the person's actual heart rate response. Predictions contradicted by the person's own physiology are marked as such.
+                - generic [ref=e397]:
+                  - heading "Accuracy limits, stated plainly" [level=4] [ref=e401]
+                  - paragraph [ref=e402]: Photograph-based nutrition estimation is approximate. Portion size, hidden fats, oils and preparation method are inferred rather than measured. It is not a substitute for weighed intake in a clinical setting.
+            - generic [ref=e404]:
+              - generic [ref=e405]:
+                - generic [ref=e406]: SECTION 08
+                - heading "Behavioural & Predictive Modelling" [level=2] [ref=e407]
+              - generic [ref=e408]:
+                - generic [ref=e409]:
+                  - heading "Habit modelling" [level=4] [ref=e413]
+                  - paragraph [ref=e414]: The platform learns individual timing patterns — typical wake, meal and sleep times — using exponentially weighted moving averages, with confidence scores that rise as data accumulates. Below a minimum data threshold, no prediction is made. Gradual drift is detected via linear regression and surfaced when clinically meaningful.
+                - generic [ref=e415]:
+                  - heading "Adaptive timing" [level=4] [ref=e427]
+                  - paragraph [ref=e428]: Notifications and prompts are scheduled around predicted individual rhythms rather than fixed clock times, and are suppressed entirely when confidence is low.
+                - generic [ref=e429]:
+                  - heading "Scenario projection" [level=4] [ref=e433]
+                  - paragraph [ref=e434]: Nostavia can project likely trajectories across short and long horizons. These are educational models built on population-level relationships, clearly labelled as scenarios rather than predictions, and are never presented as individual disease risk assessment.
+            - generic [ref=e436]:
+              - generic [ref=e437]:
+                - generic [ref=e438]: SECTION 09
+                - 'heading "Artificial Intelligence: Scope & Limits" [level=2] [ref=e439]'
+              - paragraph [ref=e441]: AI is one component of the platform, not the whole of it.
+              - generic [ref=e442]:
+                - generic [ref=e443]:
+                  - heading "What is deterministic" [level=3] [ref=e448]
+                  - paragraph [ref=e449]: All physiological scoring, reference range grading, biological age computation, unit conversion, correlation statistics and safety thresholds are computed by fixed, auditable logic. These produce identical outputs for identical inputs. No language model is involved in producing a number.
+                - generic [ref=e450]:
+                  - heading "What is AI-assisted" [level=3] [ref=e462]
+                  - paragraph [ref=e463]: Natural language explanation of results, extraction of values from uploaded laboratory documents, food recognition from images, protocol drafting, and conversational interaction.
+              - generic [ref=e464]:
+                - heading "Controls we apply" [level=3] [ref=e465]
+                - list [ref=e466]:
+                  - listitem [ref=e467]:
+                    - generic [ref=e471]: Model outputs are constrained to structured formats and validated before they reach a person
+                  - listitem [ref=e472]:
+                    - generic [ref=e476]: Clinical thresholds and reference ranges are held outside the model — a model cannot change what counts as abnormal
+                  - listitem [ref=e477]:
+                    - generic [ref=e481]: Extracted laboratory values are surfaced for confirmation rather than silently trusted
+                  - listitem [ref=e482]:
+                    - generic [ref=e486]: Generated protocols respect hard constraints including dietary boundaries and biometric state; where recovery is poor or stress is elevated, intensity is reduced regardless of what the plan called for
+                  - listitem [ref=e487]:
+                    - generic [ref=e491]: Long-term context is stored as vector embeddings rather than raw conversation text
+              - paragraph [ref=e493]:
+                - strong [ref=e494]: What AI does not do.
+                - text: It does not diagnose. It does not alter a reference range. It does not decide whether a result is abnormal. It does not act on a person's health without a human in the loop.
+            - generic [ref=e496]:
+              - generic [ref=e497]:
+                - generic [ref=e498]: SECTION 10
+                - heading "Safety Systems" [level=2] [ref=e499]
+              - generic [ref=e500]:
+                - generic [ref=e501]:
+                  - heading "Emergency language detection" [level=3] [ref=e502]
+                  - paragraph [ref=e503]: Every message is screened for language indicating a medical or psychological emergency before it reaches any AI processing. When triggered, the platform returns emergency contact guidance and a direction to seek immediate help. The ordinary response path is bypassed entirely.
+                  - paragraph [ref=e504]: This is a supplementary safeguard. It is not an emergency service, it is not a substitute for one, and we do not present it as one.
+                - generic [ref=e505]:
+                  - heading "Clinical escalation thresholds" [level=3] [ref=e506]
+                  - paragraph [ref=e507]: Signals with established clinical significance — blunted heart rate recovery, sustained autonomic suppression, sustained elevation in resting heart rate above personal baseline, and severe sleep deficit — are flagged prominently with a recommendation to consult a qualified clinician.
+                  - paragraph [ref=e508]: The platform escalates. It does not attempt to manage.
+            - generic [ref=e510]:
+              - generic [ref=e511]:
+                - generic [ref=e512]: SECTION 11
+                - heading "Data, Privacy & Security" [level=2] [ref=e513]
+              - paragraph [ref=e515]:
+                - strong [ref=e516]: "Sources:"
+                - text: Apple HealthKit, Google Health Connect, connected wearables, laboratory reports uploaded or integrated directly, food images, and self-reported assessment data.
+              - generic [ref=e517]:
+                - generic [ref=e518]:
+                  - heading "On-device computation" [level=4] [ref=e523]
+                  - paragraph [ref=e524]: Physiological scoring from wearable data is computed locally on the device wherever possible.
+                - generic [ref=e525]:
+                  - heading "No credentials on device" [level=4] [ref=e529]
+                  - paragraph [ref=e530]: All external model calls are proxied server-side. Keys are never distributed to clients.
+                - generic [ref=e531]:
+                  - heading "Row-level isolation" [level=4] [ref=e536]
+                  - paragraph [ref=e537]: Every record is scoped to its owner at the database layer, not merely at the application layer.
+                - generic [ref=e538]:
+                  - heading "Data minimisation" [level=4] [ref=e543]
+                  - paragraph [ref=e544]: Only the fields required for a given computation are transmitted to any external service.
+                - generic [ref=e545]:
+                  - heading "Deployment flexibility" [level=4] [ref=e549]
+                  - paragraph [ref=e550]: For institutional partners, Nostavia can deploy into a partner-owned database and infrastructure account, so patient data remains within the partner’s control and jurisdiction.
+              - paragraph [ref=e551]: Partner-specific security documentation, including current certification status and sub-processor detail, is available under NDA to institutions in active evaluation.
+            - generic [ref=e553]:
+              - generic [ref=e554]:
+                - generic [ref=e555]: SECTION 12
+                - heading "What We Do Not Publish" [level=2] [ref=e556]
+              - generic [ref=e558]:
+                - paragraph [ref=e559]: We publish the models, the sources, the thresholds and the reasoning. We do not publish the exact weighting coefficients and normalisation constants inside our composite scores.
+                - paragraph [ref=e560]: That is a deliberate line. Those parameters are the product of clinical review and iteration, and they are what a partner is licensing. Publishing them would not make the platform more trustworthy — it would only make it easier to copy.
+                - paragraph [ref=e561]: Any partner institution evaluating Nostavia can review the full parameter set under NDA, and any partner clinician can inspect the exact reasoning behind an individual result.
+            - generic [ref=e563]:
+              - generic [ref=e564]:
+                - generic [ref=e565]: SECTION 13
+                - heading "Known Limitations" [level=2] [ref=e566]
+              - paragraph [ref=e568]: We would rather state these than have a clinician find them.
+              - generic [ref=e569]:
+                - generic [ref=e570]:
+                  - heading "Consumer-grade sensors" [level=4] [ref=e571]
+                  - paragraph [ref=e572]: Wearable-derived HRV, sleep staging and energy expenditure are approximations. Accuracy varies by device, by wear position, and by individual. Sleep staging in particular is less accurate than polysomnography.
+                - generic [ref=e573]:
+                  - heading "Biological age is an estimate" [level=4] [ref=e574]
+                  - paragraph [ref=e575]: It is directional and useful for tracking change over time. A single reading should not be treated as a measurement.
+                - generic [ref=e576]:
+                  - heading "Population models applied to individuals" [level=4] [ref=e577]
+                  - paragraph [ref=e578]: Reference ranges and physiological formulas are derived from population studies. Individual variation is real, and pregnancy, chronic disease, medication and certain ethnic and genetic factors can shift what is appropriate.
+                - generic [ref=e579]:
+                  - heading "Language models make errors" [level=4] [ref=e580]
+                  - paragraph [ref=e581]: Explanatory text and generated protocols are reviewed and constrained, but they are not infallible.
+                - generic [ref=e582]:
+                  - heading "Correlation is not causation" [level=4] [ref=e583]
+                  - paragraph [ref=e584]: Discovered patterns describe association within one person’s data over a limited window.
+                - generic [ref=e585]:
+                  - heading "Nutrition analysis from images is approximate" [level=4] [ref=e586]
+                  - paragraph [ref=e587]: Portion size, hidden fats, oils and preparation method are inferred rather than measured, as described in the nutrition section.
+            - generic [ref=e589]:
+              - generic [ref=e590]:
+                - generic [ref=e591]: SECTION 14
+                - heading "Scientific Reference Library" [level=2] [ref=e592]
+              - table [ref=e595]:
+                - rowgroup [ref=e596]:
+                  - row [ref=e597]:
+                    - columnheader "Domain" [ref=e598]
+                    - columnheader "Reference" [ref=e599]
+                - rowgroup [ref=e600]:
+                  - row [ref=e601]:
+                    - cell "Exercise physiology" [ref=e602]
+                    - cell "Banister EW (1991). Modeling elite athletic performance. PMID 1816431" [ref=e603]
+                  - row [ref=e604]:
+                    - cell "Recovery assessment" [ref=e605]
+                    - cell "Buchheit M (2014). Monitoring training status with heart rate measures. PMID 24578692" [ref=e606]
+                  - row [ref=e607]:
+                    - cell "Autonomic stress" [ref=e608]
+                    - cell "Kim HG et al. (2018). Stress and heart rate variability. PMID 29486547" [ref=e609]
+                  - row [ref=e610]:
+                    - cell "Autonomic physiology" [ref=e611]
+                    - cell "Schumann AY et al. Heart rate versus heart rate variability. Front Physiol" [ref=e612]
+                  - row [ref=e613]:
+                    - cell "Training load" [ref=e614]
+                    - cell "Coggan AR and Allen H (2010). Training and Racing with a Power Meter" [ref=e615]
+                  - row [ref=e616]:
+                    - cell "Circadian biology" [ref=e617]
+                    - cell "Dijk DJ and Czeisler CA (1995). J Neurosci 15(5):3526" [ref=e618]
+                  - row [ref=e619]:
+                    - cell "Sleep duration" [ref=e620]
+                    - cell "Hirshkowitz M et al. (2015). NSF sleep duration recommendations. Sleep Health" [ref=e621]
+                  - row [ref=e622]:
+                    - cell "Sleep quality" [ref=e623]
+                    - cell "Buysse DJ et al. (1989). Pittsburgh Sleep Quality Index. PMID 2748771" [ref=e624]
+                  - row [ref=e625]:
+                    - cell "Longevity science" [ref=e626]
+                    - cell "Levine ME et al. (2018). PhenoAge. PMID 29676998" [ref=e627]
+                  - row [ref=e628]:
+                    - cell "Aging science" [ref=e629]
+                    - cell "Klemera P and Doubal S (2006). Biological age computation. PMID 16413571" [ref=e630]
+                  - row [ref=e631]:
+                    - cell "Cardiology" [ref=e632]
+                    - cell "Tanaka H et al. (2001). Age-predicted maximal heart rate" [ref=e633]
+                  - row [ref=e634]:
+                    - cell "HRV baseline" [ref=e635]
+                    - cell "Koenig J et al. Adult RMSSD population baseline. PMID 31717972" [ref=e636]
+                  - row [ref=e637]:
+                    - cell "Inflammation" [ref=e638]
+                    - cell "Ridker PM (2003). Clinical application of C-reactive protein. NEJM. PMID 12711671" [ref=e639]
+                  - row [ref=e640]:
+                    - cell "Lipidology" [ref=e641]
+                    - cell "Ference BA et al. (2017). LDL-C and ASCVD risk. EAS/ESC. PMID 28444290" [ref=e642]
+                  - row [ref=e643]:
+                    - cell "Lipidology" [ref=e644]
+                    - cell "Sirtori CR (2006). HDL and cardiovascular risk. PMID 16843445" [ref=e645]
+                  - row [ref=e646]:
+                    - cell "Lipidology" [ref=e647]
+                    - cell "Nordestgaard BG (2016). Triglyceride-rich lipoproteins. PMID 27918805" [ref=e648]
+                  - row [ref=e649]:
+                    - cell "Cardiology" [ref=e650]
+                    - cell "Sniderman AD et al. (2019). ApoB and cardiovascular risk. JAMA Cardiol. PMID 30584050" [ref=e651]
+                  - row [ref=e652]:
+                    - cell "Endocrinology" [ref=e653]
+                    - cell "Holick MF et al. Vitamin D recommendations. PMID 21646368" [ref=e654]
+                  - row [ref=e655]:
+                    - cell "Endocrinology" [ref=e656]
+                    - cell "Garber JR et al. AACE/ETA thyroid guidelines. PMID 22961224" [ref=e657]
+                  - row [ref=e658]:
+                    - cell "Metabolic health" [ref=e659]
+                    - cell "Tirosh A et al. (2011). Fasting glucose and mortality. PMID 21220444" [ref=e660]
+                  - row [ref=e661]:
+                    - cell "Longevity science" [ref=e662]
+                    - cell "Centenarian studies, fasting insulin in long-lived populations. PMID 12970313" [ref=e663]
+                  - row [ref=e664]:
+                    - cell "Neurology" [ref=e665]
+                    - cell "Smith AD et al. (2010). Homocysteine lowering by B vitamins. PMID 20838622" [ref=e666]
+                  - row [ref=e667]:
+                    - cell "Longevity science" [ref=e668]
+                    - cell "Milman S et al. (2014). Low IGF-1 and longevity. PMID 24719268" [ref=e669]
+                  - row [ref=e670]:
+                    - cell "Nutrition science" [ref=e671]
+                    - cell "Mifflin MD et al. (1990). Predictive equation for resting energy expenditure" [ref=e672]
+                  - row [ref=e673]:
+                    - cell "Public health" [ref=e674]
+                    - cell "WHO Physical Activity Guidelines (2020)" [ref=e675]
+                  - row [ref=e676]:
+                    - cell "Sports medicine" [ref=e677]
+                    - cell "ACSM Guidelines for Exercise Testing and Prescription, 11th Edition" [ref=e678]
+                  - row [ref=e679]:
+                    - cell "Epidemiology" [ref=e680]
+                    - cell "Ekelund U et al. (2016). Physical activity and sitting time. Lancet" [ref=e681]
+                  - row [ref=e682]:
+                    - cell "Nephrology" [ref=e683]
+                    - cell "KDIGO clinical practice guidelines" [ref=e684]
+                  - row [ref=e685]:
+                    - cell "Hepatology" [ref=e686]
+                    - cell "NAFLD research and clinical chemistry literature" [ref=e687]
+            - generic [ref=e689]:
+              - generic [ref=e690]:
+                - generic [ref=e691]: SECTION 15
+                - heading "Medical Disclaimer" [level=2] [ref=e692]
+              - generic [ref=e693]:
+                - paragraph [ref=e694]: Nostavia Health is not a medical device. It is not intended to diagnose, treat, cure or prevent any disease.
+                - generic [ref=e695]:
+                  - paragraph [ref=e696]: All scores, ranges and insights are generated from self-reported information, consumer-grade wearable devices and laboratory results provided by the user or their care provider. They are intended for informational and educational purposes and are not a substitute for professional medical diagnosis, treatment or advice.
+                  - list [ref=e697]:
+                    - listitem [ref=e698]:
+                      - generic [ref=e699]: •
+                      - generic [ref=e700]: Biological age is an estimate derived from biomarker deviation modelling. It is not a clinically validated measurement of epigenetic age.
+                    - listitem [ref=e701]:
+                      - generic [ref=e702]: •
+                      - generic [ref=e703]: Wearable-derived scores are approximations based on published physiological models, not direct medical measurements.
+                    - listitem [ref=e704]:
+                      - generic [ref=e705]: •
+                      - generic [ref=e706]: AI-generated explanations, nutrition analysis and protocol suggestions may contain errors.
+                    - listitem [ref=e707]:
+                      - generic [ref=e708]: •
+                      - generic [ref=e709]: Emergency language detection is a supplementary safety feature and must never be relied upon as a primary emergency system. In an emergency, contact your local emergency services immediately.
+                  - paragraph [ref=e710]: Always consult a qualified healthcare professional before making any decision based on information from this platform. Where Nostavia is delivered under a partner brand, the partner institution's clinical governance and terms of care apply in addition to this notice.
+            - generic [ref=e712]:
+              - generic [ref=e713]:
+                - generic [ref=e714]: SECTION 16
+                - heading "Document Control" [level=2] [ref=e715]
+              - generic [ref=e716]:
+                - paragraph [ref=e717]: This document is reviewed alongside material changes to the platform's clinical logic. Questions about any algorithm, threshold or reference described here — including from clinicians evaluating Nostavia on behalf of an institution — can be directed to our clinical team.
+                - generic [ref=e718]:
+                  - generic [ref=e719]: Version 1.0
+                  - generic [ref=e720]: "|"
+                  - generic [ref=e721]: August 2026
+                  - generic [ref=e722]: "|"
+                  - generic [ref=e723]: © 2026 Nostavia Technologies Pvt. Ltd.
+            - generic [ref=e724]:
+              - generic [ref=e725]:
+                - heading "Request Clinical Advisory Specifications & Governance Protocol" [level=3] [ref=e726]
+                - paragraph [ref=e727]: Review detailed clinical validation methodology with our medical directors. Full parameter sets available under NDA.
+              - link "Request Clinical Spec" [ref=e728] [cursor=pointer]:
+                - /url: /demo
+  - contentinfo [ref=e731]:
+    - generic [ref=e732]:
+      - generic [ref=e733]:
+        - generic [ref=e734]:
+          - link [ref=e735] [cursor=pointer]:
+            - /url: /
+            - img "Nostavia Health" [ref=e736]
+          - paragraph [ref=e737]: Nostavia is the intelligence layer health companies embed inside their own products. Continuous biomarker interpretation, SOMA dual-brain architecture, and adaptive clinical protocols.
+          - generic [ref=e738]:
+            - generic [ref=e739]: Nostavia Technologies Pvt. Ltd.
+            - generic [ref=e740]: Headquartered in Lucknow, India · Serving India & UAE
+          - generic [ref=e741]:
+            - generic [ref=e742]: SOMA Edge Privacy
+            - generic [ref=e746]: DPDP 2023 Aligned
+            - generic [ref=e750]: Dubai Law 17/2026 Ready
+          - generic [ref=e754]:
+            - generic [ref=e755]: GET THE NOSTAVIA HEALTH APP
+            - generic [ref=e756]:
+              - link "Download on the App Store" [ref=e757] [cursor=pointer]:
+                - /url: https://apps.apple.com/us/app/nostavia-health/id6760108353
+                - generic [ref=e760]:
+                  - generic [ref=e761]: Download on the
+                  - generic [ref=e762]: App Store
+              - link "GET IT ON Google Play" [ref=e763] [cursor=pointer]:
+                - /url: https://play.google.com/store/apps/details?id=com.nostavia.nostavia_health&hl=en_IN
+                - generic [ref=e766]:
+                  - generic [ref=e767]: GET IT ON
+                  - generic [ref=e768]: Google Play
+        - generic [ref=e769]:
+          - generic [ref=e770]: PLATFORM
+          - link "Intelligence SDK" [ref=e771] [cursor=pointer]:
+            - /url: /platform#intelligence-sdk
+          - link "Wearables SDK" [ref=e772] [cursor=pointer]:
+            - /url: /platform#wearables-sdk
+          - link "White-Label App" [ref=e773] [cursor=pointer]:
+            - /url: /platform#white-label-app
+          - link "AI Agents (Voice & Chat)" [ref=e774] [cursor=pointer]:
+            - /url: /solutions/front-desk
+          - link "Specialised Services" [ref=e775] [cursor=pointer]:
+            - /url: /platform#services
+        - generic [ref=e776]:
+          - generic [ref=e777]: INDUSTRIES
+          - link "Diagnostic Labs" [ref=e778] [cursor=pointer]:
+            - /url: /industries/diagnostic-labs
+          - link "Clinics & Longevity" [ref=e779] [cursor=pointer]:
+            - /url: /industries/clinics
+          - link "Hospitals" [ref=e780] [cursor=pointer]:
+            - /url: /industries/hospitals
+          - link "Supplements" [ref=e781] [cursor=pointer]:
+            - /url: /industries/supplements
+        - generic [ref=e782]:
+          - generic [ref=e783]: COMPANY
+          - link "Pricing" [ref=e784] [cursor=pointer]:
+            - /url: /pricing
+          - link "Security & Privacy" [ref=e785] [cursor=pointer]:
+            - /url: /security
+          - link "Clinical Governance" [ref=e786] [cursor=pointer]:
+            - /url: /clinical
+          - link "About & Founders" [ref=e787] [cursor=pointer]:
+            - /url: /company
+          - link "Book a Demo" [ref=e788] [cursor=pointer]:
+            - /url: /demo
+          - link "Crunchbase" [ref=e789] [cursor=pointer]:
+            - /url: https://www.crunchbase.com/organization/nostavia-health
+      - generic [ref=e794]:
+        - generic [ref=e795]: © 2026 Nostavia Technologies Pvt. Ltd. All rights reserved.
+        - generic [ref=e796]: Built for precision longevity & population health.
