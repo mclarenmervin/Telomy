@@ -263,6 +263,55 @@ select pg_temp.asserts(
   'writing into another user''s folder is refused by the bucket, not by app code');
 
 
+-- ── Critical values escalate once, and only once ─────────────────────────────
+
+insert into lab_escalations
+  (user_id, upload_id, biomarker_id, value_canonical, unit, message)
+values (:uid, '11111111-1111-4111-8111-111111111111', 'haemoglobin',
+        4.1, 'g/dL', 'far outside the range we would expect');
+
+-- The webhook retries and the worker may re-run. A person seeing the same
+-- critical value three times is how an alert stops being believed.
+select pg_temp.refuses(format($$
+  insert into lab_escalations
+    (user_id, upload_id, biomarker_id, value_canonical, unit, message)
+  values (%L, '11111111-1111-4111-8111-111111111111', 'haemoglobin',
+          4.1, 'g/dL', 'far outside the range we would expect')
+$$, :uid), 'the same critical finding cannot escalate twice');
+
+select pg_temp.refuses(format($$
+  insert into lab_escalations
+    (user_id, upload_id, biomarker_id, value_canonical, unit, message, severity)
+  values (%L, '11111111-1111-4111-8111-111111111111', 'ferritin',
+          9999, 'ng/mL', 'x', 'informational')
+$$, :uid), 'an escalation cannot be downgraded below critical');
+
+-- RLS admits rows, not columns. Without column privileges the acknowledge
+-- policy would let the phone rewrite the finding itself.
+select pg_temp.asserts(
+  not exists (
+    select 1 from information_schema.column_privileges
+     where table_name = 'lab_escalations' and grantee = 'authenticated'
+       and privilege_type = 'UPDATE' and column_name <> 'acknowledged_at'
+  ),
+  'the phone may only acknowledge an escalation, not rewrite it');
+
+select pg_temp.asserts(
+  exists (
+    select 1 from information_schema.column_privileges
+     where table_name = 'lab_escalations' and grantee = 'authenticated'
+       and privilege_type = 'UPDATE' and column_name = 'acknowledged_at'
+  ),
+  'the phone can still mark an escalation as seen');
+
+select pg_temp.asserts(
+  not exists (
+    select 1 from pg_policies
+     where tablename = 'lab_escalations' and cmd in ('INSERT', 'DELETE')
+  ),
+  'the phone cannot manufacture or remove an escalation');
+
+
 -- ── Deleting an account takes the reports with it ────────────────────────────
 
 insert into auth.users (id, email)

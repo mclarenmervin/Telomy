@@ -101,6 +101,10 @@ class FakeQuery:
         self._op, self._payload, self._conflict = "upsert", rows, on_conflict
         return self
 
+    def update(self, values):
+        self._op, self._payload = "update", values
+        return self
+
     def delete(self):
         self._op = "delete"
         return self
@@ -128,6 +132,11 @@ class FakeQuery:
             if self._columns is not None:
                 rows = [{k: r[k] for k in self._columns if k in r} for r in rows]
             return SimpleNamespace(data=rows)
+        if self._op == "update":
+            rows = self._matching()
+            for row in rows:
+                row.update(copy.deepcopy(self._payload))
+            return SimpleNamespace(data=copy.deepcopy(rows))
         if self._op == "delete":
             gone = self._matching()
             table[:] = [r for r in table if r not in gone]
@@ -142,9 +151,41 @@ class FakeQuery:
         return SimpleNamespace(data=copy.deepcopy(payload))
 
 
+class FakeBucket:
+    def __init__(self, objects, bucket):
+        self._objects, self.bucket = objects, bucket
+
+    def download(self, path):
+        if path not in self._objects:
+            raise Exception(f"Object not found: {path}")
+        return self._objects[path]
+
+    def create_signed_url(self, path, expires_in):
+        if path not in self._objects:
+            raise Exception(f"Object not found: {path}")
+        return {"signedURL": f"https://x.supabase.co/{path}?exp={expires_in}"}
+
+    def remove(self, paths):
+        for path in paths:
+            self._objects.pop(path, None)
+        return [{"name": p} for p in paths]
+
+
+class FakeStorage:
+    def __init__(self, objects):
+        self.objects = objects
+
+    def from_(self, bucket):
+        return FakeBucket(self.objects, bucket)
+
+
 class FakeSupabase:
-    def __init__(self, tables=None):
+    def __init__(self, tables=None, objects=None):
         self.tables = tables or {}
+        # Object storage, so a worker that reads an uploaded document can be
+        # tested without a bucket. Keyed by the same `{user}/{yyyy}/{id}/n.pdf`
+        # path the storage policies key on.
+        self.storage = FakeStorage(objects or {})
 
     def table(self, name):
         return FakeQuery(self, name)
