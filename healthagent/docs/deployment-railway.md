@@ -124,6 +124,20 @@ the password contains `@`, `/`, `#` or `?`, URL-encode it or the connection stri
 A crash-looping gateway almost always means `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` or
 `WEBHOOK_SECRET` is absent — `get_settings()` raises `KeyError` on startup for those three.
 
+## Switching the readiness model
+
+`READINESS_MODEL` selects which model the score worker runs. It is `v1` by
+default: a faithful port of the model the phone has always used, kept in place
+so the shadow period compares like with like.
+
+Set it to `v2` only once the shadow log has shown **fourteen clean days with no
+divergence at all**. Flipping it earlier gives any disagreement two possible
+causes — a bad port or a changed model — with no way to tell them apart, which
+is the one thing the whole exercise is designed to avoid.
+
+A typo falls back to `v1` and logs an error rather than silently changing
+every user's score.
+
 ## After the first deploy
 
 1. Copy the gateway's Railway domain, e.g. `https://gateway-production-82cd.up.railway.app`.

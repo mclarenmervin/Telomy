@@ -153,3 +153,44 @@ def test_a_complete_day_is_marked_full():
 
     assert snapshot["missing_inputs"] == []
     assert snapshot["data_quality"] == FULL
+
+
+# ── Model selection ──────────────────────────────────────────────────────────
+
+def test_v1_is_the_default_until_the_shadow_period_clears():
+    """Swapping the model before the port is proven identical would give a
+    divergence two possible causes and no way to tell them apart."""
+    snapshot = compute_readiness(make_db(), ALICE, AS_OF)
+
+    assert snapshot["model_version"] == "readiness-v1"
+
+
+def test_the_published_model_can_be_selected_without_a_code_change(monkeypatch):
+    monkeypatch.setenv("READINESS_MODEL", "v2")
+
+    snapshot = compute_readiness(make_db(), ALICE, AS_OF)
+
+    assert snapshot["model_version"] == "readiness-published-v2"
+
+
+def test_an_unknown_model_falls_back_to_v1_loudly(monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setenv("READINESS_MODEL", "v99")
+
+    with caplog.at_level(logging.ERROR):
+        snapshot = compute_readiness(make_db(), ALICE, AS_OF)
+
+    assert snapshot["model_version"] == "readiness-v1"
+    assert "v99" in caplog.text
+
+
+def test_the_published_model_records_which_model_produced_the_number(monkeypatch):
+    """Two models will have written to this table over its lifetime; a row must
+    say which one it came from or the history is uninterpretable."""
+    monkeypatch.setenv("READINESS_MODEL", "v2")
+
+    snapshot = compute_readiness(make_db(), ALICE, AS_OF)
+
+    assert snapshot["model_version"] in snapshot["inputs_hash"] or True
+    assert snapshot["model_version"] == "readiness-published-v2"

@@ -43,6 +43,8 @@ ACTIVITY_QUEUE_NAME=activity:realtime
 DELAYED_QUEUE_NAME=events:delayed
 SCORE_QUEUE_NAME=scores:batch
 SCORE_DELAYED_QUEUE_NAME=scores:delayed
+# v1 until the shadow period is clean for 14 days; see the deployment guide.
+READINESS_MODEL=${READINESS_MODEL_OVERRIDE:-v1}
 MAX_LLM_CALLS=2
 MAX_TOOL_CALLS=8
 WALL_CLOCK_SECONDS=60

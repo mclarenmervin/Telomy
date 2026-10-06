@@ -10,7 +10,10 @@ describing one later (P2).
 
 from datetime import date, datetime, timedelta, timezone
 
+import os
+
 from app.analytics import readiness as readiness_model
+from app.analytics import readiness_v2
 from app.analytics.score_snapshot import build_snapshot
 from app.analytics.sleep import Reading
 from app.common.logging_config import get_logger
@@ -21,9 +24,41 @@ logger = get_logger(__name__)
 
 READINESS = "readiness"
 
+# Which readiness model runs. v1 is the faithful port of the phone's model and
+# stays the default until the shadow period proves the two identical; only then
+# is READINESS_MODEL set to v2, so a divergence has exactly one cause.
+READINESS_MODEL_ENV = "READINESS_MODEL"
+DEFAULT_READINESS_MODEL = "v1"
+
 # Readiness compares against a 30-day baseline, plus the preceding night and the
 # previous day's activity. Two extra days of slack keeps boundary readings in.
 LOOKBACK_DAYS = 33
+
+
+def _selected_readiness_model() -> str:
+    """v1 or v2, with a loud fallback. A typo here would silently change every
+    user's score, which is exactly the class of change that must not be quiet."""
+    choice = (os.environ.get(READINESS_MODEL_ENV) or DEFAULT_READINESS_MODEL).strip().lower()
+    if choice not in ("v1", "v2"):
+        logger.error(
+            f"{READINESS_MODEL_ENV}={choice!r} is not a known model; using "
+            f"{DEFAULT_READINESS_MODEL}"
+        )
+        return DEFAULT_READINESS_MODEL
+    return choice
+
+
+def _age_from(profile: dict) -> float | None:
+    """Years from a date of birth, or None. Tanaka needs an age; nothing else
+    in the model does, so an absent one costs one driver rather than a score."""
+    raw = (profile or {}).get("dob") or (profile or {}).get("dateOfBirth")
+    if not raw:
+        return None
+    born = parse_ts(str(raw)[:10])
+    if born is None:
+        return None
+    today = datetime.now(timezone.utc)
+    return (today - born.replace(tzinfo=timezone.utc)).days / 365.25
 
 
 def _profile(supabase, user_id: str) -> dict:
@@ -85,12 +120,23 @@ def compute_readiness(supabase, user_id: str, as_of: date) -> dict:
     )
     readings = localise(rows, tz)
 
-    result = readiness_model.calculate(
-        readings,
-        datetime.combine(as_of, datetime.min.time()),
-        sleep_goal=float(profile.get("sleepGoal") or 8),
-        activity_goal=float(profile.get("activityGoal") or 30),
-    )
+    sleep_goal = float(profile.get("sleepGoal") or 8)
+    activity_goal = float(profile.get("activityGoal") or 30)
+    model = _selected_readiness_model()
+    day = datetime.combine(as_of, datetime.min.time())
+
+    if model == "v2":
+        result = readiness_v2.calculate_v2(
+            readings,
+            day,
+            age=_age_from(profile),
+            sex=(profile.get("sex") or None),
+            sleep_need=sleep_goal,
+        )
+    else:
+        result = readiness_model.calculate(
+            readings, day, sleep_goal=sleep_goal, activity_goal=activity_goal
+        )
 
     return build_snapshot(
         result,
