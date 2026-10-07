@@ -40,6 +40,10 @@ class Settings:
     # Its own lane: extracting a photographed panel is slow and must not sit in
     # front of a user waiting on a score.
     lab_queue_name: str = "labs:batch"
+    # Empty means OCR is off, which is the default: photographed and scanned
+    # reports fail with a reason rather than being read by an engine nobody has
+    # measured against real lab printouts yet.
+    ocr_engine: str = ""
 
 
 def _llm_overrides() -> dict[str, dict[str, str]]:
@@ -86,4 +90,5 @@ def get_settings() -> Settings:
             "SCORE_DELAYED_QUEUE_NAME", "scores:delayed"
         ),
         lab_queue_name=os.environ.get("LAB_QUEUE_NAME", "labs:batch"),
+        ocr_engine=os.environ.get("OCR_ENGINE", ""),
     )

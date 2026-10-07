@@ -226,6 +226,148 @@ def test_a_corrupt_file_fails_the_upload():
     assert upload_row(db)["status"] == "failed"
 
 
+# ── Photographs and scans ────────────────────────────────────────────────────
+
+def image_db(pdf=None, kind="image", path=f"{PREFIX}0.jpg"):
+    db = make_db(path=path, pdf=pdf if pdf is not None else b"jpeg-bytes")
+    db.tables["lab_upload_files"][0]["kind"] = kind
+    db.tables["lab_upload_files"][0]["storage_path"] = path
+    return db
+
+
+def panel_engine():
+    """An engine that reads a one-row results table, laid out like a real one."""
+    from app.extraction.pdf_text import Word
+
+    class Engine:
+        name = "fake"
+
+        def read_image(self, data):
+            rows = [
+                ("TEST", 50), ("RESULT", 250), ("UNIT", 330), ("BIOLOGICAL", 410),
+                ("HbA1c", 50), ("7.8", 250), ("%", 330), ("4.0", 410),
+                ("Collected", 50), ("On", 105), (":", 125), ("28/09/2026", 140),
+            ]
+            return [
+                Word(text=text, x0=x, x1=x + 40,
+                     top=100 + (index // 4) * 20, bottom=110 + (index // 4) * 20)
+                for index, (text, x) in enumerate(rows)
+            ]
+
+    return Engine()
+
+
+def test_a_photograph_fails_with_a_reason_when_no_engine_is_configured():
+    """The honest state of F3a. Not a crash, and not the user's fault."""
+    db = image_db()
+
+    process_lab_job(job(), db, engine=None)
+
+    row = upload_row(db)
+    assert row["status"] == "failed"
+    assert "photograph" in row["error"] or "scan" in row["error"]
+    assert row["text_layer"] == "none"
+
+
+def test_a_photograph_is_read_when_an_engine_is_configured():
+    db = image_db()
+
+    process_lab_job(job(), db, engine=panel_engine())
+
+    assert upload_row(db)["status"] == "extracted"
+    assert [r["biomarker_id"] for r in db.tables["biomarker_results"]] == ["hba1c"]
+
+
+def test_a_photographed_report_is_recorded_as_ocr_derived():
+    """It changes how much the result is worth trusting, and the confirmation
+    screen needs to know to show the crop."""
+    db = image_db()
+
+    process_lab_job(job(), db, engine=panel_engine())
+
+    assert upload_row(db)["text_layer"] == "ocr"
+
+
+def test_an_ocr_result_carries_lower_confidence_than_a_text_layer_one():
+    """The verbatim check against OCR output proves the number is in the OCR's
+    reading of the page, not that it is on the paper."""
+    from_ocr = image_db()
+    process_lab_job(job(), from_ocr, engine=panel_engine())
+
+    from_text = make_db()
+    process_lab_job(job(), from_text, engine=None)
+
+    ocr_row = next(r for r in from_ocr.tables["biomarker_results"]
+                   if r["biomarker_id"] == "hba1c")
+    text_row = next(r for r in from_text.tables["biomarker_results"]
+                    if r["biomarker_id"] == "hba1c")
+    assert ocr_row["confidence"] < text_row["confidence"]
+
+
+def test_a_scanned_pdf_is_rasterised_and_read():
+    """A scan is a picture of paper wrapped in a PDF, so it gets the same
+    treatment as a photograph rather than being refused."""
+    from tests.lab_fixtures import image_only_pdf
+
+    db = make_db(pdf=image_only_pdf())
+
+    process_lab_job(job(), db, engine=panel_engine())
+
+    assert upload_row(db)["status"] == "extracted"
+    assert upload_row(db)["text_layer"] == "ocr"
+
+
+def test_a_text_layer_pdf_never_goes_near_the_engine():
+    """Reading exact text through OCR would throw away the one case where the
+    verbatim check proves the number is on the paper."""
+    calls = []
+
+    class Counting:
+        name = "counting"
+
+        def read_image(self, data):
+            calls.append(data)
+            return []
+
+    db = make_db()
+    process_lab_job(job(), db, engine=Counting())
+
+    assert calls == []
+    assert upload_row(db)["text_layer"] == "native"
+
+
+def test_an_engine_that_cannot_read_the_image_fails_with_advice():
+    class Broken:
+        name = "broken"
+
+        def read_image(self, data):
+            raise RuntimeError("model weights are missing")
+
+    db = image_db()
+
+    process_lab_job(job(), db, engine=Broken())
+
+    row = upload_row(db)
+    assert row["status"] == "failed"
+    assert "photo" in row["error"].lower()
+
+
+def test_a_blank_photograph_is_a_failure_not_an_empty_report():
+    """Zero values read must not look like a report that happens to have none."""
+    class Blank:
+        name = "blank"
+
+        def read_image(self, data):
+            return []
+
+    db = image_db()
+
+    process_lab_job(job(), db, engine=Blank())
+
+    assert upload_row(db)["status"] == "failed"
+    assert db.tables["biomarker_results"] == []
+
+
 def test_a_malformed_job_is_ignored_without_raising():
     db = make_db()
 

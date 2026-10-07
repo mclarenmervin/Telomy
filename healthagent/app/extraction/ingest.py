@@ -25,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 from app.analytics import catalog, units
 from app.common.logging_config import get_logger
 from app.extraction.mapping import STANDARD, map_unit, resolve_labels
+from app.extraction.pdf_text import OCR
 from app.extraction.scan import QUANTITATIVE, scan_page
 
 logger = get_logger(__name__)
@@ -32,6 +33,13 @@ logger = get_logger(__name__)
 # Bumped when extraction behaviour changes, so a row can be traced to the code
 # that produced it and re-extraction can be targeted.
 EXTRACTION_VERSION = "lab-extract.v1"
+
+# What an OCR-derived result is worth relative to one read from a text layer.
+# Not a guess at an error rate -- it is a standing instruction to the
+# confirmation screen to put these in front of the user more insistently,
+# because the verbatim check against OCR output proves the number is in the
+# OCR's reading of the page, not that it is on the paper.
+OCR_CONFIDENCE_FACTOR = 0.6
 
 # Older than this and the report populates trends but generates no alerts and no
 # clinician drafts. 90 days matches the quarterly panel cadence: a sample from
@@ -259,7 +267,9 @@ def extract_report(document, now: datetime | None = None) -> ExtractedReport:
                 unit_canonical=unit,
                 page=candidate.page,
                 bbox=candidate.bbox,
-                confidence=mapping.confidence,
+                confidence=mapping.confidence * (
+                    OCR_CONFIDENCE_FACTOR if document.text_layer == OCR else 1.0
+                ),
                 catalog_version=catalog.catalog_version(),
             )
         )

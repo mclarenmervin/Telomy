@@ -25,7 +25,17 @@ from app.common.documents import DocumentNotFound, PathNotOwned, fetch_document
 from app.common.logging_config import get_logger, log_context
 from app.extraction.escalation import critical_findings
 from app.extraction.ingest import VerbatimCheckFailed, extract_report
-from app.extraction.pdf_text import NONE, Document, PasswordRequired, UnreadablePdf, read_pdf
+from app.extraction.ocr import OcrUnavailable, document_from_images, rasterise_pdf
+from app.extraction.pdf_text import (
+    NATIVE,
+    NONE,
+    OCR,
+    Document,
+    Page,
+    PasswordRequired,
+    UnreadablePdf,
+    read_pdf,
+)
 
 logger = get_logger(__name__)
 
@@ -39,6 +49,19 @@ NO_TEXT_LAYER = (
     "This looks like a scan or a photograph rather than a PDF with readable "
     "text, so we could not read it yet."
 )
+
+OCR_FAILED = (
+    "We could not read the text in this photograph. A straighter, brighter "
+    "photo of the whole page usually works."
+)
+
+
+class NoOcrEngine(Exception):
+    """The report needs OCR and this build has no engine.
+
+    Its own type so the worker can give the user the "looks like a scan"
+    message, which is true and actionable, rather than a generic failure.
+    """
 
 
 def _load_upload(supabase, upload_id: str, user_id: str) -> dict | None:
@@ -57,12 +80,23 @@ def _set_status(supabase, upload_id: str, **fields) -> None:
     supabase.table("lab_uploads").update(fields).eq("id", upload_id).execute()
 
 
-def _load_document(supabase, upload: dict, user_id: str) -> Document:
+def _load_document(supabase, upload: dict, user_id: str, engine=None) -> Document:
     """Every file of the report, as one document with pages numbered across it.
 
     A photographed three-page panel is three objects and one report, so page 0
     of the second file is page 1 of the report — which is what `page` on a
     result row has to mean for "from page 2" to be true.
+
+    Three kinds of file arrive and all three end up in the same shape:
+
+      * a PDF with a text layer, read directly — exact, and the only case where
+        the verbatim check proves the number is on the paper
+      * a PDF without one, which is a picture of paper wrapped in a PDF, so it
+        is rasterised and read by the OCR engine
+      * a photograph, read by the OCR engine
+
+    With no engine configured the last two cannot be read, and the caller fails
+    the upload with a reason rather than storing a guess.
     """
     files = (
         supabase.table("lab_upload_files")
@@ -76,7 +110,7 @@ def _load_document(supabase, upload: dict, user_id: str) -> Document:
         raise DocumentNotFound("the upload has no files")
 
     pages: list = []
-    layers: set[str] = set()
+    for_ocr: list[bytes] = []
     for entry in files:
         data = fetch_document(
             supabase,
@@ -84,22 +118,49 @@ def _load_document(supabase, upload: dict, user_id: str) -> Document:
             provider=upload.get("storage_provider") or "supabase",
             path=entry["storage_path"],
         )
+        if entry.get("kind") == "image":
+            for_ocr.append(data)
+            continue
+
         document = read_pdf(data)
-        layers.add(document.text_layer)
-        for page in document.pages:
-            pages.append(
-                type(page)(
-                    index=len(pages),
-                    words=page.words,
-                    text=page.text,
-                    width=page.width,
-                    height=page.height,
-                )
-            )
-    return Document(
-        pages=tuple(pages),
-        text_layer=NONE if layers == {NONE} else next(iter(layers - {NONE}), NONE),
+        if document.text_layer == NONE:
+            # A scan. Needs the same treatment as a photograph.
+            for_ocr.extend(rasterise_pdf(data))
+            continue
+        pages.extend(document.pages)
+
+    # Read last, so a report that mixes a text-layer PDF with photographs keeps
+    # the exact pages exact and only the pictures go through OCR.
+    ocr_pages: list = []
+    if for_ocr:
+        if engine is None:
+            raise NoOcrEngine(NO_TEXT_LAYER)
+        read = document_from_images(for_ocr, engine)
+        if read.text_layer == NONE:
+            # The engine ran and found no words: a blank, dark or hopelessly
+            # skewed photograph. That is a failure the user can fix, and it must
+            # not present as a report that happens to contain nothing.
+            raise OcrUnavailable("no text was found in the image")
+        ocr_pages = list(read.pages)
+
+    combined = pages + ocr_pages
+    if not combined:
+        return Document(pages=(), text_layer=NONE)
+
+    renumbered = tuple(
+        Page(
+            index=index,
+            words=page.words,
+            text=page.text,
+            width=page.width,
+            height=page.height,
+        )
+        for index, page in enumerate(combined)
     )
+    # Any OCR at all marks the whole report, because the confirmation screen has
+    # to treat it with the same care either way and the user is looking at one
+    # document, not a mixture.
+    return Document(pages=renumbered, text_layer=OCR if ocr_pages else NATIVE)
 
 
 def _persist(supabase, upload: dict, user_id: str, report) -> None:
@@ -140,8 +201,13 @@ def _persist(supabase, upload: dict, user_id: str, report) -> None:
         }).execute()
 
 
-def process_lab_job(job: dict, supabase: Any) -> None:
-    """One job. Never raises."""
+def process_lab_job(job: dict, supabase: Any, engine=None) -> None:
+    """One job. Never raises.
+
+    `engine` is resolved once at startup and passed in, rather than read from
+    settings here: a handler that reaches for configuration per job cannot be
+    tested without an environment, and the engine is a process-level fact.
+    """
     upload_id = job.get("upload_id")
     user_id = job.get("user_id")
     context = log_context(user_id=user_id)
@@ -165,10 +231,19 @@ def process_lab_job(job: dict, supabase: Any) -> None:
     _set_status(supabase, upload_id, status=EXTRACTING)
 
     try:
-        document = _load_document(supabase, upload, user_id)
+        document = _load_document(supabase, upload, user_id, engine=engine)
     except PasswordRequired:
         logger.info(f"upload {upload_id} needs a password {context}")
         _set_status(supabase, upload_id, status=NEEDS_PASSWORD)
+        return
+    except NoOcrEngine:
+        # Not a crash and not the user's fault: this build cannot read pictures.
+        logger.info(f"upload {upload_id} needs OCR and none is configured {context}")
+        _set_status(supabase, upload_id, status=FAILED, text_layer=NONE, error=NO_TEXT_LAYER)
+        return
+    except OcrUnavailable as error:
+        logger.warning(f"upload {upload_id} OCR failed: {error} {context}")
+        _set_status(supabase, upload_id, status=FAILED, text_layer=NONE, error=OCR_FAILED)
         return
     except (DocumentNotFound, PathNotOwned, UnreadablePdf) as error:
         logger.warning(f"upload {upload_id} could not be read: {error} {context}")
