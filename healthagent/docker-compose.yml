@@ -67,3 +67,16 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+
+  # Reads uploaded lab reports. Without this service a report is uploaded,
+  # nothing consumes labs:batch, and the upload sits at 'uploaded' until the
+  # scheduler's sweep marks it failed half an hour later.
+  extraction-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.extraction-worker
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped

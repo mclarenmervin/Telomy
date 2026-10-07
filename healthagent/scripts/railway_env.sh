@@ -43,6 +43,10 @@ ACTIVITY_QUEUE_NAME=activity:realtime
 DELAYED_QUEUE_NAME=events:delayed
 SCORE_QUEUE_NAME=scores:batch
 SCORE_DELAYED_QUEUE_NAME=scores:delayed
+LAB_QUEUE_NAME=labs:batch
+# Empty means photographed and scanned reports fail with a reason rather than
+# being read by an engine nobody has measured against real lab printouts yet.
+OCR_ENGINE=$(get OCR_ENGINE)
 # v1 until the shadow period is clean for 14 days; see the deployment guide.
 READINESS_MODEL=${READINESS_MODEL_OVERRIDE:-v1}
 MAX_LLM_CALLS=2

@@ -13,8 +13,10 @@ Railway gives the agent a permanent URL so the app works for anyone, on any devi
 | Gateway (`/webhooks/activity-sessions`) | Railway service, public URL |
 | Activity worker (the agent) | Railway service, no public URL |
 | Event worker (events + mid-event check-ins) | Railway service, no public URL |
-| Scheduler (nightly score sweep) | Railway service, one replica |
+| Scheduler (nightly score sweep, stuck-upload and purge sweeps) | Railway service, one replica |
 | Score worker (computes score_snapshots) | Railway service, no public URL |
+| Extraction worker (lab PDF → biomarker_results) | Railway service, no public URL |
+| Lab report files | Supabase Storage, private `lab-reports` bucket |
 | Redis (the queue between them) | Railway managed Redis |
 
 The phone never talks to the agent. It writes a row to `activity_sessions`; the Postgres trigger
@@ -45,6 +47,12 @@ service's Root Directory to `healthagent`** — the Dockerfiles do `COPY app ./a
    `docker/Dockerfile.score-worker`. No public domain. Consumes `scores:batch`
    and writes `score_snapshots`, which is what the app reads instead of
    recomputing scores on the phone.
+7. **extraction-worker** — Root Directory `healthagent`, Dockerfile Path
+   `docker/Dockerfile.extraction-worker`. No public domain. Consumes
+   `labs:batch` and turns an uploaded report into `biomarker_results`.
+   **Required for lab uploads to do anything at all.** Without it a report
+   uploads, nothing consumes the lane, and the row sits at `uploaded` until the
+   scheduler's sweep marks it failed half an hour later.
 
 `Dockerfile.gateway` reads `$PORT` (Railway assigns it) and falls back to 8000 so
 `docker-compose` keeps working locally.
@@ -162,6 +170,86 @@ nothing.
 **`SUPABASE_DB_URL` must be the session pooler on port 5432**, as the
 checkpointer already requires. Without it the migration step fails the deploy
 rather than skipping silently.
+
+## Turning on lab uploads (F3)
+
+Everything below is additive. F1 (the biomarker catalog, units and reference
+ranges) is a library inside the other services and needs nothing here, and F2's
+services — scheduler and score-worker — already exist.
+
+**1. Deploy the extraction-worker service** (number 7 above). Same variables as
+the other workers; `./scripts/railway_env.sh` now emits `LAB_QUEUE_NAME` and
+`OCR_ENGINE`. Its startup log line states which it got:
+
+```
+extraction worker started lane=labs:batch ocr=off
+```
+
+**2. The schema and the bucket arrive by themselves.** Migrations `007`–`010`
+apply through the gateway's existing pre-deploy command. `007` creates the
+private `lab-reports` bucket with a 20MB cap and a PDF/JPEG/PNG allowlist, and
+the RLS policies on `storage.objects` that key on the first path segment. Check
+it landed:
+
+```sql
+select id, public, file_size_limit, allowed_mime_types from storage.buckets;
+```
+
+`public` must be `false`. If it is ever `true`, every lab report in the project
+is world-readable by URL.
+
+**3. Add the trigger that starts extraction.** The phone uploads to Storage and
+then inserts the `lab_uploads` row; this is what turns that row into a job. Run
+it in the Supabase SQL editor, substituting your gateway domain and
+`WEBHOOK_SECRET`:
+
+```sql
+create or replace function public.notify_lab_upload()
+returns trigger language plpgsql security definer as $$
+begin
+  perform net.http_post(
+    url := 'https://<your-railway-domain>/webhooks/lab-uploads',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-webhook-secret', '<WEBHOOK_SECRET>'),
+    body := jsonb_build_object('type','INSERT','table','lab_uploads',
+      'record', jsonb_build_object('id',new.id,'user_id',new.user_id,
+                                   'status',new.status)));
+  return new;
+end $$;
+
+create trigger lab_uploads_notify
+  after insert on public.lab_uploads
+  for each row execute function public.notify_lab_upload();
+```
+
+`after insert` only, and the gateway additionally ignores anything that is not
+an INSERT at `status='uploaded'`. Confirming a panel UPDATEs this row, so
+without both guards every tap on the confirmation screen would re-extract the
+whole report.
+
+**4. Verify end to end.** Upload a report in the app and watch the
+extraction-worker logs. A healthy run logs
+`upload <id> extracted: N result(s), M skipped`. The three failure states are
+all deliberate and all say why on the row:
+
+| `lab_uploads.status` | What happened |
+|---|---|
+| `needs_password` | Encrypted. The app asks for the password and retries. |
+| `failed` + "looks like a scan" | No text layer and no OCR engine configured. |
+| `extracted` | Ready for the user to confirm. Nothing reaches a score yet. |
+
+**What is deliberately switched off.** `OCR_ENGINE` is blank, so photographed
+and scanned reports fail with a reason rather than being read by an engine
+nobody has measured against real printouts from your labs. Text-layer PDFs work
+fully. Leave it blank until that bake-off has run.
+
+**Nothing extracted is graded yet.** `biomarkers.v1.yaml` has not been reviewed
+by a clinician, so every result comes back `ungraded` and the app shows the
+number as printed with no verdict. That is enforced in code and stated to the
+user on screen; flipping it needs a clinician's name and date in the file, which
+the loader refuses to accept without. Critical values still escalate
+immediately, because that cannot wait for a review meeting.
 
 ## Switching the readiness model
 
