@@ -72,6 +72,19 @@ _ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 
 _PATIENT_LABELS = ("patient name", "patient's name", "name of patient", "patient")
 
+# Reports put two fields on one line, and the gap between columns can extract as
+# a single space, so the name has to stop at whatever field starts next rather
+# than at a run of whitespace. A name that swallows the next column is not
+# cosmetic: it is what the user is asked to confirm is them, and what a check
+# against their profile would compare.
+_NEXT_FIELD = re.compile(
+    r"\s{2,}"
+    r"|\s+(?=(?:age|sex|gender|dob|date|lab|ref|reg|uhid|mrn|patient|sample|"
+    r"collected|reported|registered|barcode|bill|invoice|visit|ip|op)\b"
+    r"[^a-z]*(?::|\bno\b|/))",
+    re.I,
+)
+
 
 class VerbatimCheckFailed(Exception):
     """A value we were about to store is not on the page it claims to come from.
@@ -182,9 +195,7 @@ def _find_patient_name(text: str) -> str | None:
             if position < 0:
                 continue
             tail = line[position + len(label) :].lstrip(" :\t")
-            # Reports put two fields on one line; the second starts at its own
-            # capitalised label, so stop at a run of two or more spaces.
-            name = re.split(r"\s{2,}", tail)[0].strip()
+            name = _NEXT_FIELD.split(tail)[0].strip(" :\t")
             if name:
                 return name
     return None

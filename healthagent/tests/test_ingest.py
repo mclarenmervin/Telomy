@@ -197,6 +197,30 @@ def test_the_patient_name_is_extracted_for_the_user_to_confirm():
     assert "SUNITA" in report().patient_name
 
 
+def test_the_patient_name_stops_at_the_next_field_on_the_line():
+    """Reports put two fields on one line. Found on the first real run through
+    the deployed pipeline, where the name came back as
+
+        MRS SUNITA R PATNAIK Age / Sex : 54 Y / F
+
+    Splitting on runs of whitespace was not enough: the gap between two
+    columns can extract as a single space. A mangled name is not cosmetic --
+    it is what the user is asked to confirm is them, and what a check against
+    their profile would compare."""
+    name = report().patient_name
+
+    assert name == "MRS SUNITA R PATNAIK"
+
+
+def test_a_name_followed_by_no_other_field_is_kept_whole():
+    rows = [("Ferritin", "60", "ng/mL", "22 - 322")]
+    extracted = extract_report(
+        read_pdf(lab_report_pdf(rows=rows, patient_name="MR A B SAMAL")), now=NOW
+    )
+
+    assert extracted.patient_name == "MR A B SAMAL"
+
+
 def test_the_lab_is_recorded():
     assert "Lal" in report().lab_name
 
