@@ -117,6 +117,29 @@ def test_the_results_of_an_upload_come_back_for_review():
     assert {r["biomarker_id"] for r in body["results"]} == {"hba1c", "vitamin_d_25oh"}
 
 
+def test_an_unparseable_upload_id_is_a_404_not_a_500():
+    """A bad id in the path is a client mistake, not a server failure.
+
+    The app sent a literal `$uploadId` once -- a string-interpolation bug -- and
+    Postgres rejected it as an invalid uuid, which surfaced as a 500. A 500 says
+    "we broke"; it sends an operator looking at the server when the fault is in
+    the request, and it tells the client nothing it can act on.
+    """
+    # Postgres rejects a malformed uuid outright, which the fake does not
+    # model -- without this the test passes vacuously on an empty result.
+    class Rejecting(FakeSupabase):
+        def table(self, name):
+            if name == "lab_uploads":
+                raise RuntimeError(
+                    'invalid input syntax for type uuid: "$uploadId"'
+                )
+            return super().table(name)
+
+    client, _ = client_for(Rejecting(make_db().tables))
+
+    assert client.get("/api/v1/labs/uploads/$uploadId").status_code == 404
+
+
 def test_another_users_upload_is_not_readable():
     client, _ = client_for(make_db(user_id=BOB), user_id=ALICE)
 

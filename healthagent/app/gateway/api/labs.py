@@ -71,14 +71,22 @@ class ConfirmRequest(BaseModel):
 
 
 def _upload(supabase, upload_id: str, user_id: str) -> dict:
-    rows = (
-        supabase.table("lab_uploads")
-        .select("*")
-        .eq("id", upload_id)
-        .eq("user_id", user_id)  # the isolation boundary
-        .execute()
-        .data
-    )
+    try:
+        rows = (
+            supabase.table("lab_uploads")
+            .select("*")
+            .eq("id", upload_id)
+            .eq("user_id", user_id)  # the isolation boundary
+            .execute()
+            .data
+        )
+    except Exception:
+        # Postgres rejects a malformed uuid outright. That is a client mistake,
+        # not a server failure: a 500 says "we broke", sends an operator looking
+        # at the server when the fault is in the request, and tells the caller
+        # nothing it can act on. Found when the app sent a literal "$uploadId".
+        logger.info(f"unreadable upload id {upload_id!r}")
+        raise HTTPException(status_code=404, detail="no such upload") from None
     if not rows:
         # 404 rather than 403: whether someone else's upload exists is not ours
         # to disclose.

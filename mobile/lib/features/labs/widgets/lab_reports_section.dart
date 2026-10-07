@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -19,13 +20,43 @@ import '../screens/lab_confirmation_screen.dart';
 /// A report sitting at `extracted` is the only actionable state, and it is the
 /// one the user has to be led to: until they confirm it, nothing we read counts
 /// towards anything.
-class LabReportsSection extends ConsumerWidget {
+class LabReportsSection extends ConsumerStatefulWidget {
   const LabReportsSection({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LabReportsSection> createState() => _LabReportsSectionState();
+}
+
+class _LabReportsSectionState extends ConsumerState<LabReportsSection> {
+  Timer? _poll;
+
+  /// Extraction takes seconds and nothing pushes the result to the phone, so
+  /// the list re-reads itself while anything is still being worked on. Without
+  /// this the tile says "Reading the report..." forever and the user can never
+  /// reach the confirmation screen -- which is how it behaved on a real device.
+  void _pollWhileInFlight(List<LabUpload> uploads) {
+    final waiting = uploads.any((u) => u.isInFlight);
+    if (!waiting) {
+      _poll?.cancel();
+      _poll = null;
+      return;
+    }
+    _poll ??= Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) ref.invalidate(labUploadsProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final uploads = ref.watch(labUploadsProvider);
+    uploads.whenData(_pollWhileInFlight);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,7 +217,19 @@ class _UploadTile extends ConsumerWidget {
   }
 
   Future<void> _openConfirmation(BuildContext context, WidgetRef ref) async {
-    final review = await ref.read(labReviewProvider(upload.id).future);
+    final messenger = ScaffoldMessenger.of(context);
+    final LabReview review;
+    try {
+      review = await ref.read(labReviewProvider(upload.id).future);
+    } catch (error) {
+      // Silence here reads as a dead button: the first real device showed a
+      // tile that did nothing at all when this call failed, with no way for
+      // the user to know why or that anything had happened.
+      messenger.showSnackBar(SnackBar(
+        content: Text('We could not open this report just now. $error'),
+      ));
+      return;
+    }
     if (!context.mounted) return;
 
     final confirmed = await Navigator.of(context).push<bool>(

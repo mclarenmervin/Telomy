@@ -48,6 +48,12 @@ class LabUpload {
   final String? error;
 
   bool get isAwaitingConfirmation => status == 'extracted';
+
+  /// The server is still working on it. Extraction takes seconds, so a screen
+  /// showing this has to refresh itself -- otherwise the tile says "Reading the
+  /// report..." forever and the user can never reach confirmation, which is
+  /// exactly how it behaved on the first real device.
+  bool get isInFlight => status == 'uploaded' || status == 'extracting';
   bool get needsPassword => status == 'needs_password';
   bool get hasFailed => status == 'failed';
   bool get isConfirmed => status == 'confirmed';

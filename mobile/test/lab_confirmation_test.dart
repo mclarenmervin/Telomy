@@ -71,6 +71,23 @@ ConfirmationDraft draftOf({
 }
 
 void main() {
+  group('an upload still being read', () {
+    test('a fresh upload is in flight', () {
+      expect(upload(status: 'uploaded').isInFlight, isTrue);
+      expect(upload(status: 'extracting').isInFlight, isTrue);
+    });
+
+    test('a finished upload is not', () {
+      // Found on a real device: the list cached its value, so the tile said
+      // "Reading the report..." after the server had finished and the user
+      // could never reach the confirmation screen.
+      expect(upload(status: 'extracted').isInFlight, isFalse);
+      expect(upload(status: 'confirmed').isInFlight, isFalse);
+      expect(upload(status: 'failed').isInFlight, isFalse);
+      expect(upload(status: 'needs_password').isInFlight, isFalse);
+    });
+  });
+
   group('deciding every result', () {
     test('a fresh draft cannot be submitted', () {
       final draft = draftOf();

@@ -88,7 +88,7 @@ class LabRepository {
     final http = _http;
     if (http == null) throw StateError('no API client');
 
-    final response = await http.get('/api/v1/labs/uploads/\$uploadId');
+    final response = await http.get('/api/v1/labs/uploads/$uploadId');
     final body = Map<String, dynamic>.from(response.data as Map);
 
     return LabReview(
@@ -97,9 +97,13 @@ class LabRepository {
         for (final row in (body['results'] as List? ?? const []))
           BiomarkerResult.fromRow(Map<String, dynamic>.from(row as Map)),
       ],
+      // Images only. A PDF page has no bitmap to crop -- Flutter cannot decode
+      // one, and trying leaves an empty bordered box where a picture should be,
+      // which is worse than showing nothing. The crop matters most for
+      // photographs and scans anyway, since those are the ones read by OCR.
       pageUrls: {
         for (final page in (body['pages'] as List? ?? const []))
-          if ((page as Map)['url'] != null)
+          if ((page as Map)['url'] != null && page['kind'] == 'image')
             (page['page_index'] as num).toInt(): page['url'].toString(),
       },
     );

@@ -46,6 +46,28 @@ exception
     raise exception 'FAIL: % — the database refused it (%)', label, sqlerrm;
 end $$;
 
+-- RLS denials are SQLSTATE 42501 (insufficient_privilege), not an integrity
+-- violation, so `refuses` would call them "the wrong reason". Kept separate
+-- rather than widening that helper: a constraint failure and a policy denial
+-- are different claims, and a test should say which one it expects.
+create or replace function pg_temp.refuses_rls(stmt text, label text)
+returns void language plpgsql as $$
+declare
+  state text;
+begin
+  begin
+    execute stmt;
+  exception
+    when insufficient_privilege then
+      raise notice 'PASS: %', label;
+      return;
+    when others then
+      get stacked diagnostics state = returned_sqlstate;
+      raise exception 'FAIL: % — refused for the wrong reason (SQLSTATE %)', label, state;
+  end;
+  raise exception 'FAIL: % — the policy allowed it', label;
+end $$;
+
 create or replace function pg_temp.asserts(ok boolean, label text)
 returns void language plpgsql as $$
 begin
@@ -261,6 +283,55 @@ select pg_temp.asserts(
        and with_check like '%foldername%'
   ),
   'writing into another user''s folder is refused by the bucket, not by app code');
+
+
+-- ── The phone can actually start an upload ───────────────────────────────────
+--
+-- 005 enabled RLS on lab_uploads with a SELECT policy and no INSERT policy, so
+-- the phone could read uploads it could never create. The whole flow begins
+-- with the app inserting this row -- that insert is what fires the webhook --
+-- and it failed with 42501 on the first real device.
+--
+-- Nothing caught it because every test path bypasses RLS: these SQL tests run
+-- as postgres, the Python tests use fakes, and the operator script uses the
+-- service key. This section therefore switches to the `authenticated` role and
+-- carries a JWT claim, which is the only way to exercise what the app hits.
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"c3c4eefd-b60c-438e-8cdc-0f3f0fde7617","role":"authenticated"}';
+
+select pg_temp.accepts(format($$
+  insert into lab_uploads (user_id, storage_prefix, content_sha256)
+  values (%L, %L, 'phone-digest-1')
+$$, :uid, :uid || '/2026/phone-upload/'), 'the phone can insert its own upload');
+
+select pg_temp.accepts($$
+  insert into lab_upload_files (upload_id, storage_path, content_sha256, page_index, kind)
+  values ((select id from lab_uploads where content_sha256 = 'phone-digest-1'),
+          'c3c4eefd-b60c-438e-8cdc-0f3f0fde7617/2026/phone-upload/0.pdf',
+          'phone-file-1', 0, 'pdf')
+$$, 'the phone can attach a file to its own upload');
+
+-- The path is the security model everywhere else; the row must match it.
+select pg_temp.refuses_rls(format($$
+  insert into lab_uploads (user_id, storage_prefix, content_sha256)
+  values (%L, %L, 'someone-elses')
+$$, :ghost, :ghost || '/2026/x/'), 'the phone cannot insert an upload for another account');
+
+select pg_temp.refuses_rls($$
+  insert into lab_upload_files (upload_id, storage_path, content_sha256, page_index, kind)
+  values ('22222222-2222-4222-8222-222222222222',
+          'someone/else/0.pdf', 'nope', 0, 'pdf')
+$$, 'the phone cannot attach a file to another account''s upload');
+
+-- An upload may only start at `uploaded`. Inserting one already further along
+-- would let a client skip extraction and present unread values as read.
+select pg_temp.refuses_rls(format($$
+  insert into lab_uploads (user_id, storage_prefix, content_sha256, status)
+  values (%L, %L, 'pre-confirmed', 'confirmed')
+$$, :uid, :uid || '/2026/y/'), 'the phone cannot create an upload that is already confirmed');
+
+reset role;
 
 
 -- ── Critical values escalate once, and only once ─────────────────────────────

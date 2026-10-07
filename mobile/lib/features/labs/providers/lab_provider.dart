@@ -14,7 +14,10 @@ final labRepositoryProvider = Provider(
 ///
 /// An empty list when nobody is signed in rather than an error: this renders
 /// inside a tab that can be built before the session resolves.
-final labUploadsProvider = FutureProvider<List<LabUpload>>((ref) async {
+/// autoDispose so leaving the screen and coming back refetches. Without it the
+/// list keeps the value it had when the upload started, which on a real device
+/// meant the tile said "Reading the report..." indefinitely.
+final labUploadsProvider = FutureProvider.autoDispose<List<LabUpload>>((ref) async {
   final user = ref.watch(authProvider).asData?.value;
   if (user == null) return const [];
   return ref.read(labRepositoryProvider).uploads(userId: user.id);
@@ -22,6 +25,6 @@ final labUploadsProvider = FutureProvider<List<LabUpload>>((ref) async {
 
 /// Everything the confirmation screen needs for one report.
 final labReviewProvider =
-    FutureProvider.family<LabReview, String>((ref, uploadId) async {
+    FutureProvider.autoDispose.family<LabReview, String>((ref, uploadId) async {
   return ref.read(labRepositoryProvider).review(uploadId: uploadId);
 });
