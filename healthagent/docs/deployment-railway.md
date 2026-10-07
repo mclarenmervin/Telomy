@@ -309,8 +309,15 @@ The trigger itself does not need recreating — only the function body changes.
 
 ## Handing the app to someone else
 
-The app needs only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, which are already in
-`mobile/.env.supabase`. Build with:
+`mobile/.env.supabase` carries four values: `SUPABASE_URL`,
+`SUPABASE_PUBLISHABLE_KEY`, `API_BASE_URL` and `USE_MOCKS=false`.
+
+`API_BASE_URL` is not optional once lab uploads are in play. It defaults to
+`http://localhost:8000`, which on a phone is the phone itself, so lab
+confirmation would fail with a connection error on any real build. Point it at
+the gateway's Railway domain.
+
+Build with:
 
 ```
 flutter build apk --release --dart-define-from-file=.env.supabase

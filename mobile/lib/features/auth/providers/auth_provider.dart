@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_endpoints.dart';
+import '../../../core/auth/supabase_token_storage.dart';
 import '../../../core/auth/token_storage.dart';
 import '../data/auth_repository.dart';
 import '../data/api_auth_repository.dart';
@@ -11,8 +12,14 @@ import '../../../core/config/supabase_config.dart';
 import '../models/app_user.dart';
 
 final apiConfigProvider = Provider((ref) => ApiConfig.fromEnvironment());
+/// Where ApiClient gets its bearer token.
+///
+/// With Supabase auth configured the session lives in the Supabase client, and
+/// nothing ever wrote it into secure storage -- so every call to our own
+/// gateway went out unauthenticated and came back 401. Reading the live session
+/// keeps one copy of the credential instead of two that can diverge.
 final tokenStorageProvider = Provider<TokenStorage>(
-  (ref) => SecureTokenStorage(),
+  (ref) => SupabaseConfig.configured ? SupabaseTokenStorage() : SecureTokenStorage(),
 );
 final apiClientProvider = Provider((ref) {
   final tokens = ref.watch(tokenStorageProvider);
