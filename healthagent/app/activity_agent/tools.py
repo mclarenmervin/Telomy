@@ -98,6 +98,32 @@ def build_tools(loader) -> list:
         return loader.documents(runtime.context.user_id, kind, limit=clamp(limit, 1, MAX_LIMIT))
 
     @tool
+    def get_lab_results(
+        runtime: ToolRuntime[ActivityContext],
+        biomarker_id: str | None = None,
+        days: int = 730,
+        limit: int = 50,
+    ) -> dict:
+        """Lab values the user has confirmed from an uploaded report.
+
+        Pass biomarker_id to follow one marker over time, or None for everything.
+
+        These are measurements, not judgements. State them and compare them
+        across dates; do NOT say whether a value is normal, high, low or
+        concerning. Our reference ranges have not been reviewed by a clinician
+        yet, so the app deliberately shows these numbers without any verdict and
+        you must do the same. `operator` of '<' or '>' means the lab could not
+        measure past that bound -- report it as written and never as the number
+        alone.
+        """
+        return loader.biomarker_results(
+            runtime.context.user_id,
+            biomarker_id,
+            days=clamp(days, 1, 3650),
+            limit=clamp(limit, 1, MAX_LIMIT),
+        )
+
+    @tool
     def get_past_reports(runtime: ToolRuntime[ActivityContext], limit: int = 3) -> dict:
         """Previous activity reports, for continuity with advice already given."""
         return loader.past_activity_reports(runtime.context.user_id, limit=clamp(limit, 1, 10))
@@ -128,6 +154,7 @@ def build_tools(loader) -> list:
         get_measurements,
         get_daily_snapshot,
         get_documents,
+        get_lab_results,
         get_past_reports,
         compare_window,
     ]

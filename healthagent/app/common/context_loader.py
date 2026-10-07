@@ -265,6 +265,50 @@ class ContextLoader:
         )
         return _ok(rows)
 
+    def biomarker_results(
+        self,
+        user_id: str,
+        biomarker_id: str | None = None,
+        days: int = 730,
+        limit: int = 100,
+    ) -> dict:
+        """Lab values the user has confirmed, newest sample first.
+
+        **Only `confirmed` and `corrected`.** An `extracted` row has not been
+        checked by anyone, and a value the user has never seen must not come
+        back out of the model's mouth as fact. That filter is the whole reason
+        the confirmation step exists.
+
+        **No verdict is included, deliberately.** `biomarkers.v1.yaml` has not
+        been reviewed by a clinician, which is why the app shows these values
+        with no grading; handing the model a grade would make it the thing that
+        interprets them and walk straight around that gate. It gets the number,
+        the unit, the date and the operator, and nothing that reads as a
+        judgement.
+
+        Two years by default, because the useful question about a lab value is
+        almost always how it has moved rather than what it is today.
+        """
+        query = (
+            self._db.table("biomarker_results")
+            .select(
+                "biomarker_id,context,result_type,operator,raw_value,raw_unit,"
+                "value_canonical,unit_canonical,value_text,collected_at,lab_name"
+            )
+            .eq("user_id", user_id)
+            .in_("status", ["confirmed", "corrected"])
+        )
+        if biomarker_id:
+            query = query.eq("biomarker_id", biomarker_id)
+        rows = (
+            query.gte("collected_at", _since(days))
+            .order("collected_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
     def documents(self, user_id: str, kind: str | None = None, limit: int = 5) -> dict:
         """The user's uploaded documents.
 

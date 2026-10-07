@@ -29,16 +29,29 @@ def test_runtime_is_injected_not_model_supplied():
     assert "runtime" not in tool.tool_call_schema.model_json_schema()["properties"]
 
 
-def test_the_expected_seven_tools_are_present():
+def test_the_expected_eight_tools_are_present():
     assert set(_tools()) == {
         "get_past_sessions",
         "get_logs",
         "get_measurements",
         "get_daily_snapshot",
         "get_documents",
+        # Lab values the user has confirmed. get_documents only says a report
+        # exists; without this the agent could name the report and not a single
+        # number in it.
+        "get_lab_results",
         "get_past_reports",
         "compare_window",
     }
+
+
+def test_no_tool_accepts_a_user_id():
+    """Identity comes from state, never from the model. A tool that took a
+    user_id would make cross-tenant access a prompt away."""
+    for name, tool in _tools().items():
+        schema = convert_to_openai_tool(tool)["function"]
+        params = set(schema.get("parameters", {}).get("properties", {}))
+        assert "user_id" not in params, name
 
 
 def test_arguments_are_clamped():
