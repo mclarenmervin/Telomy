@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../data/capture_advice.dart';
 import '../data/lab_repository.dart';
 import '../data/lab_upload_paths.dart';
 import '../models/lab_upload.dart';
@@ -42,6 +46,15 @@ class LabReportsSection extends ConsumerWidget {
           'Upload a lab report and we will read the values for you to check.',
           style: theme.textTheme.bodySmall,
         ),
+        const SizedBox(height: 8),
+        // Said before the photo is taken rather than after it fails. The
+        // straightness and framing of the picture matter more to whether we can
+        // read it than anything we do afterwards.
+        for (final tip in captureTips)
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 2),
+            child: Text('• $tip', style: theme.textTheme.bodySmall),
+          ),
         const SizedBox(height: 12),
         uploads.when(
           loading: () => const Padding(
@@ -78,11 +91,31 @@ class LabReportsSection extends ConsumerWidget {
     if (picked.isEmpty) return;
 
     final files = <LabFile>[];
+    final problems = <String>[];
     for (final file in picked) {
-      files.add(LabFile(
-        name: file.name,
-        extension: extensionOf(file.name),
-        bytes: await file.readAsBytes(),
+      final extension = extensionOf(file.name);
+      final bytes = await file.readAsBytes();
+      final size = await _pixelSize(bytes, extension);
+
+      // Checked before the upload: the alternative is the user waiting through
+      // an upload and an extraction to be told we could not read the text.
+      final advice = adviseOnCapture(
+        extension: extension,
+        byteSize: bytes.length,
+        width: size?.width.toInt(),
+        height: size?.height.toInt(),
+      );
+      if (advice.isNotEmpty) {
+        problems.add('${file.name}: ${advice.first}');
+        continue;
+      }
+      files.add(LabFile(name: file.name, extension: extension, bytes: bytes));
+    }
+
+    if (problems.isNotEmpty) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(problems.first),
+        duration: const Duration(seconds: 6),
       ));
     }
     if (files.isEmpty) return;
@@ -98,6 +131,27 @@ class LabReportsSection extends ConsumerWidget {
     }
   }
 }
+
+/// The image's real dimensions, or null when it is not an image or cannot be
+/// decoded. Null is not a failure: refusing a good report because a decode went
+/// wrong is worse than attempting the upload.
+Future<ui.Size?> _pixelSize(List<int> bytes, String extension) async {
+  if (extension.toLowerCase() == 'pdf') return null;
+  try {
+    final codec = await ui.instantiateImageCodec(
+      bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+    );
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    final size = ui.Size(image.width.toDouble(), image.height.toDouble());
+    image.dispose();
+    codec.dispose();
+    return size;
+  } catch (_) {
+    return null;
+  }
+}
+
 
 class _UploadTile extends ConsumerWidget {
   const _UploadTile({required this.upload});
