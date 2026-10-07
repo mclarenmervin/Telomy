@@ -49,6 +49,13 @@ class FakeQuery:
         self._filters.append(lambda r: r.get(column) != value)
         return self
 
+    def is_(self, column, value):
+        # PostgREST spells a null test `.is_(col, 'null')`; the mirror of the
+        # `not_.is_` case already modelled below.
+        assert value == "null"
+        self._filters.append(lambda r: r.get(column) is None)
+        return self
+
     def in_(self, column, values):
         self._filters.append(lambda r: r.get(column) in values)
         return self
@@ -178,6 +185,14 @@ class FakeStorage:
     def from_(self, bucket):
         return FakeBucket(self.objects, bucket)
 
+    def list_under(self, prefix):
+        """What `storage_objects_under` returns: a literal prefix match.
+
+        Modelled rather than stubbed, because the prefix rule is the safety
+        property — `{uid}/` must not match `{uid}-archive/...`.
+        """
+        return [path for path in sorted(self.objects) if path.startswith(prefix)]
+
 
 class FakeSupabase:
     def __init__(self, tables=None, objects=None):
@@ -189,3 +204,16 @@ class FakeSupabase:
 
     def table(self, name):
         return FakeQuery(self, name)
+
+    def rpc(self, function, params=None):
+        """Only the functions the app actually calls, and they enforce the same
+        preconditions as the SQL does — a fake that accepted a malformed prefix
+        would hide the check that stops a purge over-matching."""
+        params = params or {}
+        if function != "storage_objects_under":
+            raise NotImplementedError(function)
+        prefix = params.get("p_prefix") or ""
+        if not prefix or not prefix.endswith("/") or ".." in prefix:
+            raise RuntimeError("a purge prefix must be a non-empty folder path ending in /")
+        rows = [{"name": path} for path in self.storage.list_under(prefix)]
+        return SimpleNamespace(execute=lambda: SimpleNamespace(data=rows))

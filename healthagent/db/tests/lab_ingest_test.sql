@@ -343,13 +343,52 @@ select pg_temp.asserts(
   and not exists (select 1 from epigenetic_results where user_id = :ghost),
   'deleting an account removes its uploads, files, results and clocks');
 
--- Postgres rows are only half of it: the objects themselves must go too, or a
--- deleted user''s lab PDFs remain downloadable. A DPDP problem.
+-- Postgres rows are only half of it. The objects themselves must go too, or a
+-- deleted user''s lab PDFs are merely unreachable rather than gone — and
+-- Postgres cannot reach the object store, so the work has to be handed to
+-- something that can. Recorded before the account goes, because afterwards
+-- there is no uid to scope it by and no row left naming the path.
 select pg_temp.asserts(
   exists (
     select 1 from pg_proc
-     where proname = 'delete_own_account' and prosrc like '%storage.objects%'
+     where proname = 'delete_own_account' and prosrc like '%storage_purges%'
   ),
-  'delete_own_account also purges the user''s stored objects');
+  'delete_own_account enqueues the user''s objects for reclamation');
+
+select pg_temp.asserts(
+  exists (
+    select 1 from pg_proc
+     where proname = 'delete_own_account'
+       and position('storage_purges' in prosrc) < position('delete from auth.users' in prosrc)
+  ),
+  'the purge is recorded before the account is deleted, not after');
+
+-- One prefix cannot be queued twice, or the sweep does the same work forever.
+insert into storage_purges (bucket_id, path_prefix, reason)
+values ('lab-reports', 'some-user/', 'account_deleted');
+
+select pg_temp.refuses($$
+  insert into storage_purges (bucket_id, path_prefix, reason)
+  values ('lab-reports', 'some-user/', 'manual')
+$$, 'the same prefix cannot be queued for purge twice');
+
+select pg_temp.refuses($$
+  insert into storage_purges (bucket_id, path_prefix, reason)
+  values ('lab-reports', 'other-user/', 'because-i-said-so')
+$$, 'a purge needs a reason we recognise');
+
+-- requested_for deliberately has no foreign key: the row has to outlive the
+-- account it belongs to, which is the entire point of it.
+select pg_temp.accepts($$
+  insert into storage_purges (bucket_id, path_prefix, reason, requested_for)
+  values ('lab-reports', 'long-gone-user/', 'account_deleted',
+          '00000000-0000-4000-8000-00000000dead')
+$$, 'a purge survives the account that asked for it');
+
+-- No policy at all: users have no business reading this, and the absence of a
+-- policy is the enforcement rather than a filter someone has to remember.
+select pg_temp.asserts(
+  not exists (select 1 from pg_policies where tablename = 'storage_purges'),
+  'storage_purges is not reachable by any user role');
 
 rollback;

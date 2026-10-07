@@ -26,6 +26,7 @@ from app.scheduler.plan import (
     due_score_jobs,
     next_nightly_run,
 )
+from app.scheduler.storage_purge import purge_storage
 
 logger = get_logger(__name__)
 
@@ -66,6 +67,10 @@ def tick(supabase, delayed, work_queue, now: datetime | None = None) -> None:
 
         if _due_for_lab_sweep(now):
             sweep_uploads(supabase, now)
+            # Same cadence: the queue is a partial-index lookup that returns
+            # nothing almost always, and it makes "deleted" mean the bytes are
+            # gone within minutes rather than by tomorrow morning.
+            purge_storage(supabase, now)
 
         if not _inside_sweep_window(now):
             return
