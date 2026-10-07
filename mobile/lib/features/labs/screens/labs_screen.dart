@@ -7,6 +7,7 @@ import '../../journal/providers/wellness_provider.dart';
 import '../../journal/screens/entry_editor.dart';
 import '../data/lab_analysis.dart';
 import '../widgets/confirmed_results_list.dart';
+import '../widgets/escalation_banner.dart';
 import '../widgets/lab_reports_section.dart';
 
 class LabsScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,9 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
+        // Above everything, including the page title. A critical value is the
+        // one thing on this screen that cannot wait to be scrolled to.
+        const EscalationBanner(),
         Text('Lab results', style: Theme.of(context).textTheme.headlineLarge),
         const SizedBox(height: 10),
         const Text(

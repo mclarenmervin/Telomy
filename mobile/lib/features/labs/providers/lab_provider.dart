@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/lab_repository.dart';
 import '../models/biomarker_result.dart';
+import '../models/lab_escalation.dart';
 import '../models/lab_upload.dart';
 
 /// Reads ride the Supabase client; the confirm call needs the authenticated Dio
@@ -22,6 +23,14 @@ final labUploadsProvider = FutureProvider.autoDispose<List<LabUpload>>((ref) asy
   final user = ref.watch(authProvider).asData?.value;
   if (user == null) return const [];
   return ref.read(labRepositoryProvider).uploads(userId: user.id);
+});
+
+/// Critical findings the user has not yet acknowledged.
+final outstandingEscalationsProvider =
+    FutureProvider.autoDispose<List<LabEscalation>>((ref) async {
+  final user = ref.watch(authProvider).asData?.value;
+  if (user == null) return const [];
+  return ref.read(labRepositoryProvider).outstandingEscalations(userId: user.id);
 });
 
 /// Values the user has confirmed, for the lab results list.

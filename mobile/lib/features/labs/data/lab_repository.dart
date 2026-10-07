@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/config/supabase_config.dart';
 import '../models/biomarker_result.dart';
+import '../models/lab_escalation.dart';
 import '../models/lab_upload.dart';
 import 'lab_confirmation.dart';
 import 'lab_upload_paths.dart';
@@ -107,6 +108,37 @@ class LabRepository {
             (page['page_index'] as num).toInt(): page['url'].toString(),
       },
     );
+  }
+
+  /// Critical findings the user has not yet seen.
+  ///
+  /// Read straight from the table rather than over REST: this must work on a
+  /// cold start with a flaky connection, and it is the one thing on the screen
+  /// that genuinely cannot wait.
+  Future<List<LabEscalation>> outstandingEscalations({required String userId}) async {
+    final db = _db;
+    if (db == null) return const [];
+    final rows = await db
+        .from('lab_escalations')
+        .select()
+        .eq('user_id', userId)
+        .isFilter('acknowledged_at', null)
+        .order('created_at', ascending: false);
+    return [
+      for (final row in rows) LabEscalation.fromRow(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  /// Mark a finding seen. The only column the phone is allowed to write here --
+  /// 008 grants UPDATE on acknowledged_at alone, so it cannot rewrite the
+  /// finding itself.
+  Future<void> acknowledgeEscalation(String id) async {
+    final db = _db;
+    if (db == null) return;
+    await db
+        .from('lab_escalations')
+        .update({'acknowledged_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', id);
   }
 
   /// Every value the user has confirmed, newest sample first.
