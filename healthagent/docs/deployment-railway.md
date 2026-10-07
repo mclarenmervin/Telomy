@@ -179,11 +179,25 @@ services — scheduler and score-worker — already exist.
 
 **1. Deploy the extraction-worker service** (number 7 above). Same variables as
 the other workers; `./scripts/railway_env.sh` now emits `LAB_QUEUE_NAME` and
-`OCR_ENGINE`. Its startup log line states which it got:
+`OCR_ENGINE`. Its startup log states what it resolved, and is worth reading
+rather than assuming:
 
 ```
-extraction worker started lane=labs:batch ocr=off
+extraction worker started lane=labs:batch ocr=off label_mapping_llm=on
 ```
+
+Only four variables are actually required — `SUPABASE_URL`,
+`SUPABASE_SERVICE_KEY`, `WEBHOOK_SECRET` and `REDIS_URL`. The first three raise
+`KeyError` at startup if absent, which is what a crash-looping worker almost
+always means. `LAB_QUEUE_NAME` and `OCR_ENGINE` both have safe defaults.
+
+`OPENAI_API_KEY` is optional here and controls one thing: whether a printed
+label the catalog's alias table cannot place gets offered to a model. With no
+key, `label_mapping_llm=off` and the alias table does the whole job — it covers
+all 31 markers with the spellings Indian labs print, and extracts a full panel
+on its own. An unrecognised marker is then skipped with a reason rather than
+guessed. The model is only ever asked *which marker a label names*; it never
+sees a value and cannot produce one (P2).
 
 **2. The schema and the bucket arrive by themselves.** Migrations `007`–`010`
 apply through the gateway's existing pre-deploy command. `007` creates the

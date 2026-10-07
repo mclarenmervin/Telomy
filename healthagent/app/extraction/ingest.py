@@ -213,17 +213,20 @@ def _canonical(biomarker_id: str, raw_value: str, raw_unit: str | None):
         return None, None
 
 
-def extract_report(document, now: datetime | None = None) -> ExtractedReport:
+def extract_report(document, now: datetime | None = None, llm=None) -> ExtractedReport:
     """Everything we would store from one uploaded report.
 
-    `llm` is deliberately absent: label mapping is injected by the worker, so
-    this stays a pure function of the document for every test that matters.
+    `llm` is injected rather than constructed here, and is optional. None means
+    label mapping is the catalog's alias table alone, which is the shipped
+    default and extracts a full panel on its own -- the table is the product,
+    not a cache in front of a model. The model only ever sees labels the table
+    could not place, and never a value (P2).
     """
     now = now or datetime.now(timezone.utc)
     full_text = "\n".join(page.text for page in document.pages)
 
     candidates = [c for page in document.pages for c in scan_page(page)]
-    mapped = resolve_labels([c.label for c in candidates])
+    mapped = resolve_labels([c.label for c in candidates], llm=llm)
 
     results: list[ExtractedResult] = []
     skipped: list[tuple[str, str]] = []

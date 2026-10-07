@@ -231,6 +231,52 @@ def test_a_corrupt_file_fails_the_upload():
     assert upload_row(db)["status"] == "failed"
 
 
+# ── The label-mapping model ──────────────────────────────────────────────────
+
+def test_a_label_the_catalog_cannot_place_is_skipped_without_a_model():
+    """The alias table is the product, not a cache in front of a model: with no
+    key configured a full panel still extracts, and an unknown marker is simply
+    left out rather than guessed."""
+    db = make_db(rows=[
+        ("HbA1c", "7.8", "%", "4.0 - 5.6"),
+        ("Serum Fredholm Index", "12", "ng/mL", "5 - 20"),
+    ])
+
+    process_lab_job(job(), db, llm=None)
+
+    assert [r["biomarker_id"] for r in db.tables["biomarker_results"]] == ["hba1c"]
+
+
+def test_the_model_places_a_label_the_catalog_cannot():
+    """The second tier, reachable in production only because the worker passes
+    the model in. Without that wiring it was dead code."""
+    import json
+
+    class FakeLLM:
+        def __init__(self):
+            self.seen = []
+
+        def invoke(self, messages):
+            self.seen.append(" ".join(str(p) for pair in messages for p in pair))
+
+            class Response:
+                content = json.dumps({"Serum Fredholm Index": "ferritin"})
+
+            return Response()
+
+    llm = FakeLLM()
+    # A deliberately distinctive value. "12" would have collided with
+    # `vitamin_b12` in the catalog listing the prompt carries, and the
+    # assertion below would have failed on a property that actually holds.
+    db = make_db(rows=[("Serum Fredholm Index", "873.4", "ng/mL", "5 - 20")])
+
+    process_lab_job(job(), db, llm=llm)
+
+    assert [r["biomarker_id"] for r in db.tables["biomarker_results"]] == ["ferritin"]
+    # P2 holds through the wiring too: the model saw the label, never the value.
+    assert "873.4" not in " ".join(llm.seen)
+
+
 # ── Photographs and scans ────────────────────────────────────────────────────
 
 def image_db(pdf=None, kind="image", path=f"{PREFIX}0.jpg"):

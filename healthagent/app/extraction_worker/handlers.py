@@ -201,12 +201,17 @@ def _persist(supabase, upload: dict, user_id: str, report) -> None:
         }).execute()
 
 
-def process_lab_job(job: dict, supabase: Any, engine=None) -> None:
+def process_lab_job(job: dict, supabase: Any, engine=None, llm=None) -> None:
     """One job. Never raises.
 
-    `engine` is resolved once at startup and passed in, rather than read from
-    settings here: a handler that reaches for configuration per job cannot be
-    tested without an environment, and the engine is a process-level fact.
+    `engine` and `llm` are both resolved once at startup and passed in rather
+    than read from settings here: a handler that reaches for configuration per
+    job cannot be tested without an environment, and both are process-level
+    facts.
+
+    Both are optional and both default to off. Without an engine, photographs
+    and scans fail with a reason. Without a model, label mapping is the
+    catalog's alias table alone.
     """
     upload_id = job.get("upload_id")
     user_id = job.get("user_id")
@@ -263,7 +268,7 @@ def process_lab_job(job: dict, supabase: Any, engine=None) -> None:
         return
 
     try:
-        report = extract_report(document)
+        report = extract_report(document, llm=llm)
     except VerbatimCheckFailed as error:
         # Loud, and nothing is stored. Something produced a value instead of
         # reading one, and a row written now would defeat the whole design.

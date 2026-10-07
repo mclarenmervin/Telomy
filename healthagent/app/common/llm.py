@@ -43,6 +43,10 @@ _API_KEY_PROVIDERS = frozenset({"openai", "groq", "anthropic", "together", "deep
 
 NARRATION = "narration"
 ACTIVITY = "activity"
+# Lab extraction's one model call: which biomarker does this printed label name?
+# Its own purpose so it can run on a cheap provider -- it is a short
+# classification with no tools and no response schema, which Groq handles well.
+LABEL_MAPPING = "label_mapping"
 
 
 def config_for(settings: Settings, purpose: str | None = None) -> dict:
