@@ -90,11 +90,53 @@ def test_a_censored_value_keeps_its_operator_and_its_magnitude():
 
 
 def test_a_qualitative_result_is_stored_as_text_with_no_number():
+    """`Not detected` is a real result and must never be coerced to a number.
+
+    Stored as text with no canonical value, which is also what keeps it out of
+    every score: they read value_canonical, and this has none.
+    """
+    rows = [("Ferritin", "Not detected", "", "")]
+    extracted = extract_report(read_pdf(lab_report_pdf(rows=rows)), now=NOW)
+
+    result = result_for(extracted, "ferritin")
+    assert result.result_type == "qualitative"
+    assert result.value_text == "Not detected"
+    assert result.value_canonical is None
+    assert result.unit_canonical is None
+
+
+def test_a_qualitative_result_keeps_what_was_printed_verbatim():
+    rows = [("Ferritin", "Negative", "", "")]
+    extracted = extract_report(read_pdf(lab_report_pdf(rows=rows)), now=NOW)
+
+    assert result_for(extracted, "ferritin").raw_value == "Negative"
+
+
+def test_a_qualitative_result_is_no_longer_silently_dropped():
+    rows = [("Ferritin", "Not detected", "", "")]
+    extracted = extract_report(read_pdf(lab_report_pdf(rows=rows)), now=NOW)
+
+    assert extracted.skipped == ()
+
+
+def test_a_qualitative_result_for_a_marker_we_do_not_carry_is_still_skipped():
+    """Dengue NS1 is not one of our 31 markers. Storing it would need a
+    biomarker_id we do not have, and inventing one is worse than skipping."""
     rows = [("Dengue NS1 Antigen", "Negative", "", "Negative")]
     extracted = extract_report(read_pdf(lab_report_pdf(rows=rows)), now=NOW)
 
-    # Not a marker we carry, so it is reported as skipped rather than stored.
+    assert extracted.results == ()
     assert any("Dengue" in label for label, _ in extracted.skipped)
+
+
+def test_a_qualitative_result_needs_no_unit_to_be_stored():
+    """A unit we cannot convert blocks a quantitative result, because there is
+    no canonical value without one. A qualitative result has no number to
+    convert, so the unit is irrelevant rather than disqualifying."""
+    rows = [("Ferritin", "Not detected", "furlongs/fortnight", "")]
+    extracted = extract_report(read_pdf(lab_report_pdf(rows=rows)), now=NOW)
+
+    assert result_for(extracted, "ferritin").result_type == "qualitative"
 
 
 def test_every_result_is_stamped_with_the_catalog_that_converted_it():

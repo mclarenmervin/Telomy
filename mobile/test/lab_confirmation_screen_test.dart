@@ -166,6 +166,24 @@ void main() {
     expect(crops.every((c) => c.imageUrl == null), isTrue);
   });
 
+  testWidgets('a text result is not offered a numeric correction', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LabConfirmationScreen(
+          upload: upload(patientName: null),
+          results: [result('q1', resultType: 'qualitative', rawValue: 'Not detected')],
+          onSubmit: (draft) async {},
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Not detected'), findsWidgets);
+    // The endpoint refuses a numeric correction to a text result, so offering
+    // the control would guarantee a failure the user cannot interpret.
+    expect(find.text('Fix the value'), findsNothing);
+    expect(find.text('Correct'), findsOneWidget);
+  });
+
   testWidgets('saying the report is someone else blocks submission',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 2400));

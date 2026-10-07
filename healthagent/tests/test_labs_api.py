@@ -220,6 +220,48 @@ def test_a_censored_result_is_not_projected():
     assert {m["measurement_type"] for m in db.tables["health_measurements"]} == {"hba1c"}
 
 
+def test_a_qualitative_result_is_not_projected():
+    """health_measurements.value is NOT NULL and a qualitative result has no
+    number. Before this was handled, confirming one would have thrown a
+    database error mid-confirmation, after some rows had already been written."""
+    db = make_db(results=[
+        {"id": "q1", "user_id": ALICE, "upload_id": UPLOAD,
+         "biomarker_id": "ferritin", "context": "standard",
+         "result_type": "qualitative", "operator": "=", "raw_value": "Not detected",
+         "raw_unit": None, "value_canonical": None, "value_text": "Not detected",
+         "unit_canonical": None, "status": "extracted", "page": 0,
+         "collected_at": "2026-09-28T07:30:00+00:00"},
+    ])
+    client, _ = client_for(db)
+
+    response = client.post(f"/api/v1/labs/uploads/{UPLOAD}/confirm", json=confirm_body(
+        decisions=[{"result_id": "q1", "action": "confirm"}]))
+
+    assert response.status_code == 200
+    assert db.tables["health_measurements"] == []
+    assert db.tables["biomarker_results"][0]["status"] == "confirmed"
+
+
+def test_a_qualitative_result_cannot_be_corrected_to_a_number():
+    """`Not detected` has no magnitude. Accepting a numeric correction would
+    turn a text result into a measurement nobody made."""
+    db = make_db(results=[
+        {"id": "q1", "user_id": ALICE, "upload_id": UPLOAD,
+         "biomarker_id": "ferritin", "context": "standard",
+         "result_type": "qualitative", "operator": "=", "raw_value": "Not detected",
+         "raw_unit": None, "value_canonical": None, "value_text": "Not detected",
+         "unit_canonical": None, "status": "extracted", "page": 0,
+         "collected_at": "2026-09-28T07:30:00+00:00"},
+    ])
+    client, _ = client_for(db)
+
+    response = client.post(f"/api/v1/labs/uploads/{UPLOAD}/confirm", json=confirm_body(
+        decisions=[{"result_id": "q1", "action": "correct", "value": 60, "unit": "ng/mL"}]))
+
+    assert response.status_code == 422
+    assert db.tables["lab_uploads"][0]["status"] == "extracted", "nothing was applied"
+
+
 def test_confirming_queues_a_recompute_rather_than_running_one():
     """A range change or a bulk upload must never run scoring inline."""
     db = make_db()

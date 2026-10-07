@@ -37,12 +37,13 @@ BiomarkerResult result(
   String rawValue = '7.8',
   String grade = 'ungraded',
   Map<String, dynamic>? bbox,
+  String resultType = 'quantitative',
 }) {
   return BiomarkerResult(
     id: id,
     biomarkerId: biomarkerId,
     context: 'standard',
-    resultType: 'quantitative',
+    resultType: resultType,
     operator: operator,
     rawValue: rawValue,
     rawUnit: '%',
@@ -245,6 +246,20 @@ void main() {
 
       final first = (draft.toRequest()['decisions'] as List).first as Map;
       expect(first.containsKey('value'), isFalse);
+    });
+  });
+
+  group('text results', () {
+    test('a qualitative result shows the words the lab printed', () {
+      final r = result('r1', resultType: 'qualitative', rawValue: 'Not detected');
+
+      expect(r.isQualitative, isTrue);
+      expect(r.displayValue, 'Not detected');
+    });
+
+    test('a qualitative result is never treated as censored', () {
+      // The operator belongs to numbers. Text has no magnitude to be bounded.
+      expect(result('r1', resultType: 'qualitative').isCensored, isFalse);
     });
   });
 

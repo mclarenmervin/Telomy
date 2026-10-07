@@ -43,6 +43,8 @@ from app.scheduler.plan import SCORE_RECOMPUTE
 router = APIRouter(prefix="/api/v1/labs", tags=["labs"])
 logger = get_logger(__name__)
 
+QUALITATIVE = "qualitative"
+
 CONFIRMED = "confirmed"
 CORRECTED = "corrected"
 REJECTED = "rejected"
@@ -259,6 +261,15 @@ def confirm_upload(
             "confirmed_at": datetime.now().astimezone().isoformat(),
         }
         if decision.action == "correct":
+            if row.get("result_type") == QUALITATIVE:
+                # `Not detected` has no magnitude. Accepting a numeric
+                # correction would turn a text result into a measurement
+                # nobody made.
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{row['biomarker_id']} is a text result and cannot be "
+                           f"corrected to a number; confirm or reject it",
+                )
             if decision.value is None:
                 raise HTTPException(status_code=422, detail="a correction needs a value")
             unit = decision.unit or row.get("raw_unit")
@@ -274,6 +285,11 @@ def confirm_upload(
         supabase.table("biomarker_results").update(update).eq("id", row["id"]).execute()
 
         if update["status"] == REJECTED:
+            continue
+        if row.get("result_type") == QUALITATIVE:
+            # health_measurements.value is NOT NULL and a text result has no
+            # number. It stays in biomarker_results, where value_text holds it
+            # and no score can mistake it for a measurement.
             continue
         if row.get("operator", "=") != "=":
             # `health_measurements` has no operator column, so a projected `<3.0`

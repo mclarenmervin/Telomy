@@ -257,8 +257,30 @@ def extract_report(document, now: datetime | None = None, llm=None) -> Extracted
             skipped.append((candidate.label, "no biomarker in the catalog matches this label"))
             continue
 
+        # A qualitative result has no number to convert, so the unit is
+        # irrelevant rather than disqualifying. It is stored as text and never
+        # coerced — and having no canonical value is exactly what keeps it out
+        # of every score, since they all read `value_canonical`.
         if candidate.result_type != QUANTITATIVE:
-            skipped.append((candidate.label, "qualitative results are not yet stored"))
+            results.append(
+                ExtractedResult(
+                    biomarker_id=mapping.biomarker_id,
+                    context=mapping.context or STANDARD,
+                    result_type=candidate.result_type,
+                    operator="=",  # text has no magnitude to be censored
+                    raw_value=candidate.value_text,
+                    raw_unit=candidate.unit_text,
+                    value_canonical=None,
+                    value_text=candidate.value_text,
+                    unit_canonical=None,
+                    page=candidate.page,
+                    bbox=candidate.bbox,
+                    confidence=mapping.confidence * (
+                        OCR_CONFIDENCE_FACTOR if document.text_layer == OCR else 1.0
+                    ),
+                    catalog_version=catalog.catalog_version(),
+                )
+            )
             continue
 
         value, unit = _canonical(mapping.biomarker_id, candidate.value_text, candidate.unit_text)

@@ -204,11 +204,16 @@ class _LabConfirmationScreenState extends State<LabConfirmationScreen> {
                   selected: decision?.action == ResultAction.confirm,
                   onSelected: (_) => setState(() => _draft.confirm(result.id)),
                 ),
-                ChoiceChip(
-                  label: const Text('Fix the value'),
-                  selected: decision?.action == ResultAction.correct,
-                  onSelected: (_) => _promptCorrection(result),
-                ),
+                // Not offered for a text result: `Not detected` has no
+                // magnitude, and the endpoint refuses a numeric correction to
+                // one. Showing a control that always fails is worse than
+                // showing none.
+                if (!result.isQualitative)
+                  ChoiceChip(
+                    label: const Text('Fix the value'),
+                    selected: decision?.action == ResultAction.correct,
+                    onSelected: (_) => _promptCorrection(result),
+                  ),
                 ChoiceChip(
                   label: const Text('Not mine / ignore'),
                   selected: decision?.action == ResultAction.reject,

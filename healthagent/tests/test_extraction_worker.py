@@ -112,6 +112,27 @@ def test_the_same_marker_in_two_contexts_becomes_two_rows():
     assert {r["context"] for r in glucose} == {"fasting", "post_prandial"}
 
 
+def test_a_qualitative_result_is_stored_as_text():
+    db = make_db(rows=[("Ferritin", "Not detected", "", "")])
+
+    process_lab_job(job(), db)
+
+    row = db.tables["biomarker_results"][0]
+    assert row["result_type"] == "qualitative"
+    assert row["value_text"] == "Not detected"
+    assert row["value_canonical"] is None
+
+
+def test_a_qualitative_result_never_escalates():
+    """Escalation compares a number against critical bounds. Text has none, and
+    inventing one to compare would be the exact coercion the schema forbids."""
+    db = make_db(rows=[("Ferritin", "Not detected", "", "")])
+
+    process_lab_job(job(), db)
+
+    assert db.tables["lab_escalations"] == []
+
+
 # ── Escalation ───────────────────────────────────────────────────────────────
 
 def test_a_critical_value_escalates_before_anyone_confirms_anything():
