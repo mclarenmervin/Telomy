@@ -22,6 +22,7 @@ class BiomarkerResult {
     required this.page,
     required this.confidence,
     required this.bbox,
+    required this.collectedAt,
   });
 
   final String id;
@@ -60,6 +61,10 @@ class BiomarkerResult {
   /// screen show the user the crop of their own report.
   final Map<String, dynamic>? bbox;
 
+  /// When the sample was taken -- not when it was reported or uploaded. This
+  /// is the only date a trend may use.
+  final DateTime? collectedAt;
+
   bool get isCensored => operator != '=';
   bool get isQualitative => resultType == 'qualitative';
 
@@ -68,6 +73,21 @@ class BiomarkerResult {
 
   /// The value as the report printed it, operator included.
   String get displayValue => isCensored ? '$operator$rawValue' : rawValue;
+
+  /// The marker as a person would read it, with the context when it changes
+  /// what the number means. Fasting and post-prandial glucose are one marker
+  /// and two results, and a list showing both as "glucose fasting" twice is
+  /// not a list anyone can use.
+  String get displayLabel {
+    final name = biomarkerId.replaceAll('_', ' ');
+    if (context == 'standard') return name;
+    return '$name (${context.replaceAll('_', ' ')})';
+  }
+
+  /// What the report said, with its unit. Empty unit is omitted rather than
+  /// leaving a trailing space.
+  String get displayValueWithUnit =>
+      '$displayValue ${rawUnit ?? unitCanonical ?? ''}'.trim();
 
   static BiomarkerResult fromRow(Map<String, dynamic> row) => BiomarkerResult(
         id: row['id']?.toString() ?? '',
@@ -85,5 +105,8 @@ class BiomarkerResult {
         bbox: row['bbox'] == null
             ? null
             : Map<String, dynamic>.from(row['bbox'] as Map),
+        collectedAt: row['collected_at'] == null
+            ? null
+            : DateTime.tryParse(row['collected_at'].toString())?.toLocal(),
       );
 }

@@ -52,6 +52,7 @@ BiomarkerResult result(
     grade: grade,
     page: 0,
     confidence: 1,
+    collectedAt: DateTime.utc(2026, 9, 28),
     bbox: bbox ??
         const {
           'x0': 250.0, 'x1': 270.0, 'top': 100.0, 'bottom': 110.0,
@@ -263,6 +264,37 @@ void main() {
 
       final first = (draft.toRequest()['decisions'] as List).first as Map;
       expect(first.containsKey('value'), isFalse);
+    });
+  });
+
+  group('how a result reads in a list', () {
+    test('an ordinary marker reads as its name', () {
+      expect(result('r1', biomarkerId: 'hba1c').displayLabel, 'hba1c');
+    });
+
+    test('a context that changes the meaning is shown', () {
+      // Fasting and post-prandial glucose are one marker and two results. A
+      // list showing both as "glucose fasting" is not a list anyone can use.
+      final r = BiomarkerResult(
+        id: 'r1', biomarkerId: 'glucose_fasting', context: 'post_prandial',
+        resultType: 'quantitative', operator: '=', rawValue: '198',
+        rawUnit: 'mg/dL', valueCanonical: 198, unitCanonical: 'mg/dL',
+        grade: 'ungraded', page: 0, confidence: 1, bbox: null,
+        collectedAt: null,
+      );
+
+      expect(r.displayLabel, 'glucose fasting (post prandial)');
+    });
+
+    test('the value carries its unit', () {
+      expect(result('r1', rawValue: '7.8').displayValueWithUnit, '7.8 %');
+    });
+
+    test('a censored value keeps its operator in the list too', () {
+      expect(
+        result('r1', operator: '<', rawValue: '3.0').displayValueWithUnit,
+        '<3.0 %',
+      );
     });
   });
 

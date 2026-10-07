@@ -6,6 +6,7 @@ import '../../journal/models/journal_entry.dart';
 import '../../journal/providers/wellness_provider.dart';
 import '../../journal/screens/entry_editor.dart';
 import '../data/lab_analysis.dart';
+import '../widgets/confirmed_results_list.dart';
 import '../widgets/lab_reports_section.dart';
 
 class LabsScreen extends ConsumerStatefulWidget {
@@ -34,6 +35,10 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
         // work for the user than typing them, and typing stays available for
         // anyone who prefers it or whose report we cannot read.
         const LabReportsSection(),
+        // Without this the feature looked like it did nothing: a user could
+        // upload, confirm every value, and still see "0 Results" because the
+        // list below reads hand-typed entries only.
+        const ConfirmedResultsList(),
         const SizedBox(height: 24),
         const Divider(),
         const SizedBox(height: 16),

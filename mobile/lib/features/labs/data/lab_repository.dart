@@ -109,6 +109,26 @@ class LabRepository {
     );
   }
 
+  /// Every value the user has confirmed, newest sample first.
+  ///
+  /// Only `confirmed` and `corrected`. An `extracted` row has not been checked
+  /// by anyone yet and must not appear beside values that have -- that is the
+  /// whole point of the confirmation step.
+  Future<List<BiomarkerResult>> confirmedResults({required String userId}) async {
+    final db = _db;
+    if (db == null) return const [];
+    final rows = await db
+        .from('biomarker_results')
+        .select()
+        .eq('user_id', userId)
+        .inFilter('status', ['confirmed', 'corrected'])
+        .order('collected_at', ascending: false)
+        .limit(200);
+    return [
+      for (final row in rows) BiomarkerResult.fromRow(Map<String, dynamic>.from(row)),
+    ];
+  }
+
   /// Upload a report's files, then create the row that starts extraction.
   ///
   /// Returns the upload id. Throws if any file is outside what the bucket
