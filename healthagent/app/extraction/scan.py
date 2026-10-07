@@ -183,12 +183,25 @@ def _text(cell) -> str | None:
     return joined or None
 
 
-def _bbox(cell) -> dict:
+def _bbox(cell, page) -> dict:
+    """Where the value sits, with the page it sits on.
+
+    The page size travels with the box because the box alone cannot be used.
+    Coordinates are points for a PDF and pixels for an OCR'd image, so a
+    consumer needs the extent to turn them into a fraction of the page — and a
+    fraction is what survives the image being served or scaled at any size.
+
+    This is what lets the confirmation screen show the user the crop of their
+    own report that a number was read from, which is the check that replaces
+    the verbatim one when the text came from OCR.
+    """
     return {
         "x0": min(w.x0 for w in cell),
         "x1": max(w.x1 for w in cell),
         "top": min(w.top for w in cell),
         "bottom": max(w.bottom for w in cell),
+        "page_width": page.width,
+        "page_height": page.height,
     }
 
 
@@ -234,7 +247,7 @@ def scan_page(page) -> list[Candidate]:
                 reference_text=_text(cells.get("reference", [])),
                 result_type=result_type,
                 page=page.index,
-                bbox=_bbox(cells["result"]),
+                bbox=_bbox(cells["result"], page),
             )
         )
     return candidates

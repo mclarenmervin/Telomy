@@ -130,8 +130,17 @@ def test_every_candidate_carries_a_bounding_box():
     the part of the report a number was read from."""
     box = by_label(scan_default(), "HbA1c").bbox
 
-    assert set(box) == {"x0", "x1", "top", "bottom"}
+    assert set(box) == {"x0", "x1", "top", "bottom", "page_width", "page_height"}
     assert box["x1"] > box["x0"]
+
+
+def test_the_bounding_box_carries_the_page_size_it_is_relative_to():
+    """The box alone is unusable: coordinates are points for a PDF and pixels
+    for an OCR'd image, so showing the user the crop needs the extent too."""
+    box = by_label(scan_default(), "HbA1c").bbox
+
+    assert box["page_width"] > box["x1"]
+    assert box["page_height"] > box["bottom"]
 
 
 def test_every_value_appears_verbatim_in_the_page_text():

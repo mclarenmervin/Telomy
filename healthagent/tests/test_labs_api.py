@@ -123,6 +123,55 @@ def test_another_users_upload_is_not_readable():
     assert client.get(f"/api/v1/labs/uploads/{UPLOAD}").status_code == 404
 
 
+def test_the_response_carries_a_url_per_page_of_the_report():
+    """So the screen can show the user the crop each number came from. With OCR
+    that is the check that replaces the verbatim one, because comparing our
+    number against their memory is worthless and against the picture is not."""
+    db = make_db()
+    db.tables["lab_upload_files"] = [
+        {"upload_id": UPLOAD, "storage_path": f"{ALICE}/2026/{UPLOAD}/0.pdf",
+         "page_index": 0, "kind": "pdf"},
+    ]
+    db.storage.objects[f"{ALICE}/2026/{UPLOAD}/0.pdf"] = b"%PDF the report"
+    client, _ = client_for(db)
+
+    pages = client.get(f"/api/v1/labs/uploads/{UPLOAD}").json()["pages"]
+
+    assert len(pages) == 1
+    assert pages[0]["page_index"] == 0
+    assert pages[0]["url"].startswith("https://")
+
+
+def test_a_missing_page_image_does_not_break_the_review_screen():
+    """The values are still reviewable; they just cannot be shown in context."""
+    db = make_db()
+    db.tables["lab_upload_files"] = [
+        {"upload_id": UPLOAD, "storage_path": f"{ALICE}/2026/{UPLOAD}/0.pdf",
+         "page_index": 0, "kind": "pdf"},
+    ]
+    client, _ = client_for(db)
+
+    body = client.get(f"/api/v1/labs/uploads/{UPLOAD}").json()
+
+    assert body["pages"][0]["url"] is None
+    assert len(body["results"]) == 2
+
+
+def test_another_users_page_image_is_never_signed():
+    """The adapter refuses it, and this is the only place a URL is minted."""
+    db = make_db()
+    db.tables["lab_upload_files"] = [
+        {"upload_id": UPLOAD, "storage_path": f"{BOB}/2026/{UPLOAD}/0.pdf",
+         "page_index": 0, "kind": "pdf"},
+    ]
+    db.storage.objects[f"{BOB}/2026/{UPLOAD}/0.pdf"] = b"%PDF not theirs"
+    client, _ = client_for(db)
+
+    pages = client.get(f"/api/v1/labs/uploads/{UPLOAD}").json()["pages"]
+
+    assert pages[0]["url"] is None
+
+
 def test_results_are_presented_ungraded_while_the_catalog_is_unreviewed():
     """The user sees the number as printed and no verdict about it."""
     client, _ = client_for(make_db())

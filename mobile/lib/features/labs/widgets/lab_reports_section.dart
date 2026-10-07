@@ -132,14 +132,16 @@ class _UploadTile extends ConsumerWidget {
   }
 
   Future<void> _openConfirmation(BuildContext context, WidgetRef ref) async {
-    final results = await ref.read(labResultsProvider(upload.id).future);
+    final review = await ref.read(labReviewProvider(upload.id).future);
     if (!context.mounted) return;
 
     final confirmed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => LabConfirmationScreen(
-          upload: upload,
-          results: results,
+          // The server's view wins: it carries the grade and the page URLs.
+          upload: review.upload,
+          results: review.results,
+          pageUrls: review.pageUrls,
           onSubmit: (draft) => ref
               .read(labRepositoryProvider)
               .confirm(uploadId: upload.id, draft: draft),
@@ -148,7 +150,7 @@ class _UploadTile extends ConsumerWidget {
     );
     if (confirmed == true) {
       ref.invalidate(labUploadsProvider);
-      ref.invalidate(labResultsProvider(upload.id));
+      ref.invalidate(labReviewProvider(upload.id));
     }
   }
 }

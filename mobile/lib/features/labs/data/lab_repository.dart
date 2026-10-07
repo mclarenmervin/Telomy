@@ -78,6 +78,33 @@ class LabRepository {
     ];
   }
 
+  /// Everything the confirmation screen needs, in one call.
+  ///
+  /// Over REST rather than from the tables, because two of the three things it
+  /// returns only exist on the server: the grade, which is `ungraded` until a
+  /// clinician signs the catalog off, and a short-lived signed URL per page,
+  /// which is what lets the screen show each value in context.
+  Future<LabReview> review({required String uploadId}) async {
+    final http = _http;
+    if (http == null) throw StateError('no API client');
+
+    final response = await http.get('/api/v1/labs/uploads/\$uploadId');
+    final body = Map<String, dynamic>.from(response.data as Map);
+
+    return LabReview(
+      upload: LabUpload.fromRow(Map<String, dynamic>.from(body['upload'] as Map)),
+      results: [
+        for (final row in (body['results'] as List? ?? const []))
+          BiomarkerResult.fromRow(Map<String, dynamic>.from(row as Map)),
+      ],
+      pageUrls: {
+        for (final page in (body['pages'] as List? ?? const []))
+          if ((page as Map)['url'] != null)
+            (page['page_index'] as num).toInt(): page['url'].toString(),
+      },
+    );
+  }
+
   /// Upload a report's files, then create the row that starts extraction.
   ///
   /// Returns the upload id. Throws if any file is outside what the bucket
@@ -157,6 +184,22 @@ class LabRepository {
   // A timestamp would collide across devices, and the id becomes a storage
   // folder name that two users must never share.
   String _uuid() => const Uuid().v4();
+}
+
+/// A report, its values and a way to show each one in context.
+class LabReview {
+  const LabReview({
+    required this.upload,
+    required this.results,
+    required this.pageUrls,
+  });
+
+  final LabUpload upload;
+  final List<BiomarkerResult> results;
+
+  /// Signed URL per page index. Short-lived, and absent for a page whose
+  /// object has gone missing — the values stay reviewable either way.
+  final Map<int, String> pageUrls;
 }
 
 /// One file the user picked, already in memory.

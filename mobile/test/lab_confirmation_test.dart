@@ -36,6 +36,7 @@ BiomarkerResult result(
   String operator = '=',
   String rawValue = '7.8',
   String grade = 'ungraded',
+  Map<String, dynamic>? bbox,
 }) {
   return BiomarkerResult(
     id: id,
@@ -50,6 +51,11 @@ BiomarkerResult result(
     grade: grade,
     page: 0,
     confidence: 1,
+    bbox: bbox ??
+        const {
+          'x0': 250.0, 'x1': 270.0, 'top': 100.0, 'bottom': 110.0,
+          'page_width': 500.0, 'page_height': 1000.0,
+        },
   );
 }
 

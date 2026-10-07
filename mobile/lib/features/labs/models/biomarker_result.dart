@@ -21,6 +21,7 @@ class BiomarkerResult {
     required this.grade,
     required this.page,
     required this.confidence,
+    required this.bbox,
   });
 
   final String id;
@@ -51,8 +52,13 @@ class BiomarkerResult {
   final int? page;
 
   /// Lower when the marker was identified by a model rather than the catalog's
-  /// alias table. Worth surfacing: those deserve a closer look.
+  /// alias table, and lower again when the text came from OCR. Worth
+  /// surfacing: those deserve a closer look.
   final double? confidence;
+
+  /// Where on the page this was read from, with the page extent. What lets the
+  /// screen show the user the crop of their own report.
+  final Map<String, dynamic>? bbox;
 
   bool get isCensored => operator != '=';
   bool get isQualitative => resultType == 'qualitative';
@@ -76,5 +82,8 @@ class BiomarkerResult {
         grade: row['grade']?.toString() ?? 'ungraded',
         page: (row['page'] as num?)?.toInt(),
         confidence: (row['confidence'] as num?)?.toDouble(),
+        bbox: row['bbox'] == null
+            ? null
+            : Map<String, dynamic>.from(row['bbox'] as Map),
       );
 }

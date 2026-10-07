@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../data/lab_confirmation.dart';
 import '../models/biomarker_result.dart';
 import '../models/lab_upload.dart';
+import '../widgets/value_crop_view.dart';
 
 /// Where the user checks what we read before it counts.
 ///
@@ -27,11 +28,16 @@ class LabConfirmationScreen extends StatefulWidget {
     required this.upload,
     required this.results,
     required this.onSubmit,
+    this.pageUrls = const {},
   });
 
   final LabUpload upload;
   final List<BiomarkerResult> results;
   final Future<void> Function(ConfirmationDraft draft) onSubmit;
+
+  /// Short-lived signed URL per page index, for showing each value in context.
+  /// Empty is fine — the screen simply shows no crops.
+  final Map<int, String> pageUrls;
 
   @override
   State<LabConfirmationScreen> createState() => _LabConfirmationScreenState();
@@ -176,6 +182,13 @@ class _LabConfirmationScreenState extends State<LabConfirmationScreen> {
             ),
             if (result.page != null)
               Text('from page ${result.page! + 1}', style: theme.textTheme.bodySmall),
+            // The piece of their own report this number came from. When the
+            // text came from OCR this is the only check left: comparing our
+            // number against the picture works, against their memory does not.
+            ValueCropView(
+              imageUrl: widget.pageUrls[result.page],
+              bbox: result.bbox,
+            ),
             if (result.isCensored)
               Text(
                 'The lab reported this as outside what its instrument can '

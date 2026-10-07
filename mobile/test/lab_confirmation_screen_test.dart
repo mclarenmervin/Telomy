@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telomy/features/labs/data/lab_confirmation.dart';
 import 'package:telomy/features/labs/screens/lab_confirmation_screen.dart';
+import 'package:telomy/features/labs/widgets/value_crop_view.dart';
 
 import 'lab_confirmation_test.dart' show result, upload;
 
@@ -15,6 +16,7 @@ Future<ConfirmationDraft?> pump(
   WidgetTester tester, {
   bool named = true,
   String collectedAtSource = 'extracted',
+  Map<int, String> pageUrls = const {},
 }) async {
   ConfirmationDraft? submitted;
   await tester.pumpWidget(
@@ -29,6 +31,7 @@ Future<ConfirmationDraft?> pump(
           result('r2', biomarkerId: 'vitamin_d_25oh', operator: '<', rawValue: '3.0'),
         ],
         onSubmit: (draft) async => submitted = draft,
+        pageUrls: pageUrls,
       ),
     ),
   );
@@ -143,6 +146,24 @@ void main() {
 
     expect(submitted, isNotNull);
     expect(submitted!.canSubmit, isTrue);
+  });
+
+  testWidgets('it shows each value in context when a page image is available',
+      (tester) async {
+    // The check that replaces the verbatim one when the text came from OCR:
+    // comparing our number against the picture works, against memory does not.
+    await pump(tester, pageUrls: const {0: 'https://example.test/page0.png'});
+
+    expect(find.byType(ValueCropView), findsWidgets);
+  });
+
+  testWidgets('it shows no crop when the page image is missing', (tester) async {
+    // Nothing rather than something wrong: a crop of the wrong row is worse
+    // than none, because the user is checking the paper in their hand anyway.
+    await pump(tester);
+
+    final crops = tester.widgetList<ValueCropView>(find.byType(ValueCropView));
+    expect(crops.every((c) => c.imageUrl == null), isTrue);
   });
 
   testWidgets('saying the report is someone else blocks submission',

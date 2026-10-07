@@ -92,7 +92,12 @@ def test_rows_carry_their_provenance():
 
     row = next(r for r in db.tables["biomarker_results"] if r["biomarker_id"] == "hba1c")
     assert row["page"] == 0
-    assert set(row["bbox"]) == {"x0", "x1", "top", "bottom"}
+    # The page extent travels with the box: coordinates are points for a PDF
+    # and pixels for an OCR'd image, so the box alone cannot be placed, and
+    # placing it is what shows the user the crop their number came from.
+    assert set(row["bbox"]) == {
+        "x0", "x1", "top", "bottom", "page_width", "page_height"
+    }
     assert row["raw_value"] == "7.8"
     assert row["upload_id"] == UPLOAD
 

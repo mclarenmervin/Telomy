@@ -27,6 +27,12 @@ from pydantic import BaseModel
 
 from app.analytics import units
 from app.analytics.reference_ranges import RangeResolver, grade_for_display
+from app.common.documents import (
+    DocumentNotFound,
+    PathNotOwned,
+    UnknownProvider,
+    signed_url,
+)
 from app.common.logging_config import get_logger, log_context
 from app.common.queue import JobQueue
 from app.common.supabase_client import get_supabase_client
@@ -105,6 +111,48 @@ def list_uploads(
     )
 
 
+def _pages(supabase, upload: dict, user_id: str) -> list[dict]:
+    """A short-lived URL per page of the report.
+
+    This is what lets the confirmation screen show the user the crop of their
+    own report that each number was read from — the check that replaces the
+    verbatim one when the text came from OCR, because comparing our number
+    against their memory is worthless and comparing it against the picture is not.
+
+    Signed per request and short-lived: the bucket is private and a URL outlives
+    the request, so it leaks further than a read does.
+    """
+    files = (
+        supabase.table("lab_upload_files")
+        .select("storage_path,page_index,kind")
+        .eq("upload_id", upload["id"])
+        .order("page_index")
+        .execute()
+        .data
+    )
+
+    pages = []
+    for entry in files or []:
+        try:
+            url = signed_url(
+                supabase,
+                user_id=user_id,
+                provider=upload.get("storage_provider") or "supabase",
+                path=entry["storage_path"],
+            )
+        except (DocumentNotFound, PathNotOwned, UnknownProvider):
+            # A missing object must not fail the whole screen: the values are
+            # still reviewable, they just cannot be shown in context.
+            logger.warning(f"no page image for {entry.get('storage_path')!r}")
+            url = None
+        pages.append({
+            "page_index": entry.get("page_index"),
+            "kind": entry.get("kind"),
+            "url": url,
+        })
+    return pages
+
+
 @router.get("/uploads/{upload_id}")
 def read_upload(
     upload_id: str,
@@ -125,7 +173,11 @@ def read_upload(
             # number as printed with no verdict attached.
             "grade": grade_for_display(row.get("value_canonical"), resolved),
         })
-    return {"upload": upload, "results": results}
+    return {
+        "upload": upload,
+        "results": results,
+        "pages": _pages(supabase, upload, user_id),
+    }
 
 
 def _canonical_correction(biomarker_id: str, value: float, unit: str | None) -> float:

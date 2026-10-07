@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../data/lab_repository.dart';
-import '../models/biomarker_result.dart';
 import '../models/lab_upload.dart';
 
 /// Reads ride the Supabase client; the confirm call needs the authenticated Dio
@@ -21,12 +20,8 @@ final labUploadsProvider = FutureProvider<List<LabUpload>>((ref) async {
   return ref.read(labRepositoryProvider).uploads(userId: user.id);
 });
 
-/// The values read off one report, for the confirmation screen.
-final labResultsProvider =
-    FutureProvider.family<List<BiomarkerResult>, String>((ref, uploadId) async {
-  final user = ref.watch(authProvider).asData?.value;
-  if (user == null) return const [];
-  return ref
-      .read(labRepositoryProvider)
-      .resultsFor(userId: user.id, uploadId: uploadId);
+/// Everything the confirmation screen needs for one report.
+final labReviewProvider =
+    FutureProvider.family<LabReview, String>((ref, uploadId) async {
+  return ref.read(labRepositoryProvider).review(uploadId: uploadId);
 });
