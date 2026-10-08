@@ -171,6 +171,30 @@ void main() {
     });
   });
 
+  group('marker names', () {
+    test('acronyms are not sentence-cased into nonsense', () {
+      // Derived from the id, "rdw" becomes "Rdw" and "hs_crp" becomes "Hs crp".
+      // These are printed on every lab report in a fixed form and a user
+      // matching the screen against their PDF should see the same string.
+      expect(markerLabel('rdw'), 'RDW');
+      expect(markerLabel('mcv'), 'MCV');
+      expect(markerLabel('hs_crp'), 'hs-CRP');
+      expect(markerLabel('wbc'), 'WBC');
+    });
+
+    test('every PhenoAge marker has a label', () {
+      for (final marker in phenoAgeMarkers) {
+        expect(markerLabel(marker), isNotEmpty, reason: marker);
+      }
+    });
+
+    test('an unknown marker degrades to something readable', () {
+      // A marker the app has never heard of must still render as words rather
+      // than as a database identifier.
+      expect(markerLabel('some_new_marker'), 'Some new marker');
+    });
+  });
+
   group('what the screen is allowed to say', () {
     test('every state has a sentence that does not imply a number', () {
       for (final state in BiologicalAgeState.values) {

@@ -141,8 +141,8 @@ class _MissingMarkers extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               switch (_reasons[view.reasonFor(marker)]) {
-                final reason? => '· ${_name(marker)} — $reason',
-                _ => '· ${_name(marker)}',
+                final reason? => '· ${markerLabel(marker)} — $reason',
+                _ => '· ${markerLabel(marker)}',
               },
               style: theme.textTheme.bodySmall,
             ),
@@ -150,12 +150,6 @@ class _MissingMarkers extends StatelessWidget {
       ],
     );
   }
-
-  static String _name(String marker) =>
-      marker.replaceAll('_', ' ').replaceFirstMapped(
-            RegExp('^.'),
-            (m) => m[0]!.toUpperCase(),
-          );
 }
 
 class _Drivers extends StatelessWidget {
@@ -200,7 +194,7 @@ class _Drivers extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_MissingMarkers._name(driver.name)),
+                          Text(markerLabel(driver.name)),
                           Text(
                             driver.detail,
                             style: theme.textTheme.bodySmall

@@ -173,3 +173,45 @@ String messageFor(BiologicalAgeState state) => switch (state) {
       BiologicalAgeState.notComputed =>
         'Upload a blood report and we will work this out from it.',
     };
+
+/// The nine markers PhenoAge takes, matching `biological_age.PHENOAGE_MARKERS`.
+/// Held here so the screen can label and order them without the catalog, which
+/// is server-side medical content the app does not carry.
+const phenoAgeMarkers = [
+  'albumin',
+  'creatinine',
+  'glucose_fasting',
+  'hs_crp',
+  'lymphocyte_percent',
+  'mcv',
+  'rdw',
+  'alkaline_phosphatase',
+  'wbc',
+];
+
+/// How each marker is printed on a lab report.
+///
+/// Deriving a label from the id gives "Rdw", "Mcv" and "Hs crp". These are
+/// acronyms with a fixed printed form, and a user checking the screen against
+/// their own PDF should be reading the same string on both.
+const _markerLabels = {
+  'albumin': 'Albumin',
+  'creatinine': 'Creatinine',
+  'glucose_fasting': 'Fasting glucose',
+  'hs_crp': 'hs-CRP',
+  'lymphocyte_percent': 'Lymphocytes',
+  'mcv': 'MCV',
+  'rdw': 'RDW',
+  'alkaline_phosphatase': 'Alkaline phosphatase',
+  'wbc': 'WBC',
+};
+
+/// A marker's printed name. An id the app has not heard of -- a marker added to
+/// the catalog after this build shipped -- still renders as words rather than
+/// as a database identifier.
+String markerLabel(String marker) =>
+    _markerLabels[marker] ??
+    marker.replaceAll('_', ' ').replaceFirstMapped(
+          RegExp('^.'),
+          (m) => m[0]!.toUpperCase(),
+        );
