@@ -179,3 +179,31 @@ def test_a_non_sex_specific_marker_answers_regardless():
 
 def test_get_returns_none_for_an_unknown_marker():
     assert catalog.get("midichlorian_count") is None
+
+
+# ── PhenoAge completeness ────────────────────────────────────────────────────
+
+# Levine ME et al. (2018), PMID 29676998, Table 1. Nine markers plus
+# chronological age. The coefficients are fitted jointly, so a marker that is
+# absent from the catalog is not a marker the model can do without -- it is the
+# whole model being unavailable.
+PHENOAGE_MARKERS = (
+    "albumin",
+    "creatinine",
+    "glucose_fasting",
+    "hs_crp",
+    "lymphocyte_percent",
+    "mcv",
+    "alkaline_phosphatase",
+    "rdw",
+    "wbc",
+)
+
+
+def test_the_catalog_carries_every_phenoage_marker():
+    """F4 cannot compute a published biological age without all nine. This test
+    is the gate: a marker dropped from the catalog breaks the score loudly here
+    rather than quietly producing a number from eight terms."""
+    missing = [m for m in PHENOAGE_MARKERS if catalog.get(m) is None]
+
+    assert missing == []

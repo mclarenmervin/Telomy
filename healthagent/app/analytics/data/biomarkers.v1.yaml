@@ -297,6 +297,32 @@ biomarkers:
     critical: [0, 1000]
     citation: "Whitfield JB (2001) Gamma glutamyl transferase. PMID 11724178"
 
+  - id: alkaline_phosphatase
+    name: Alkaline phosphatase
+    aliases:
+      - "ALP"
+      - "Alkaline Phosphatase"
+      - "Alkaline Phosphatase (ALP)"
+      - "ALP (Alkaline Phosphatase)"
+      - "Serum Alkaline Phosphatase"
+      - "Alkaline Phosphatase, Serum"
+      - "SAP"
+    system: hepatic
+    canonical_unit: U/L
+    units:
+      U/L: 1.0
+      IU/L: 1.0
+      # 1 U/L = 1 umol/min/L; 1 ukat/L = 60 umol/min/L.
+      ukat/L: 60.0
+    standard: [35, 120]
+    # ALP carries a positive coefficient in PhenoAge: within the reference
+    # interval, higher is worse. Optimal therefore sits in the lower half rather
+    # than spanning it. Below the standard floor is usually benign but can mark
+    # zinc deficiency or hypophosphatasia, which is why the floor is not zero.
+    optimal: [40, 80]
+    critical: [10, 500]
+    citation: "Levine ME et al. (2018) PhenoAge. PMID 29676998; laboratory reference intervals"
+
   - id: albumin
     name: Albumin
     aliases:
@@ -534,6 +560,29 @@ biomarkers:
         optimal: [13.0, 15.0]
     critical: [6.0, 22.0]
     citation: "WHO haemoglobin thresholds for anaemia (2011)"
+
+  - id: mcv
+    name: Mean corpuscular volume
+    aliases:
+      - "MCV"
+      - "Mean Corpuscular Volume"
+      - "Mean Corpuscular Volume (MCV)"
+      - "MCV (Mean Corpuscular Volume)"
+      - "Mean Cell Volume"
+      - "Mean Corpuscular Volume MCV"
+    system: haematology
+    canonical_unit: fL
+    units:
+      fL: 1.0
+      # A femtolitre is a cubic micrometre. Some analysers print the latter.
+      um^3: 1.0
+    standard: [80, 100]
+    # Positive coefficient in PhenoAge, and macrocytosis within the reference
+    # interval tracks B12/folate status and alcohol intake, so optimal sits
+    # low-middle. Not below 80: microcytosis is its own problem.
+    optimal: [82, 90]
+    critical: [55, 125]
+    citation: "Levine ME et al. (2018) PhenoAge. PMID 29676998; laboratory reference intervals"
 
   - id: rdw
     name: Red cell distribution width
