@@ -145,3 +145,75 @@ def test_recompute_now_computes_stores_and_returns_a_fresh_score():
     assert response.status_code == 200
     assert response.json()["value"] is not None
     assert len(db.tables["score_snapshots"]) == 1
+
+
+# ── Biological age ───────────────────────────────────────────────────────────
+
+def bio_age_db(user_id=ALICE):
+    units = {"albumin": "g/dL", "creatinine": "mg/dL", "glucose_fasting": "mg/dL",
+             "hs_crp": "mg/L", "lymphocyte_percent": "%", "mcv": "fL", "rdw": "%",
+             "alkaline_phosphatase": "U/L", "wbc": "10^3/uL"}
+    values = {"albumin": 4.2, "creatinine": 0.96, "glucose_fasting": 97.0,
+              "hs_crp": 1.5, "lymphocyte_percent": 28.0, "mcv": 90.0,
+              "rdw": 13.5, "alkaline_phosphatase": 75.0, "wbc": 6.8}
+    return FakeSupabase({
+        "biomarker_results": [
+            {"user_id": user_id, "biomarker_id": marker, "value_canonical": value,
+             "unit_canonical": units[marker], "value_text": None,
+             "result_type": "quantitative", "operator": "=", "status": "confirmed",
+             "context": "fasting" if marker == "glucose_fasting" else "standard",
+             "collected_at": "2026-06-15T07:30:00+00:00", "lab_name": "Lab"}
+            for marker, value in values.items()
+        ],
+        "user_preferences": [{"user_id": user_id, "profile": {"dob": "1981-02-10"}}],
+        "score_snapshots": [],
+    })
+
+
+def test_biological_age_can_be_recomputed_on_request():
+    """"I have just confirmed my labs and should not wait for tonight's sweep"
+    is the whole reason this endpoint exists alongside the table read."""
+    db = bio_age_db()
+
+    response = client_for(db).post(
+        "/api/v1/scores/biological_age/recompute?as_of=2026-10-08"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["score_kind"] == "biological_age"
+
+
+def test_a_recomputed_biological_age_is_dated_to_the_draw():
+    db = bio_age_db()
+
+    body = client_for(db).post(
+        "/api/v1/scores/biological_age/recompute?as_of=2026-10-08"
+    ).json()
+
+    assert body["as_of_date"] == "2026-06-15"
+
+
+def test_a_stored_biological_age_is_readable():
+    db = FakeSupabase({"score_snapshots": [{
+        "user_id": ALICE, "score_kind": "biological_age", "as_of_date": "2026-06-15",
+        "value": 43.2, "drivers": [], "missing_inputs": [], "data_quality": "full",
+        "model_version": "biological-age-phenoage-levine-2018-v1",
+        "ranges_version": "global.v1", "timezone": "Asia/Kolkata",
+        "inputs_hash": "sha256:abc", "computed_at": "2026-06-16T03:00:00",
+    }]})
+
+    body = client_for(db).get("/api/v1/scores/biological_age").json()
+
+    assert body["value"] == 43.2
+    assert body["ranges_version"] == "global.v1"
+
+
+def test_a_score_kind_with_no_implementation_is_refused_by_the_schema():
+    """`score_snapshots` permits five kinds in its check constraint and two are
+    implemented. Asking for an unimplemented one must be a 422, not a 500 and
+    not an empty result that reads as "you have no score"."""
+    response = client_for(bio_age_db()).post(
+        "/api/v1/scores/longi/recompute?as_of=2026-10-08"
+    )
+
+    assert response.status_code == 422

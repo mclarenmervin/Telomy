@@ -17,7 +17,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.analytics.scores import READINESS, compute_readiness, persist_snapshot
+from app.analytics.scores import COMPUTERS, persist_snapshot
 from app.common.logging_config import get_logger, log_context
 from app.common.supabase_client import get_supabase_client
 from app.gateway.auth import current_user_id
@@ -25,11 +25,14 @@ from app.gateway.auth import current_user_id
 router = APIRouter(prefix="/api/v1/scores", tags=["scores"])
 logger = get_logger(__name__)
 
-# Only kinds that exist. An unknown kind is a 422 from FastAPI rather than an
-# empty result that reads like "you have no score".
-ScoreKind = Literal["readiness"]
+# Only kinds we can actually produce. An unknown kind is a 422 from FastAPI
+# rather than an empty result that reads like "you have no score", and the list
+# comes from `scores.COMPUTERS` so this cannot claim a score nothing computes.
+ScoreKind = Literal["readiness", "biological_age"]
 
-_COMPUTERS = {READINESS: compute_readiness}
+assert set(ScoreKind.__args__) == set(COMPUTERS), (
+    "the REST surface and the score registry disagree about which kinds exist"
+)
 
 
 def _latest(supabase, user_id: str, kind: str, as_of: date | None) -> dict | None:
@@ -70,7 +73,7 @@ def recompute_score(
 ) -> dict:
     """Recompute now, for when the user has just confirmed new data and should
     not have to wait for tonight's sweep."""
-    snapshot = _COMPUTERS[kind](supabase, user_id, as_of)
+    snapshot = COMPUTERS[kind](supabase, user_id, as_of)
     persist_snapshot(supabase, snapshot)
     logger.info(f"score recomputed on request {log_context(user_id=user_id)} kind={kind}")
     return snapshot

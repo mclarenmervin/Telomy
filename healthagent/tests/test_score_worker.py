@@ -86,3 +86,72 @@ def test_an_unknown_job_kind_is_ignored():
     process_score_job({**JOB, "kind": "something_else"}, db)
 
     assert db.tables.get("score_snapshots", []) == []
+
+
+# ── Which score a job computes ───────────────────────────────────────────────
+#
+# Bite 12 of the F4 handoff, made concrete. Readiness reads heartRate, hrv,
+# temperature and spo2 -- no lab marker at all -- so before this, confirming a
+# panel enqueued a recompute that could not change a single number. The job now
+# says which score it is for, and a confirmation enqueues one per kind.
+
+BIO_JOB = {"kind": "score_recompute", "user_id": ALICE,
+           "as_of": "2026-06-15", "score_kind": "biological_age"}
+
+
+def lab_db(user_id=ALICE):
+    units = {"albumin": "g/dL", "creatinine": "mg/dL", "glucose_fasting": "mg/dL",
+             "hs_crp": "mg/L", "lymphocyte_percent": "%", "mcv": "fL", "rdw": "%",
+             "alkaline_phosphatase": "U/L", "wbc": "10^3/uL"}
+    values = {"albumin": 4.2, "creatinine": 0.96, "glucose_fasting": 97.0,
+              "hs_crp": 1.5, "lymphocyte_percent": 28.0, "mcv": 90.0,
+              "rdw": 13.5, "alkaline_phosphatase": 75.0, "wbc": 6.8}
+    return FakeSupabase({
+        "biomarker_results": [
+            {"user_id": user_id, "biomarker_id": marker, "value_canonical": value,
+             "unit_canonical": units[marker], "value_text": None,
+             "result_type": "quantitative", "operator": "=", "status": "confirmed",
+             "context": "fasting" if marker == "glucose_fasting" else "standard",
+             "collected_at": "2026-06-15T07:30:00+00:00", "lab_name": "Lab"}
+            for marker, value in values.items()
+        ],
+        "user_preferences": [{"user_id": user_id, "profile": {"dob": "1981-02-10"}}],
+    })
+
+
+def test_a_job_can_ask_for_biological_age():
+    db = lab_db()
+
+    process_score_job(BIO_JOB, db)
+
+    rows = db.tables["score_snapshots"]
+    assert len(rows) == 1
+    assert rows[0]["score_kind"] == "biological_age"
+
+
+def test_a_biological_age_job_is_dated_to_the_draw_not_to_the_job():
+    """The job carries the date the user confirmed the upload; the snapshot
+    belongs to the day the blood was taken."""
+    db = lab_db()
+
+    process_score_job({**BIO_JOB, "as_of": "2026-10-08"}, db)
+
+    assert db.tables["score_snapshots"][0]["as_of_date"] == "2026-06-15"
+
+
+def test_a_job_with_no_score_kind_still_computes_readiness():
+    """Jobs already on the queue when this deployed carry no score_kind, and a
+    queue is not drained at deploy time."""
+    db = scorable_db()
+
+    process_score_job(JOB, db)
+
+    assert db.tables["score_snapshots"][0]["score_kind"] == "readiness"
+
+
+def test_a_job_naming_a_score_we_do_not_compute_is_ignored_not_crashed():
+    db = scorable_db()
+
+    process_score_job({**JOB, "score_kind": "longi"}, db)
+
+    assert db.tables.get("score_snapshots", []) == []

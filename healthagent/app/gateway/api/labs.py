@@ -38,6 +38,7 @@ from app.common.queue import JobQueue
 from app.common.supabase_client import get_supabase_client
 from app.gateway.auth import current_user_id
 from app.gateway.queue_provider import get_score_queue
+from app.analytics.scores import BIOLOGICAL_AGE, READINESS
 from app.scheduler.plan import SCORE_RECOMPUTE
 
 router = APIRouter(prefix="/api/v1/labs", tags=["labs"])
@@ -327,11 +328,22 @@ def confirm_upload(
 
     # Queued, never inline: a bulk upload of five years of reports would
     # otherwise recompute scores synchronously inside a request.
-    queue.enqueue({
-        "kind": SCORE_RECOMPUTE,
-        "user_id": user_id,
-        "as_of": collected_at_iso[:10],
-    })
+    #
+    # Both kinds, and one job each. Readiness reads heartRate, hrv, temperature
+    # and spo2 -- no lab marker at all -- so enqueueing only readiness here
+    # recomputed a number this confirmation could not possibly have changed,
+    # while the score that actually reads the panel went stale. One job per kind
+    # rather than one job computing both, so a failure in one does not take the
+    # other with it.
+    for score_kind in (READINESS, BIOLOGICAL_AGE):
+        queue.enqueue({
+            "kind": SCORE_RECOMPUTE,
+            "score_kind": score_kind,
+            "user_id": user_id,
+            # The upper bound on results to consider. Biological age dates its
+            # own snapshot to the draw; this says only "nothing after today".
+            "as_of": collected_at_iso[:10],
+        })
 
     logger.info(
         f"upload {upload_id} confirmed: {projected} projected of "

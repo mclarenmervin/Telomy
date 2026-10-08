@@ -295,6 +295,31 @@ def test_confirming_queues_a_recompute_rather_than_running_one():
     assert queue.jobs and queue.jobs[0]["user_id"] == ALICE
 
 
+def test_confirming_recomputes_biological_age_and_not_only_readiness():
+    """Bite 12 of the F4 handoff. Readiness reads heartRate, hrv, temperature
+    and spo2 -- no lab marker -- so a confirmation that enqueued only readiness
+    recomputed a number that could not possibly have changed. The point of
+    confirming a panel is the score that reads it."""
+    db = make_db()
+    client, queue = client_for(db)
+
+    client.post(f"/api/v1/labs/uploads/{UPLOAD}/confirm", json=confirm_body())
+
+    assert {job.get("score_kind") for job in queue.jobs} == {
+        "readiness", "biological_age"
+    }
+    assert all(job["user_id"] == ALICE for job in queue.jobs)
+
+
+def test_each_recompute_is_its_own_job_so_one_failure_does_not_take_the_other():
+    db = make_db()
+    client, queue = client_for(db)
+
+    client.post(f"/api/v1/labs/uploads/{UPLOAD}/confirm", json=confirm_body())
+
+    assert len(queue.jobs) == 2
+
+
 def test_a_rejected_result_is_marked_and_not_projected():
     db = make_db()
     client, _ = client_for(db)

@@ -295,3 +295,20 @@ def compute_biological_age(supabase, user_id: str, as_of: date) -> dict:
     return snapshot_from_inputs(
         user_id, biological_age_inputs(supabase, user_id, as_of)
     )
+
+
+# The one registry of what we can compute, so the REST endpoint, the score
+# worker and the agent's tools cannot drift apart about which scores exist.
+#
+# `score_snapshots` permits five kinds in its check constraint and two are
+# implemented. A kind that is not here is refused rather than guessed at: a typo
+# must never silently become a readiness score under another name.
+COMPUTERS = {
+    READINESS: compute_readiness,
+    BIOLOGICAL_AGE: compute_biological_age,
+}
+
+#: The default for a job that names no kind. Jobs already on the queue when
+#: `score_kind` was introduced carry none, and a queue is not drained at deploy
+#: time.
+DEFAULT_SCORE_KIND = READINESS
