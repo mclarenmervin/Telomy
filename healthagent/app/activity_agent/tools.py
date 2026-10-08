@@ -124,6 +124,54 @@ def build_tools(loader) -> list:
         )
 
     @tool
+    def get_biological_age(runtime: ToolRuntime[ActivityContext]) -> dict:
+        """The user's server-computed biological age, as stored.
+
+        This is OUR number, computed from confirmed lab values on a published
+        model (PhenoAge, Levine 2018). Quote it with its `as_of_date`, which is
+        the date the blood was drawn and not today.
+
+        `value` may be null, and null means UNKNOWN -- never zero and never
+        "young". There are two reasons for it and `missing_inputs` says which:
+        marker names mean the panel was incomplete, and `clinical_review` means
+        we have the data but our reference ranges have not been reviewed by a
+        clinician yet, so we are deliberately not giving a number. Say which
+        applies. Do NOT estimate, infer or fill in a biological age yourself
+        under any circumstances -- an invented one is the most convincing wrong
+        number this product could produce.
+
+        `drivers` carry each marker's contribution in years against an optimal
+        value. Report them as written. Do not add a verdict of your own about
+        whether a marker is high, low or concerning.
+        """
+        return loader.score_snapshot(runtime.context.user_id, "biological_age")
+
+    @tool
+    def get_epigenetic_clocks(
+        runtime: ToolRuntime[ActivityContext], limit: int = 10
+    ) -> dict:
+        """Third-party epigenetic clock results the user already has.
+
+        These are NOT ours. Horvath, Hannum, PhenoAge-DNAm, GrimAge and
+        DunedinPACE results come from a provider the user paid, and we display
+        and track them without ever computing one. Always name the `provider`
+        when you mention a value, and never present one as our output or
+        alongside our biological age as though the two were the same kind of
+        thing.
+
+        Different clocks disagree by years on the same sample. That is how the
+        clocks are, not an error -- do not average them, reconcile them or pick
+        the one that looks best.
+
+        Mind the `unit`. DunedinPACE is a rate of ageing, not an age: 0.92 means
+        ageing at 0.92 years per year, and calling it an age of 0.92 years is
+        nonsense.
+        """
+        return loader.epigenetic_results(
+            runtime.context.user_id, limit=clamp(limit, 1, MAX_LIMIT)
+        )
+
+    @tool
     def get_past_reports(runtime: ToolRuntime[ActivityContext], limit: int = 3) -> dict:
         """Previous activity reports, for continuity with advice already given."""
         return loader.past_activity_reports(runtime.context.user_id, limit=clamp(limit, 1, 10))
@@ -157,4 +205,6 @@ def build_tools(loader) -> list:
         get_lab_results,
         get_past_reports,
         compare_window,
+        get_biological_age,
+        get_epigenetic_clocks,
     ]

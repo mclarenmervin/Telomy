@@ -19,6 +19,11 @@ SESSION_FIELDS = "id,activity_type,started_at,ended_at,duration_seconds,summary"
 # than an empty list.
 LAB_DOCUMENT_KINDS = frozenset({"lab_report", "lab_reports"})
 
+# Score kinds the platform computes. `score_snapshots` permits five in its check
+# constraint; asking for one nothing produces is a programming error, not an
+# empty result, because an empty result would narrate as "you have no score".
+SCORE_KINDS = frozenset({"readiness", "biological_age"})
+
 # Providers `app.common.documents` has an adapter for.
 READABLE_PROVIDERS = frozenset({"supabase"})
 
@@ -302,6 +307,65 @@ class ContextLoader:
             query = query.eq("biomarker_id", biomarker_id)
         rows = (
             query.gte("collected_at", _since(days))
+            .order("collected_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def score_snapshot(self, user_id: str, kind: str, limit: int = 1) -> dict:
+        """Server-computed scores, newest first. The row the app renders.
+
+        Read rather than recomputed, deliberately. The agent must quote the
+        number the user is looking at, not a fresh one computed a second later
+        from slightly different data -- that is the dual-math defect with extra
+        steps.
+
+        A null `value` is a real answer and must be narrated as unknown. It
+        happens for two different reasons and neither is a zero: we could not
+        compute one (`missing_inputs` says what was absent), or we computed one
+        and are withholding it because the reference catalog has not been
+        clinically reviewed (`missing_inputs` carries `clinical_review`).
+        """
+        if kind not in SCORE_KINDS:
+            raise ValueError(f"score kind not allowed: {kind}")
+        rows = (
+            self._db.table("score_snapshots")
+            .select(
+                "score_kind,as_of_date,value,drivers,missing_inputs,data_quality,"
+                "model_version,ranges_version,timezone,computed_at"
+            )
+            .eq("user_id", user_id)
+            .eq("score_kind", kind)
+            .order("as_of_date", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def epigenetic_results(self, user_id: str, limit: int = 20) -> dict:
+        """Third-party epigenetic clocks the user already has, newest first.
+
+        **We never compute these.** A Horvath, Hannum, GrimAge or DunedinPACE
+        result came from a provider the user paid, and `epigenetic_results` has
+        a check constraint pinning `source` to `third_party` so nothing can
+        write a value there and call it ours.
+
+        `provider` is not decoration -- "your Horvath age is 41.3" without
+        saying who measured it invites the user to read it as our output.
+
+        Several clocks on one sample disagree by years. That is a property of
+        the clocks, not an error to reconcile, so they are all returned and none
+        is averaged. `unit` is carried per row because DunedinPACE is a rate of
+        ageing rather than an age: rendering 0.92 as an age in years is the
+        obvious way to get this wrong.
+        """
+        rows = (
+            self._db.table("epigenetic_results")
+            .select("clock,value,unit,provider,collected_at,source")
+            .eq("user_id", user_id)
             .order("collected_at", desc=True)
             .range(0, max(0, limit - 1))
             .execute()
