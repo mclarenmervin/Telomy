@@ -16,6 +16,7 @@ from app.analytics import readiness as readiness_model
 from app.analytics import readiness_v2
 from app.analytics.score_snapshot import build_snapshot
 from app.analytics.sleep import Reading
+from app.analytics.subject import resolve_sex
 from app.common.logging_config import get_logger
 from app.common.timeparse import parse_ts
 from app.common.usertime import localise, resolve_timezone
@@ -130,7 +131,9 @@ def compute_readiness(supabase, user_id: str, as_of: date) -> dict:
             readings,
             day,
             age=_age_from(profile),
-            sex=(profile.get("sex") or None),
+            # resolve_sex, not profile['sex']: the editor offers a `gender`
+            # box too and this read saw None for everyone who used it.
+            sex=resolve_sex(profile),
             sleep_need=sleep_goal,
         )
     else:

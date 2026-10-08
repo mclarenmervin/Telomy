@@ -7,6 +7,7 @@ disagree about the same number.
 
 from datetime import date, datetime, timedelta, timezone
 
+from app.analytics import readiness_v2
 from app.analytics.score_snapshot import FULL, NONE
 from app.analytics.scores import compute_readiness, persist_snapshot
 from tests.fakes import FakeSupabase
@@ -194,3 +195,23 @@ def test_the_published_model_records_which_model_produced_the_number(monkeypatch
 
     assert snapshot["model_version"] in snapshot["inputs_hash"] or True
     assert snapshot["model_version"] == "readiness-published-v2"
+
+
+def test_sex_comes_from_the_gender_field_when_sex_is_not_set(monkeypatch):
+    """The profile editor offers both `sex` and `gender` and the phone's own
+    calculators read `profile['sex'] ?? profile['gender']`. Reading only `sex`
+    here meant readiness v2 saw None for every user who filled in the other box,
+    which silently dropped the Tanaka-based drivers that need it."""
+    captured = {}
+    real = readiness_v2.calculate_v2
+
+    def spy(readings, day, **kwargs):
+        captured.update(kwargs)
+        return real(readings, day, **kwargs)
+
+    monkeypatch.setenv("READINESS_MODEL", "v2")
+    monkeypatch.setattr("app.analytics.scores.readiness_v2.calculate_v2", spy)
+
+    compute_readiness(make_db(profile={"gender": "Female"}), ALICE, AS_OF)
+
+    assert captured["sex"] == "female"
