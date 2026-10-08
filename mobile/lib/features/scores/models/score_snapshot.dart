@@ -37,6 +37,7 @@ class ScoreSnapshot {
     required this.kind,
     required this.asOf,
     required this.value,
+    this.exactValue,
     required this.drivers,
     required this.missingInputs,
     required this.dataQuality,
@@ -50,7 +51,15 @@ class ScoreSnapshot {
   final DateTime asOf;
 
   /// Null means unknown. It does not mean zero, and must never render as one.
+  ///
+  /// Rounded, because readiness is a whole number out of 100. A score that is
+  /// not a whole number -- a biological age of 43.2 -- must read [exactValue]
+  /// instead: showing it as 43 is a different claim, and rounding one score to
+  /// suit another is where the dual-math defect starts again.
   final int? value;
+
+  /// The value exactly as the server computed it.
+  final double? exactValue;
   final List<ScoreDriver> drivers;
   final List<String> missingInputs;
   final String dataQuality; // full | partial | none
@@ -84,6 +93,7 @@ class ScoreSnapshot {
       kind: rowKind,
       asOf: DateTime.utc(asOf.year, asOf.month, asOf.day),
       value: (row['value'] as num?)?.round(),
+      exactValue: (row['value'] as num?)?.toDouble(),
       drivers: drivers,
       missingInputs: (row['missing_inputs'] as List? ?? const [])
           .map((m) => m.toString())

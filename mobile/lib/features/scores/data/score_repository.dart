@@ -50,4 +50,35 @@ class ScoreRepository {
       return null;
     }
   }
+
+  /// The most recent snapshot of a kind, whatever day it belongs to.
+  ///
+  /// Separate from [snapshotFor] because not every score is about a day.
+  /// Readiness is, and showing Tuesday's on Thursday would be wrong -- which is
+  /// why that method pins the date. A biological age is about a blood draw, so
+  /// there is no "today's" one to ask for: pinning the date would return
+  /// nothing on every day except the one the sample was taken.
+  Future<ScoreSnapshot?> latestSnapshot({
+    required String userId,
+    required String kind,
+  }) async {
+    final db = _db;
+    if (db == null) return null;
+    try {
+      final rows = await db
+          .from('score_snapshots')
+          .select()
+          .eq('user_id', userId)
+          .eq('score_kind', kind)
+          .order('as_of_date', ascending: false)
+          .limit(1);
+      if (rows.isEmpty) return null;
+      return ScoreSnapshot.fromRow(
+        Map<String, dynamic>.from(rows.first),
+        kind: kind,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

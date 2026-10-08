@@ -10,7 +10,8 @@ import '../../journal/models/journal_entry.dart';
 import '../widgets/trend_chart.dart';
 import '../../../core/config/feature_flags.dart';
 import '../../health/services/longi_score_service.dart';
-import '../../biological_age/data/biological_age_service.dart';
+import '../../biological_age/data/biological_age_view.dart';
+import '../../biological_age/providers/biological_age_provider.dart';
 import '../../life_events/widgets/life_event_panel.dart';
 
 class TodayScreen extends ConsumerWidget {
@@ -49,13 +50,9 @@ class TodayScreen extends ConsumerWidget {
             measurements: scoreMeasurements,
             date: now,
           );
-    final biologicalAge = d == null || scoreMeasurements == null
-        ? null
-        : const BiologicalAgeService().calculate(
-            data: d,
-            measurements: scoreMeasurements,
-            date: now,
-          );
+    // Read, not computed. The phone no longer has a biological-age model to
+    // disagree with the server's, which is the point.
+    final biologicalAge = ref.watch(biologicalAgeProvider).asData?.value;
     return ListView(
       padding: const EdgeInsets.all(22),
       children: [
@@ -203,18 +200,22 @@ class TodayScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        FeatureFlags.biologicalAge
-                            ? biologicalAge?.estimatedAge?.toStringAsFixed(1) ??
-                                  'Learning'
-                            : 'Not available',
+                        // 'Learning' used to sit where a number goes, which
+                        // reads as a value the app is about to refine rather
+                        // than one it does not have.
+                        !FeatureFlags.biologicalAge
+                            ? 'Not available'
+                            : biologicalAge?.exactValue == null
+                                ? 'Not yet'
+                                : '${biologicalAge!.exactValue!.toStringAsFixed(1)} yrs',
                         style: theme.textTheme.titleLarge,
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        FeatureFlags.biologicalAge
-                            ? 'Confidence ${((biologicalAge?.confidence ?? 0) * 100).round()}%'
-                            : 'Estimate remains disabled.',
-                        style: TextStyle(fontSize: 12),
+                        !FeatureFlags.biologicalAge
+                            ? 'Estimate remains disabled.'
+                            : _bioAgeNote(biologicalAge),
+                        style: const TextStyle(fontSize: 12),
                       ),
                     ],
                   ),
@@ -421,3 +422,19 @@ class TrendsScreen extends ConsumerWidget {
     );
   }
 }
+
+/// The one line under the biological-age tile.
+///
+/// A tile has room for a sentence, not an explanation, so this says which kind
+/// of answer it is and the screen behind it says why. Nothing here may imply a
+/// number: the whole reason the old tile was wrong is that 'Learning' and a
+/// confidence of 0% both read as a value in progress.
+String _bioAgeNote(BiologicalAgeView? view) => switch (view?.state) {
+      null => 'Loading.',
+      BiologicalAgeState.ready => 'From your confirmed labs.',
+      BiologicalAgeState.awaitingClinicalReview => 'Awaiting clinical review.',
+      BiologicalAgeState.notApplicable => 'Not applicable right now.',
+      BiologicalAgeState.needsProfile => 'Add your date of birth.',
+      BiologicalAgeState.needsLabs => 'A few more blood results needed.',
+      BiologicalAgeState.notComputed => 'Upload a blood report.',
+    };
