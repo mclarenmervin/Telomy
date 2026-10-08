@@ -62,7 +62,11 @@ class EpigeneticClock {
 
   final DateTime collectedAt;
 
-  String get label => _labels[clock] ?? clock;
+  String get label => labelOf(clock);
+
+  /// The printed name of a clock we have no result for yet -- what the
+  /// entry form's picker shows.
+  static String labelOf(String clock) => _labels[clock] ?? clock;
 
   bool get isPace => _paceClocks.contains(clock) || unit == 'pace';
 

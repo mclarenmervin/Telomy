@@ -82,6 +82,17 @@ void main() {
     });
   });
 
+  group('labelling a clock we have no result for', () {
+    test('the picker can name every clock before one is recorded', () {
+      // The entry form has to label the options, and at that point there is no
+      // row to build an EpigeneticClock from.
+      for (final id in knownClocks) {
+        expect(EpigeneticClock.labelOf(id), isNotEmpty, reason: id);
+      }
+      expect(EpigeneticClock.labelOf('dunedinpace'), 'DunedinPACE');
+    });
+  });
+
   group('a list of clocks', () {
     test('comes back newest first', () {
       final clocks = parseClocks([

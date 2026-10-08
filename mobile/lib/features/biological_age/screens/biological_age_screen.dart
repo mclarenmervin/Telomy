@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../data/biological_age_view.dart';
 import '../models/epigenetic_clock.dart';
 import '../providers/biological_age_provider.dart';
+import '../widgets/record_clock_sheet.dart';
 
 /// Biological age: one number we compute, and any number of clocks we do not.
 ///
@@ -232,13 +233,25 @@ class _Clocks extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Epigenetic clocks', style: theme.textTheme.titleLarge),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Epigenetic clocks',
+                      style: theme.textTheme.titleLarge),
+                ),
+                TextButton.icon(
+                  onPressed: () => RecordClockSheet.show(context),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add'),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             Text(
               // Said once, clearly, rather than implied by a layout choice.
               clocks.isEmpty
-                  ? 'If you have had an epigenetic test, you can record the '
-                      'result here. We display these; we do not calculate them.'
+                  ? 'Had an epigenetic test elsewhere? Add the result and we '
+                      'will track it. We display these; we do not calculate them.'
                   : 'Measured by the providers named. We display these results '
                       'and do not calculate them, so they are not comparable '
                       'with the age above.',
