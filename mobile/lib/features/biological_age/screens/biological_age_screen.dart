@@ -179,8 +179,14 @@ class _Drivers extends StatelessWidget {
             Text('What moves it', style: theme.textTheme.titleLarge),
             const SizedBox(height: 6),
             Text(
-              'Years added or removed compared with an optimal value for each '
-              'marker.',
+              // These do not add up to the difference between the age above and
+              // your real age, and saying so is cheaper than the support
+              // conversation. PhenoAge is anchored on the population average,
+              // which is well short of optimal -- so a panel a little above
+              // optimal on every marker shows all-positive figures here and
+              // still lands below chronological age.
+              'How far each marker sits from an optimal value, in years. These '
+              'are not a breakdown of the age above.',
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.outline),
             ),

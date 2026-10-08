@@ -135,6 +135,9 @@ def cleanup(supabase, upload_id: str, user_id: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", nargs="?", help="a lab report PDF")
+    parser.add_argument("--phenoage", action="store_true",
+                        help="a synthetic report carrying all nine PhenoAge "
+                             "markers, plus the noise a real one has")
     parser.add_argument("--demo", action="store_true",
                         help="use a generated synthetic report instead of a file")
     parser.add_argument("--user-id", required=True, help="an existing auth.users id")
@@ -146,7 +149,12 @@ def main() -> int:
     get_settings()  # fails loudly now rather than inside a call
     supabase = get_supabase_client()
 
-    if args.demo:
+    if args.phenoage:
+        from tests.lab_fixtures import PHENOAGE_ROWS, lab_report_pdf
+        path = Path("/tmp/telomy-phenoage-report.pdf")
+        path.write_bytes(lab_report_pdf(rows=PHENOAGE_ROWS))
+        print(f"generated a synthetic PhenoAge report at {path}")
+    elif args.demo:
         from tests.lab_fixtures import lab_report_pdf
         path = Path("/tmp/telomy-demo-report.pdf")
         path.write_bytes(lab_report_pdf())
@@ -157,7 +165,7 @@ def main() -> int:
             print(f"no such file: {path}", file=sys.stderr)
             return 1
     else:
-        parser.error("give a path or --demo")
+        parser.error("give a path, --demo or --phenoage")
 
     print(f"\nuploading for {args.user_id}")
     upload_id = upload(supabase, path, args.user_id)

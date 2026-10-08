@@ -52,6 +52,35 @@ DEFAULT_ROWS = [
 ]
 
 
+# A report that carries all nine PhenoAge markers, plus the noise a real one
+# comes with. The noise is the point: a fixture with nine clean mid-range rows
+# and a single collection date would exercise almost none of the selection
+# logic, which is where the mistakes live.
+#
+#   * a post-prandial glucose beside the fasting one -- the catalog maps both
+#     labels onto `glucose_fasting`, so only the context keeps a 198 out of a
+#     model fitted on fasting glucose
+#   * a censored vitamin D, which must be displayable and uncomputable
+#   * a qualitative result, which must never be coerced to a number
+#   * markers PhenoAge does not use, which must be ignored rather than confused
+#   * values spread across their ranges rather than all sitting mid-interval
+PHENOAGE_ROWS = [
+    ("Glucose, Fasting", "97", "mg/dL", "70 - 100"),
+    ("Glucose, Post Prandial", "198", "mg/dL", "70 - 140"),
+    ("Albumin", "4.2", "g/dL", "3.5 - 5.0"),
+    ("Creatinine", "0.96", "mg/dL", "0.70 - 1.30"),
+    ("CRP, High Sensitivity", "1.5", "mg/L", "0 - 3.0"),
+    ("Lymphocytes", "28", "%", "20 - 45"),
+    ("MCV", "90", "fL", "80 - 100"),
+    ("RDW-CV", "13.5", "%", "11.5 - 15.0"),
+    ("Alkaline Phosphatase", "75", "U/L", "35 - 120"),
+    ("Total Leucocyte Count", "6.8", "10^3/uL", "4.0 - 11.0"),
+    ("HbA1c", "5.4", "%", "4.0 - 5.6"),
+    ("Vitamin D, 25 - Hydroxy", "<3.0", "ng/mL", "30 - 100"),
+    ("Dengue NS1 Antigen", "Negative", "", "Negative"),
+]
+
+
 def lab_report_pdf(
     rows=None,
     patient_name: str = DEFAULT_PATIENT,

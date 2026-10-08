@@ -20,6 +20,7 @@ import pytest
 from app.analytics import catalog
 from app.analytics.biological_age import (
     _mortality_score,
+    _reference_for,
     MAX_DIVERGENCE_YEARS,
     MODEL_VERSION,
     PHENOAGE_MARKERS,
@@ -380,3 +381,30 @@ def test_a_reason_for_a_marker_we_do_have_is_ignored(reviewed):
 
     assert result.missing_inputs == []
     assert result.score is not None
+
+
+def test_drivers_sum_to_the_gap_from_an_optimal_panel_not_from_chronological_age(
+    reviewed,
+):
+    """A property worth pinning down, because the obvious reading of the driver
+    list is wrong.
+
+    Each driver is the distance from that marker's optimal value, so they sum to
+    (this person's age) minus (their age with every marker optimal). They do NOT
+    sum to the difference between biological and chronological age -- PhenoAge is
+    anchored on the population average, which is a good deal worse than optimal.
+
+    The visible consequence is that a panel slightly above optimal on every
+    marker shows nine positive drivers and still lands *below* chronological
+    age. That is correct, and it is why the screen must not present these as a
+    breakdown of the headline number.
+    """
+    result = biological_age(TYPICAL, ADULT)
+    optimal = {m: _reference_for(m, "female") for m in PHENOAGE_MARKERS}
+
+    total = sum(d.score for d in result.drivers)
+    gap = result.score - phenoage(optimal, age_years=45.0)
+
+    assert total == pytest.approx(gap, abs=1e-6)
+    # And emphatically not the other reading.
+    assert total != pytest.approx(result.score - 45.0, abs=0.5)
