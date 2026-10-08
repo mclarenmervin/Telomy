@@ -258,7 +258,9 @@ def _drivers(canonical: dict, sex: str | None) -> list[AgeDriver]:
     return out
 
 
-def biological_age(canonical: dict, subject: Subject) -> BiologicalAgeResult:
+def biological_age(
+    canonical: dict, subject: Subject, notes: dict[str, str] | None = None
+) -> BiologicalAgeResult:
     """PhenoAge with our guards applied, but **not** the review gate.
 
     `canonical` maps biomarker_id to a value in that marker's canonical unit, as
@@ -267,16 +269,26 @@ def biological_age(canonical: dict, subject: Subject) -> BiologicalAgeResult:
     `<0.01`, a qualitative result, a result with no collection date -- and reads
     as missing rather than as a zero.
 
+    `notes` maps a biomarker_id to why selection would not use the rows it had
+    -- "censored", "wrong_context". A missing marker reports that reason, which
+    is the difference between the app saying "we need a fasting glucose" and
+    saying "glucose missing" when the user's report plainly shows one. A note
+    for a marker we do have is ignored: selection records every rejected row,
+    including ones where a later row was usable after all, and a note must not
+    invent a gap.
+
     Use `biological_age_for_display` for anything that reaches a user or a
     stored row. This one is the arithmetic plus the physiology; that one adds
     the one question neither can answer.
     """
+    notes = notes or {}
     missing: list[str] = list(subject.refusals)
 
     for biomarker_id in PHENOAGE_MARKERS:
         value = canonical.get(biomarker_id)
         if value is None:
-            missing.append(biomarker_id)
+            reason = notes.get(biomarker_id)
+            missing.append(f"{biomarker_id}:{reason}" if reason else biomarker_id)
             continue
         marker = catalog.get(biomarker_id)
         if marker is not None and not marker.critical.contains(float(value)):
@@ -311,7 +323,7 @@ def biological_age(canonical: dict, subject: Subject) -> BiologicalAgeResult:
 
 
 def biological_age_for_display(
-    canonical: dict, subject: Subject
+    canonical: dict, subject: Subject, notes: dict[str, str] | None = None
 ) -> BiologicalAgeResult:
     """The result a **user** may be shown, and the only one that may be stored.
 
@@ -333,7 +345,7 @@ def biological_age_for_display(
     publishing them while withholding the total would hand over the same claim
     in instalments.
     """
-    result = biological_age(canonical, subject)
+    result = biological_age(canonical, subject, notes)
     if catalog.review_status().reviewed:
         return result
 

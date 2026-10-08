@@ -358,3 +358,25 @@ def test_the_gate_does_not_invent_a_number_for_an_unscorable_subject(reviewed):
     result = biological_age_for_display(values(albumin=None), ADULT)
 
     assert result.score is None
+
+
+def test_a_missing_marker_carries_the_reason_selection_gave(reviewed):
+    """"glucose_fasting:wrong_context" lets the app say "we need a fasting
+    glucose". A bare "glucose_fasting" makes it say the marker is missing, which
+    the user can see is false -- their report plainly shows a glucose."""
+    result = biological_age(
+        values(glucose_fasting=None), ADULT,
+        notes={"glucose_fasting": "wrong_context"},
+    )
+
+    assert "glucose_fasting:wrong_context" in result.missing_inputs
+    assert "glucose_fasting" not in result.missing_inputs
+
+
+def test_a_reason_for_a_marker_we_do_have_is_ignored(reviewed):
+    """Selection notes every row it rejected, including markers where a later
+    row was usable after all. A note must not invent a gap."""
+    result = biological_age(TYPICAL, ADULT, notes={"hs_crp": "censored"})
+
+    assert result.missing_inputs == []
+    assert result.score is not None
