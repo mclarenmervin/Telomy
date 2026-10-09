@@ -39,6 +39,7 @@ from app.common.supabase_client import get_supabase_client
 from app.gateway.auth import current_user_id
 from app.gateway.queue_provider import get_score_queue
 from app.analytics.scores import BIOLOGICAL_AGE, READINESS
+from app.clinical.drafts import DRAFT_JOB_KIND
 from app.scheduler.plan import SCORE_RECOMPUTE
 
 router = APIRouter(prefix="/api/v1/labs", tags=["labs"])
@@ -344,6 +345,20 @@ def confirm_upload(
             # own snapshot to the draw; this says only "nothing after today".
             "as_of": collected_at_iso[:10],
         })
+
+    # And look for findings a clinician should see. The same place as the score
+    # recomputes on purpose: a confirmation should produce every derived thing
+    # it implies, rather than whichever ones somebody remembered to wire up —
+    # which is how F4 found biological age recomputing on a confirmation that
+    # could not have changed it while the score that reads the panel went stale.
+    #
+    # This is the only real trigger. A trend changes when a result arrives, and
+    # time passing can only remove one from eligibility, never create one.
+    queue.enqueue({
+        "kind": DRAFT_JOB_KIND,
+        "user_id": user_id,
+        "as_of": collected_at_iso[:10],
+    })
 
     logger.info(
         f"upload {upload_id} confirmed: {projected} projected of "

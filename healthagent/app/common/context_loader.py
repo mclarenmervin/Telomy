@@ -373,6 +373,31 @@ class ContextLoader:
         )
         return _ok(rows)
 
+    def treating_clinic_id(self, user_id: str) -> str | None:
+        """The clinic that treats this user, or None for the network pool.
+
+        Scoped to `role = 'patient'`, which matters for a clinician who is also
+        a user of the product: their own lab findings belong to whichever clinic
+        treats *them*, and routing them to the clinic they work for would put
+        their own panel in a queue their colleagues read.
+
+        None is a real answer and not a failure. A user enrolled with no clinic
+        still gets reviewed -- the draft goes to the Bonphul pool, which any
+        clinician in good standing may claim. Refusing to draft would make the
+        whole feature depend on an enrolment the user may never have.
+        """
+        rows = (
+            self._db.table("clinic_members")
+            .select("clinic_id")
+            .eq("user_id", user_id)
+            .eq("role", "patient")
+            .is_("left_at", "null")
+            .limit(1)
+            .execute()
+            .data
+        )
+        return rows[0]["clinic_id"] if rows else None
+
     def clinical_insights(self, user_id: str, limit: int = 10) -> dict:
         """Insights a clinician signed, or that the SLA released unreviewed.
 

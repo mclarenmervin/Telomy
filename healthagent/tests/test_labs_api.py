@@ -305,7 +305,8 @@ def test_confirming_recomputes_biological_age_and_not_only_readiness():
 
     client.post(f"/api/v1/labs/uploads/{UPLOAD}/confirm", json=confirm_body())
 
-    assert {job.get("score_kind") for job in queue.jobs} == {
+    scoring = [j for j in queue.jobs if j.get("kind") == "score_recompute"]
+    assert {job.get("score_kind") for job in scoring} == {
         "readiness", "biological_age"
     }
     assert all(job["user_id"] == ALICE for job in queue.jobs)
@@ -317,7 +318,25 @@ def test_each_recompute_is_its_own_job_so_one_failure_does_not_take_the_other():
 
     client.post(f"/api/v1/labs/uploads/{UPLOAD}/confirm", json=confirm_body())
 
-    assert len(queue.jobs) == 2
+    assert len([j for j in queue.jobs if j.get("kind") == "score_recompute"]) == 2
+
+
+def test_confirming_also_looks_for_findings_a_clinician_should_see():
+    """F5. The confirmation is the only real trigger for a draft — a trend
+    changes when a new result arrives, and time passing can only remove one from
+    eligibility, never create one. Enqueued in the same place as the score
+    recomputes so a confirmation produces every derived thing it should, rather
+    than whichever ones somebody remembered to wire up."""
+    from app.clinical.drafts import DRAFT_JOB_KIND
+
+    db = make_db()
+    client, queue = client_for(db)
+
+    client.post(f"/api/v1/labs/uploads/{UPLOAD}/confirm", json=confirm_body())
+
+    drafting = [j for j in queue.jobs if j.get("kind") == DRAFT_JOB_KIND]
+    assert len(drafting) == 1
+    assert drafting[0]["user_id"] == ALICE
 
 
 def test_a_rejected_result_is_marked_and_not_projected():

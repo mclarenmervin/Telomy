@@ -44,6 +44,12 @@ from app.common.logging_config import get_logger, log_context
 
 logger = get_logger(__name__)
 
+#: The job a confirmed panel enqueues. Owned here rather than in
+#: scheduler/plan.py because nothing about it is scheduled -- a confirmation is
+#: the only real trigger, since a trend changes when a result arrives and time
+#: passing can only ever remove one from eligibility.
+DRAFT_JOB_KIND = "clinical_draft"
+
 #: A trend in a lab marker is a lab finding. `observation` is for the wearable
 #: and event side, which F6 and F8 add.
 DRAFT_KIND = "lab_finding"
