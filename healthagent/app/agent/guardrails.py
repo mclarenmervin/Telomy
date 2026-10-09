@@ -66,7 +66,10 @@ _MEDICATION = [
     ),
 ]
 
+from app.common.logging_config import get_logger
 from app.common.thresholds import get_thresholds
+
+logger = get_logger(__name__)
 
 # Shared with the activity agent's severity rules; a local copy meant tuning
 # SPO2_DANGER_MIN moved one and not the other.
@@ -74,6 +77,32 @@ SPO2_LOW = get_thresholds().spo2_danger_min
 # Deliberately NOT centralised: this describes a resting-ish context for the event
 # agent. The activity agent uses a much higher exercise-aware ceiling.
 HEART_RATE_HIGH = 150.0
+
+
+# ── Who is going to read this? ───────────────────────────────────────────────
+#
+# The rules above exist because text was on its way to a user with no human in
+# between. F5 adds a second audience and the right consequence differs.
+#
+#: Text goes straight to the user. A diagnosis or medication match replaces it.
+#: Today's behaviour, unchanged, and the default — every existing caller passes
+#: two arguments and must keep behaving byte-identically.
+AUTONOMOUS = "autonomous"
+
+#: Text goes to a clinician's review queue. The same matches attach routing
+#: flags and the text is left alone, because in this profile the rules above
+#: would blank out exactly the content the clinician is there to judge: a
+#: supplement draft becomes SAFE_FALLBACK and the queue fills with drafts that
+#: say nothing.
+#:
+#: This is only safe because of the other half, in 013_clinical_review.sql: a
+#: draft carrying any routing flag can never be delivered without a signature,
+#: so the uncensored text cannot reach the user by the SLA path that exists for
+#: observations nobody reviewed. The flag is what makes that gate bite. Neither
+#: half is safe alone.
+CLINICIAN_QUEUE = "clinician_queue"
+
+PROFILES = (AUTONOMOUS, CLINICIAN_QUEUE)
 
 
 def _matches(patterns, text: str) -> bool:
@@ -89,15 +118,40 @@ def _dangerous_values(analysis: dict) -> bool:
     )
 
 
-def apply_guardrails(text: str, analysis: dict) -> tuple[str, list[str]]:
+def apply_guardrails(
+    text: str, analysis: dict, profile: str = AUTONOMOUS
+) -> tuple[str, list[str]]:
+    """Deterministic checks after the LLM has spoken.
+
+    Detection is identical in both profiles and only the consequence differs:
+    `autonomous` replaces the text, `clinician_queue` labels it. They must not
+    disagree about what counts as medication content — a draft that reached a
+    user unflagged, carrying text the autonomous profile would have replaced,
+    is the exact failure the flags exist to prevent.
+    """
+    if profile not in PROFILES:
+        # A typo at a call site must not become a censorship bypass. Falling
+        # back to the stricter profile makes a mistake over-cautious; falling
+        # back the other way would put unreviewed medication advice on a
+        # user's screen. Loud, because this is a safety boundary and not a
+        # config nuisance.
+        logger.error(
+            f"unknown guardrail profile {profile!r}; using {AUTONOMOUS}"
+        )
+        profile = AUTONOMOUS
+
     flags: list[str] = []
     if _matches(_DIAGNOSIS, text):
         flags.append("diagnosis")
     if _matches(_MEDICATION, text):
         flags.append("medication")
-    if flags:
+    if flags and profile == AUTONOMOUS:
         text = SAFE_FALLBACK
 
+    # Never gated on the profile, and deliberately after the replacement above
+    # so the line survives either outcome. A dangerous reading is an emergency
+    # whoever is reading the text, and the clinician queue is for
+    # recommendations — exactly as `is_critical` is ungated in the lab path.
     if _dangerous_values(analysis):
         text = f"{text} {ESCALATION_LINE}"
         flags.append("escalation")
