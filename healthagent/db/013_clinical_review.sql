@@ -479,7 +479,24 @@ create table if not exists insights (
   ),
   constraint dispute_carries_a_reason check (
     disputed_at is null or length(trim(coalesce(dispute_reason, ''))) > 0
-  )
+  ),
+
+  -- One delivery per signature, and at most one unsigned delivery per draft.
+  --
+  -- Supabase retries webhooks and the SLA sweep is not transactional with this
+  -- insert, so without this a redelivery puts the same sentence on the user's
+  -- screen twice -- the same reason lab_escalations is keyed
+  -- `unique (upload_id, biomarker_id, context)`. An alert that arrives twice
+  -- because the platform retried is how an alert stops being believed.
+  --
+  -- Keyed on the signature rather than the draft alone because a draft that is
+  -- revised and signed again legitimately delivers a second time: the user has
+  -- already read the first version, and silently rewriting it would change
+  -- text they were shown. NULLS NOT DISTINCT is what stops that allowance
+  -- applying to the unsigned route, where review_id is null and two NULLs
+  -- would otherwise both be permitted.
+  constraint one_delivery_per_signature
+    unique nulls not distinct (draft_id, review_id)
 );
 
 create index if not exists insights_user_time_idx
@@ -527,6 +544,15 @@ declare
   review clinical_reviews;
 begin
   select * into draft from clinical_drafts where id = new.draft_id;
+
+  -- A draft somebody pulled back is not deliverable by either route. Checked
+  -- before the routes diverge, because `withdrawn` is reachable from every
+  -- state in the machine including `signed` -- so a withdrawal has to beat a
+  -- signature that is still sitting there, valid, hashing correctly.
+  if draft.status = 'withdrawn' then
+    raise exception 'draft % has been withdrawn', new.draft_id
+      using errcode = '23514';
+  end if;
 
   if new.review_id is null then
     -- The unreviewed path. It exists only because a stalled queue would make

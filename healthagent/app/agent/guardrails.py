@@ -1,4 +1,6 @@
+import hashlib
 import re
+from dataclasses import dataclass
 
 SAFE_FALLBACK = (
     "I can describe how your readings changed around this event, but I can't give "
@@ -157,3 +159,114 @@ def apply_guardrails(
         flags.append("escalation")
 
     return text, flags
+
+
+# ── The delivery gate ────────────────────────────────────────────────────────
+#
+# The last deterministic check between the LLM and the user, which is why it
+# lives here beside the others rather than in the clinical package: every
+# gate that stands in that gap is in this file.
+#
+# `013_clinical_review.sql` is the enforcement. A BEFORE INSERT trigger on
+# `insights` applies exactly these rules, so they bind the clinician console
+# and our own service role alike and nothing can be delivered by going around
+# this function. What this half adds is a decision the worker can act on
+# *before* writing: an insert it already knows will fail, turned into a reason
+# string rather than a 23514 to reverse-engineer out of a log.
+#
+# The two must agree. Disagreement in either direction is a real bug -- a
+# delivery skipped that Postgres would have allowed, or attempted when it would
+# not -- so `tests/test_delivery_gate.py` pins the hash against values Postgres
+# actually produced.
+
+#: Delivered because a clinician signed exactly this text.
+CLINICIAN_SIGNED = "clinician_signed"
+
+#: Delivered unreviewed because the queue stalled. The plan's de-risk for
+#: "the clinician queue becomes the bottleneck and the product feels dead",
+#: and deliberately the narrowest path in the system.
+SLA_EXPIRED = "sla_expired"
+
+#: The only status from which an unsigned delivery is possible. A draft still
+#: in the queue has not been given up on, and delivering it would make the
+#: queue decorative -- the clinician would arrive to find it already sent.
+SLA_DELIVERABLE_STATUS = "expired"
+
+
+def body_sha256(body: str) -> str:
+    """Hex sha256 of an insight body.
+
+    Byte-identical to `encode(sha256(convert_to(body, 'UTF8')), 'hex')`, which
+    is what the database stores and compares. Nothing is normalised first --
+    not whitespace, not Unicode form -- because a signature over trimmed text
+    is a signature over text nobody read.
+    """
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class DeliveryDecision:
+    """Whether this body may reach the user, by which route, and if not why.
+
+    `reason` is for the operator and the queue metrics, and names the draft
+    status or the flag that blocked it -- "stalled on 41 supplement drafts" is
+    actionable in a way that "delivery refused" is not.
+    """
+
+    deliverable: bool
+    route: str | None = None
+    reason: str | None = None
+
+
+def _refuse(reason: str) -> DeliveryDecision:
+    return DeliveryDecision(deliverable=False, reason=reason)
+
+
+def gate_delivery(
+    draft: dict, review: dict | None, body: str | None = None
+) -> DeliveryDecision:
+    """May this body be delivered as an insight?
+
+    `body` defaults to the draft's own, which is what delivery normally sends.
+    Passing it separately is for a caller that has changed it -- precisely the
+    caller this exists to catch.
+    """
+    status = draft.get("status")
+    if status in ("delivered", "withdrawn"):
+        # The sweep is not transactional with the insert and the webhook
+        # retries, so "already dealt with" is a normal answer, not an error.
+        return _refuse(f"draft is {status}")
+
+    if body is None:
+        body = draft.get("body")
+    if not body:
+        return _refuse("draft has no body to deliver")
+
+    if review is None:
+        # The unreviewed route. Every condition here is load-bearing: this is
+        # the one path that reaches a user without a human having read the
+        # text, and widening any of them would quietly undo the gate.
+        flags = draft.get("routing_flags") or []
+        if flags:
+            return _refuse(
+                "draft carries routing flags and needs a signature: "
+                + ", ".join(sorted(flags))
+            )
+        if status != SLA_DELIVERABLE_STATUS:
+            return _refuse(f"draft is {status}, not {SLA_DELIVERABLE_STATUS}")
+        return DeliveryDecision(deliverable=True, route=SLA_EXPIRED)
+
+    if review.get("action") != "signed":
+        return _refuse(f"review is a {review.get('action')}, not a signature")
+
+    if review.get("draft_id") != draft.get("id"):
+        return _refuse(
+            f"review signed draft {review.get('draft_id')}, not {draft.get('id')}"
+        )
+
+    if review.get("signed_body_sha256") != body_sha256(body):
+        # The gate itself. A status check would have passed every caller above
+        # this line, which is the whole reason it is a hash.
+        return _refuse("the body being delivered is not the body that was signed")
+
+    return DeliveryDecision(deliverable=True, route=CLINICIAN_SIGNED)

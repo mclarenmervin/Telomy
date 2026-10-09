@@ -497,6 +497,32 @@ select pg_temp.refuses(format($$
           'agent', %L, now())
 $$, :patient, :doctor), 'a revised body cannot ride the old signature');
 
+-- A claim is not a signature. `clinical_reviews` holds every action a clinician
+-- took, and reading the latest row without checking which kind it is would let
+-- a claim deliver the draft it claimed.
+select pg_temp.refuses(format($$
+  insert into insights
+    (user_id, draft_id, review_id, kind, title, body, noticed_by,
+     reviewed_by, reviewed_at)
+  values (%L, 'd0d0d0d0-0000-4000-8000-000000000001',
+          (select id from clinical_reviews where action = 'claimed' limit 1),
+          'observation', 't', 'anything', 'agent', %L, now())
+$$, :patient, :lapsed), 'a claim cannot deliver the draft it claimed');
+
+-- Supabase retries webhooks, and the sweep is not transactional with the
+-- insert. Without the uniqueness the same sentence arrives twice, which is how
+-- an alert stops being believed.
+select pg_temp.refuses(format($$
+  insert into insights
+    (user_id, draft_id, review_id, kind, title, body, noticed_by,
+     reviewed_by, reviewed_at)
+  values (%L, 'd0d0d0d0-0000-4000-8000-000000000001',
+          'e0e0e0e0-0000-4000-8000-000000000001', 'observation', 't',
+          %L, 'agent', %L, now())
+$$, :patient,
+    'Across your last three panels HbA1c moved from 5.4% to 5.9%.',
+    :doctor), 'one signature delivers one insight, however often it is retried');
+
 -- An insight claiming a reviewer must point at the review that says so. A
 -- reviewed_by with no signature row is the forgery the trail exists to prevent.
 select pg_temp.refuses(format($$
@@ -570,6 +596,40 @@ select pg_temp.refuses(format($$
             where id = 'd0d0d0d0-0000-4000-8000-000000000003'),
           'agent', 'sla_expired')
 $$, :patient), 'a flagged draft can never be delivered unreviewed');
+
+
+-- A withdrawal has to beat a signature that is still sitting there, valid, and
+-- hashing correctly. `withdrawn` is reachable from `signed`, so this is the one
+-- case where a passing hash check must still not deliver.
+insert into clinical_drafts
+  (id, user_id, clinic_id, kind, title, body, model_version)
+values ('d0d0d0d0-0000-4000-8000-000000000004', :patient,
+        'c0c0c0c0-0000-4000-8000-000000000001', 'observation',
+        'Withdrawn before it was sent', 'Never mind.', 'insight-rules-v1');
+
+update clinical_drafts set status = 'queued'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000004';
+update clinical_drafts
+   set status = 'in_review', claimed_by = :doctor, claimed_at = now()
+ where id = 'd0d0d0d0-0000-4000-8000-000000000004';
+insert into clinical_reviews
+  (id, draft_id, clinician_id, action, signed_body_sha256)
+values ('e0e0e0e0-0000-4000-8000-000000000004',
+        'd0d0d0d0-0000-4000-8000-000000000004', :doctor, 'signed',
+        encode(sha256(convert_to('Never mind.', 'UTF8')), 'hex'));
+update clinical_drafts set status = 'signed'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000004';
+update clinical_drafts set status = 'withdrawn'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000004';
+
+select pg_temp.refuses(format($$
+  insert into insights
+    (user_id, draft_id, review_id, kind, title, body, noticed_by,
+     reviewed_by, reviewed_at)
+  values (%L, 'd0d0d0d0-0000-4000-8000-000000000004',
+          'e0e0e0e0-0000-4000-8000-000000000004', 'observation',
+          'Withdrawn before it was sent', 'Never mind.', 'agent', %L, now())
+$$, :patient, :doctor), 'a withdrawn draft is not delivered on a valid signature');
 
 
 -- ── What the user finally sees ───────────────────────────────────────────────
