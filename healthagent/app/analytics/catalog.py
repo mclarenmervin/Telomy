@@ -10,6 +10,8 @@ safety failure, not a config nuisance, and it should stop the process rather
 than silently grade someone against nonsense.
 """
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -73,6 +75,71 @@ def _parse_review(raw: dict, where: str) -> ClinicalReview:
             f"{where}: clinical_review.reviewed is true but carries no reviewed_at date"
         )
     return ClinicalReview(reviewed=reviewed, reviewer=reviewer, reviewed_at=reviewed_at)
+
+
+def _parse_marker_reviews(raw: dict, where: str) -> dict[str, ClinicalReview]:
+    """Sign-offs for individual markers, each bound to a hash of what was signed.
+
+    Per marker rather than all-or-nothing because biological age needs nine
+    markers and the catalog carries thirty-three. Requiring the whole file to be
+    reviewed before any of it can be used makes the cheapest useful sign-off
+    four times larger than it needs to be, and in practice that means it does
+    not happen at all.
+
+    `content_sha256` is what makes the signature mean something. A signature
+    over "hba1c" is a signature over a name; a signature over a fingerprint of
+    hba1c's entry covers the ranges, the units, the conversions, the aliases and
+    the citation, so editing any of them afterwards withdraws the sign-off
+    automatically. The git diff shows the range changed and the loader stops
+    trusting the signature in the same commit, which is the whole reason medical
+    content lives in git.
+
+    The hash is NOT verified here -- that needs the marker set, which is built
+    later. `marker_reviews` does the verifying.
+    """
+    block = raw.get("clinical_review") or {}
+    entries = block.get("markers") or []
+    if not isinstance(entries, list):
+        raise CatalogError(f"{where}: clinical_review.markers must be a list")
+
+    out: dict[str, ClinicalReview] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise CatalogError(f"{where}: a clinical_review.markers entry is not a mapping")
+        marker_id = str(entry.get("id") or "").strip()
+        if not marker_id:
+            raise CatalogError(f"{where}: a clinical_review.markers entry has no id")
+        reviewer = str(entry.get("reviewer") or "").strip() or None
+        reviewed_at = str(entry.get("reviewed_at") or "").strip() or None
+        digest = str(entry.get("content_sha256") or "").strip().lower() or None
+
+        # The same three refusals the catalog-level block makes, for the same
+        # reason: a sign-off we cannot attribute is not an audit trail.
+        if not reviewer:
+            raise CatalogError(f"{where}: {marker_id} sign-off names no reviewer")
+        if not reviewed_at:
+            raise CatalogError(f"{where}: {marker_id} sign-off carries no reviewed_at date")
+        if not digest:
+            raise CatalogError(
+                f"{where}: {marker_id} sign-off carries no content_sha256, so it is "
+                "a signature over a name rather than over a set of ranges"
+            )
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise CatalogError(f"{where}: {marker_id} content_sha256 is not a sha256")
+        if marker_id in out:
+            raise CatalogError(f"{where}: {marker_id} is signed off twice")
+
+        out[marker_id] = _SignedMarker(
+            reviewer=reviewer, reviewed_at=reviewed_at, content_sha256=digest
+        )
+    return out
+
+
+@dataclass(frozen=True)
+class _SignedMarker:
+    reviewer: str
+    reviewed_at: str
+    content_sha256: str
 
 
 @dataclass(frozen=True)
@@ -249,6 +316,24 @@ def _build(entry: dict) -> Biomarker:
     return marker
 
 
+def _fingerprint(entry: dict) -> str:
+    """Hex sha256 over a marker's whole catalog entry.
+
+    The whole entry, not a chosen subset. A clinician signing off a marker is
+    signing off the ranges, the unit they are expressed in, the conversions
+    into it, the labels that map onto it and the citation behind it -- and
+    picking a subset means guessing which edits matter, then being wrong once.
+    Hashing everything errs toward asking for re-review, which is the correct
+    direction to be wrong in for medical content.
+
+    Serialised with sorted keys so a reordered YAML file -- a reformat, a merge
+    -- does not withdraw every sign-off in it.
+    """
+    canonical = json.dumps(entry, sort_keys=True, separators=(",", ":"),
+                           default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 @lru_cache(maxsize=1)
 def load_catalog(path: Path | None = None) -> tuple[str, dict[str, Biomarker]]:
     """(version, {id: Biomarker}). Cached: the file does not change at runtime."""
@@ -259,15 +344,41 @@ def load_catalog(path: Path | None = None) -> tuple[str, dict[str, Biomarker]]:
     # Validated here as well as in `review_status`, so a malformed review block
     # stops the process at startup rather than the first time someone is graded.
     _parse_review(raw, str(path or CATALOG_PATH))
+    signed = _parse_marker_reviews(raw, str(path or CATALOG_PATH))
     markers: dict[str, Biomarker] = {}
+    fingerprints: dict[str, str] = {}
     for entry in raw.get("biomarkers", []):
         marker = _build(entry)
         if marker.id in markers:
             raise CatalogError(f"{marker.id}: declared twice")
         markers[marker.id] = marker
+        fingerprints[marker.id] = _fingerprint(entry)
     if not markers:
         raise CatalogError("catalog declares no biomarkers")
+
+    # A sign-off left behind after a marker was removed or renamed. Ignoring it
+    # silently would leave a reviewer's name in the file against nothing, which
+    # reads like coverage we do not have.
+    orphans = sorted(set(signed) - set(markers))
+    if orphans:
+        raise CatalogError(
+            f"clinical_review.markers signs off markers that do not exist: "
+            f"{', '.join(orphans)}"
+        )
+
+    _FINGERPRINTS[str(path or CATALOG_PATH)] = fingerprints
     return version, markers
+
+
+#: Per-path fingerprints, populated by `load_catalog`. Keyed by path because the
+#: tests repoint CATALOG_PATH and would otherwise read each other's.
+_FINGERPRINTS: dict[str, dict[str, str]] = {}
+
+
+def marker_fingerprint(biomarker_id: str) -> str | None:
+    """The hash a sign-off for this marker has to match, or None if unknown."""
+    load_catalog()
+    return _FINGERPRINTS.get(str(CATALOG_PATH), {}).get(biomarker_id)
 
 
 def get(biomarker_id: str) -> Biomarker | None:
@@ -300,9 +411,8 @@ def alias_index() -> dict[str, str]:
     return index
 
 
-@lru_cache(maxsize=1)
-def review_status() -> ClinicalReview:
-    """Has a clinician signed these ranges off?
+def _catalog_review() -> ClinicalReview:
+    """The catalog-level block: has a clinician signed off *all* of this?
 
     Cached and read from the catalog separately from the marker set, which costs
     one extra read of a small file at startup and buys a narrow dependency: the
@@ -310,3 +420,48 @@ def review_status() -> ClinicalReview:
     it. Tests that repoint `CATALOG_PATH` must clear this cache too.
     """
     return _parse_review(yaml.safe_load(CATALOG_PATH.read_text()), str(CATALOG_PATH))
+
+
+def marker_reviews() -> dict[str, ClinicalReview]:
+    """Per-marker sign-offs whose hash still matches what is in the file.
+
+    A sign-off whose hash no longer matches is not returned at all. That is the
+    withdrawal: somebody edited the ranges after a clinician signed them, and
+    the signature is over numbers that are no longer there.
+    """
+    raw = yaml.safe_load(CATALOG_PATH.read_text())
+    signed = _parse_marker_reviews(raw, str(CATALOG_PATH))
+    out: dict[str, ClinicalReview] = {}
+    for marker_id, entry in signed.items():
+        if entry.content_sha256 != marker_fingerprint(marker_id):
+            continue
+        out[marker_id] = ClinicalReview(
+            reviewed=True, reviewer=entry.reviewer, reviewed_at=entry.reviewed_at
+        )
+    return out
+
+
+@lru_cache(maxsize=None)
+def review_status(biomarker_id: str | None = None) -> ClinicalReview:
+    """Has a clinician signed off the ranges we are about to grade against?
+
+    The only cached entry point of the three, deliberately. `_catalog_review`
+    and `marker_reviews` re-read the file each call and this memoises per
+    marker, so clearing `review_status` and `load_catalog` -- which is what
+    every test that repoints CATALOG_PATH already does -- is enough to clear
+    all of it. A second cache underneath would survive that and serve one
+    test's catalog to the next.
+
+    With no argument this is the blunt question -- "all of it" -- and the
+    answer is unchanged from before: the catalog-level block and nothing else.
+    Anything making a claim about the catalog as a whole still gets the whole
+    catalog's answer.
+
+    With a biomarker_id it is the useful question. A fully reviewed catalog
+    covers every marker; otherwise the marker's own sign-off decides, and only
+    while its hash still matches the entry in the file.
+    """
+    whole = _catalog_review()
+    if biomarker_id is None or whole.reviewed:
+        return whole
+    return marker_reviews().get(biomarker_id, ClinicalReview(reviewed=False))

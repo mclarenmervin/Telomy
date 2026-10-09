@@ -151,7 +151,18 @@ def grade_for_display(value: float | None, resolved: ResolvedRange | None) -> st
     gate is not "withhold bad news"; it is "make no clinical claim", and calling
     something abnormal is as much a claim as calling it optimal.
     """
-    if not catalog.review_status().reviewed:
+    # Asked per marker, not of the catalog as a whole. A clinician who has
+    # signed off HbA1c has signed off HbA1c, and withholding that grade until
+    # somebody also takes a view on cortisol would mean the sign-off that
+    # unblocks anything is four times larger than it needs to be -- which in
+    # practice means it does not happen.
+    #
+    # `resolved` is None for a sex-specific marker whose subject's sex we do not
+    # hold, and `grade` already answers UNGRADED for that. Reaching for
+    # `biomarker_id` first would be an attribute error on the honest refusal.
+    if resolved is None:
+        return UNGRADED
+    if not catalog.review_status(resolved.biomarker_id).reviewed:
         return UNGRADED
     return grade(value, resolved)
 

@@ -346,7 +346,13 @@ def biological_age_for_display(
     in instalments.
     """
     result = biological_age(canonical, subject, notes)
-    if catalog.review_status().reviewed:
+    # All nine, because the number is a function of all nine. Asked per marker
+    # rather than of the catalog as a whole: this needs the markers it actually
+    # uses signed off, not a clinician's view on cortisol, which contributes
+    # nothing to it. Nine of thirty-three is the smallest sign-off that can
+    # honestly release this, and making it the whole file meant the sign-off
+    # that unblocks anything was four times larger than it needed to be.
+    if all(catalog.review_status(marker).reviewed for marker in PHENOAGE_MARKERS):
         return result
 
     return BiologicalAgeResult(

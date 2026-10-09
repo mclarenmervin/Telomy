@@ -32,14 +32,57 @@ version: global.v1
 # and makes no claim about what it means. Critical bounds are the one exception
 # and still escalate, because a critical value cannot wait for a review meeting.
 #
-# To open the gate, a clinician reviews this file as a pull request and sets all
-# three fields in the same commit. `reviewed: true` without a named reviewer and
-# a date is refused at load time — there would be no audit trail, which is the
+# There are two ways to open it, and the second is almost always the right one.
+#
+# ── All of it ────────────────────────────────────────────────────────────────
+#
+# A clinician reviews this whole file as a pull request and sets all three
+# fields in the same commit. `reviewed: true` without a named reviewer and a
+# date is refused at load time — there would be no audit trail, which is the
 # entire reason this content lives in git.
+#
+# ── One marker at a time ─────────────────────────────────────────────────────
+#
+# Thirty-three markers is a lot to take a view on at once, and in practice an
+# all-or-nothing gate is a gate that stays shut. A clinician can instead sign
+# off individual markers, and each sign-off is bound to a hash of that marker's
+# entry, so editing the ranges afterwards withdraws the sign-off automatically
+# rather than silently inheriting it:
+#
+#   clinical_review:
+#     reviewed: false
+#     markers:
+#       - id: hba1c
+#         reviewer: "Dr A. Example, MBBS MD (Endocrinology), reg. 12345"
+#         reviewed_at: "2026-10-09"
+#         content_sha256: "<fingerprint>"
+#
+# Get the fingerprint for a marker with:
+#
+#   cd healthagent && PYTHONPATH=. .venv/bin/python -c \
+#     "from app.analytics.catalog import marker_fingerprint as f; print(f('hba1c'))"
+#
+# A sign-off missing the reviewer, the date or the hash is refused at load time,
+# and so is one naming a marker this file does not contain. A hash that no
+# longer matches is not an error — it simply stops counting, which is the
+# withdrawal working.
+#
+# ── What each one unblocks ───────────────────────────────────────────────────
+#
+# Grading a marker for display needs that marker signed off. A **biological
+# age** needs all nine PhenoAge markers signed off, because the number is a
+# function of all nine: albumin, creatinine, glucose_fasting, hs_crp,
+# lymphocyte_percent, mcv, rdw, alkaline_phosphatase, wbc. Nine of thirty-three
+# is the smallest sign-off that can honestly release it.
+#
+# Critical bounds are never gated either way. A critical value cannot wait for
+# a review meeting.
 clinical_review:
   reviewed: false
   reviewer:
   reviewed_at:
+  # Per-marker sign-offs go here. See above.
+  markers: []
 
 biomarkers:
 

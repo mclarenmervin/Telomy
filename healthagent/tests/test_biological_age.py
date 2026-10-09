@@ -63,7 +63,12 @@ def reviewed(monkeypatch):
     """
     monkeypatch.setattr(
         catalog, "review_status",
-        lambda: catalog.ClinicalReview(True, "Dr A Reviewer", "2026-10-01"),
+        # Takes the optional biomarker_id the real one takes: the gate asks per
+        # marker now, because a biological age needs its own nine markers signed
+        # off and not a clinician's view on cortisol.
+        lambda biomarker_id=None: catalog.ClinicalReview(
+            True, "Dr A Reviewer", "2026-10-01"
+        ),
     )
 
 
