@@ -154,3 +154,58 @@ def test_a_failing_sweep_does_not_stop_the_tick_loop():
     # Must not raise.
     tick(FakeSupabase({}), BoomDelayed(), work_queue=None,
          now=datetime(2026, 10, 2, 3, 0, tzinfo=UTC))
+
+
+# ── The clinician queue ──────────────────────────────────────────────────────
+
+def test_the_clinician_queue_is_swept_on_every_tick():
+    """Not once a night, unlike the score recompute. A person is waiting on the
+    other side of a signature, and the whole point of the trail is that they see
+    when it arrives — so the latency budget is one tick, not until 03:00 UTC.
+
+    It is also why the sweep is the delivery mechanism rather than a webhook:
+    the clinician console is a separate repo, and a console that signed without
+    calling an endpoint of ours would otherwise leave the insight undelivered
+    forever with a valid signature sitting in the database.
+    """
+    from app.agent.guardrails import body_sha256
+    from app.scheduler.main import tick
+
+    body = "HbA1c has risen 11.1%, from 5.4% to 6.0%."
+    db = FakeSupabase({
+        "clinical_drafts": [{
+            "id": "d1", "user_id": ALICE, "kind": "lab_finding",
+            "title": "HbA1c has risen across 3 results", "body": body,
+            "evidence": [], "routing_flags": [], "status": "signed",
+            "claimed_by": None, "claimed_at": None, "sla_due_at": None,
+        }],
+        "clinical_reviews": [{
+            "id": "e1", "draft_id": "d1", "clinician_id": BOB, "action": "signed",
+            "signed_body_sha256": body_sha256(body),
+            "created_at": datetime(2026, 10, 2, 13, 0, tzinfo=UTC).isoformat(),
+        }],
+        "insights": [],
+    })
+
+    # Deliberately a mid-afternoon tick, outside the nightly sweep window.
+    tick(db, SpyDelayed(), work_queue=None,
+         now=datetime(2026, 10, 2, 14, 0, tzinfo=UTC))
+
+    assert len(db.tables["insights"]) == 1
+    assert db.tables["insights"][0]["review_id"] == "e1"
+
+
+def test_a_failing_clinical_sweep_does_not_stop_the_tick():
+    """Same contract as every other sweep in the tick. A clinical queue that
+    cannot be read must not stop the nightly score recompute."""
+    from app.scheduler.main import tick
+
+    class Broken(FakeSupabase):
+        def table(self, name):
+            if name.startswith("clinical") or name == "insights":
+                raise RuntimeError("postgres is having a moment")
+            return super().table(name)
+
+    # Must not raise.
+    tick(Broken({"health_measurements": []}), SpyDelayed(), work_queue=None,
+         now=datetime(2026, 10, 2, 3, 0, tzinfo=UTC))

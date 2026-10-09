@@ -15,6 +15,7 @@ from typing import Any
 
 import redis
 
+from app.clinical.sweep import sweep_queue
 from app.common.config import get_settings
 from app.common.logging_config import configure_logging, get_logger
 from app.common.queue import DelayedQueue, JobQueue
@@ -64,6 +65,17 @@ def tick(supabase, delayed, work_queue, now: datetime | None = None) -> None:
             promoted = delayed.promote_due(work_queue, now)
             if promoted:
                 logger.info(f"promoted {promoted} due job(s)")
+
+        # Every tick, unlike the nightly recompute. A person is waiting on the
+        # other side of a signature, so the latency budget for a signed insight
+        # is one tick rather than until 03:00 UTC.
+        #
+        # This sweep is also *how* a signature is delivered -- there is no
+        # webhook on one. The clinician console is a separate repo, and if
+        # delivery depended on that console calling an endpoint of ours, a
+        # console that signed without telling us would leave the insight
+        # undelivered forever with a valid signature sitting in the database.
+        sweep_queue(supabase, now)
 
         if _due_for_lab_sweep(now):
             sweep_uploads(supabase, now)
