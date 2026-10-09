@@ -140,12 +140,24 @@ class _Candidate:
     value: SelectedValue
 
 
-def _usable(row: dict, markers) -> tuple[_Candidate | None, tuple[str, str] | None]:
+def _usable(
+    row: dict, markers, any_context: bool = False
+) -> tuple[_Candidate | None, tuple[str, str] | None]:
     """A candidate, or (marker, reason) for a row we will not use.
 
     Order matters. A row can fail several ways at once and the reason reported
     is the one the user can act on: "we need a fasting glucose" is actionable,
     "censored" is not something they can change.
+
+    `any_context` separates a *score* concern from a universal one. Refusing a
+    post-prandial glucose is right for a score: PhenoAge was fitted on fasting
+    glucose, and the two are different measurements rather than a good and a bad
+    version of one. It is wrong for a series, where a post-prandial glucose
+    climbing over a year is a finding in its own right -- the caller groups by
+    context, so each is its own series and none of them competes with another.
+
+    The other three exclusions -- censored, qualitative, undated -- are
+    universal and apply either way.
     """
     marker = row.get("biomarker_id")
     if marker not in markers:
@@ -153,7 +165,7 @@ def _usable(row: dict, markers) -> tuple[_Candidate | None, tuple[str, str] | No
 
     contexts = _ACCEPTED_CONTEXTS.get(marker, _DEFAULT_CONTEXTS)
     context = row.get("context") or "standard"
-    if context not in contexts:
+    if not any_context and context not in contexts:
         return None, (marker, WRONG_CONTEXT)
 
     if (row.get("result_type") or "quantitative") != "quantitative":
@@ -173,7 +185,7 @@ def _usable(row: dict, markers) -> tuple[_Candidate | None, tuple[str, str] | No
     return _Candidate(
         marker=marker,
         collected_at=collected.date(),
-        rank=contexts.index(context),
+        rank=contexts.index(context) if context in contexts else 0,
         value=SelectedValue(
             biomarker_id=marker,
             value_canonical=float(raw),
@@ -204,7 +216,9 @@ def usable_values(rows, markers=None) -> list[SelectedValue]:
         marker = row.get("biomarker_id")
         if not marker:
             continue
-        candidate, _ = _usable(row, markers if markers is not None else (marker,))
+        candidate, _ = _usable(
+            row, markers if markers is not None else (marker,), any_context=True
+        )
         if candidate is not None:
             out.append(candidate.value)
     # Collection date first, then the marker, so a caller enumerating these

@@ -197,6 +197,51 @@ select pg_temp.refuses(format($$
 $$, :patient), 'a draft cannot be created already signed');
 
 
+-- ── One draft per finding ────────────────────────────────────────────────────
+--
+-- 014. The nightly sweep runs every night; without a natural key it creates a
+-- fresh row for the same finding each time, and a queue that grows while it is
+-- being worked is a queue nobody works.
+
+update clinical_drafts set dedupe_key = 'trend:hba1c:standard:2026-09-01'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000001';
+
+select pg_temp.refuses(format($$
+  insert into clinical_drafts
+    (user_id, clinic_id, kind, title, body, model_version, dedupe_key)
+  values (%L, 'c0c0c0c0-0000-4000-8000-000000000001', 'lab_finding',
+          'Your HbA1c has risen across three panels', 'Again.',
+          'marker-trend-v1', 'trend:hba1c:standard:2026-09-01')
+$$, :patient), 'the same finding cannot be drafted twice for one user');
+
+-- Scoped per user. Two people whose HbA1c both rose to 6.0 on the same day is
+-- unremarkable, and suppressing the second would be a cross-tenant bug of the
+-- quietest possible kind.
+select pg_temp.accepts(format($$
+  insert into clinical_drafts
+    (user_id, clinic_id, kind, title, body, model_version, dedupe_key)
+  values (%L, 'c0c0c0c0-0000-4000-8000-000000000001', 'lab_finding',
+          'Your HbA1c has risen across three panels', 'Same finding, other person.',
+          'marker-trend-v1', 'trend:hba1c:standard:2026-09-01')
+$$, :other), 'another user with the identical finding gets their own draft');
+
+-- A draft with no natural key -- one a clinician composes by hand -- must not
+-- be blocked by the constraint, which is why the default is a fresh uuid
+-- rather than null.
+select pg_temp.accepts(format($$
+  insert into clinical_drafts (user_id, kind, title, body, model_version)
+  values (%L, 'observation', 'Composed by hand', 'No natural key.', 'manual')
+$$, :patient), 'a draft with no natural key is not blocked by the dedupe key');
+
+select pg_temp.accepts(format($$
+  insert into clinical_drafts (user_id, kind, title, body, model_version)
+  values (%L, 'observation', 'Composed by hand again', 'Still no key.', 'manual')
+$$, :patient), 'nor is a second one');
+
+delete from clinical_drafts where model_version = 'manual';
+delete from clinical_drafts where user_id = :other;
+
+
 -- ── THE enforcement: a user cannot read a draft about themselves ─────────────
 --
 -- Not a filter in a query someone has to remember — the absence of a policy.
