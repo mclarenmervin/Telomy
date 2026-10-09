@@ -373,6 +373,46 @@ class ContextLoader:
         )
         return _ok(rows)
 
+    def clinical_insights(self, user_id: str, limit: int = 10) -> dict:
+        """Insights a clinician signed, or that the SLA released unreviewed.
+
+        **Insights, never drafts.** There is deliberately no method on this
+        loader that reads `clinical_drafts` or `clinical_reviews`, and that
+        absence is the enforcement on our side of the boundary -- the database's
+        missing select policy protects the phone and the console, not us, since
+        the agent holds service-role credentials and bypasses RLS by design.
+
+        All user data is read through this one scoped loader, so a table nothing
+        here selects from is a table no tool can reach. An unreviewed draft in
+        the agent's context would leave the guardrails as the only thing between
+        a sentence no clinician has read and the person it is about, which is
+        the arrangement this whole phase exists to replace.
+
+        `withdrawn_at` rows are excluded. Withdrawn means it should not have
+        been sent, and leaving it here would have it narrated after retraction.
+        Dismissed rows are kept: "I have read this" is not "this was wrong", and
+        it is still context for a conversation.
+
+        The reviewer's name and registration are stamped on the row at delivery
+        rather than resolved now, so the trail says what was true when the user
+        was shown it.
+        """
+        rows = (
+            self._db.table("insights")
+            .select(
+                "id,kind,title,body,evidence,noticed_by,reviewed_at,"
+                "reviewer_name,reviewer_registration,delivery_route,"
+                "delivered_at,disputed_at,dispute_reason,dismissed_at"
+            )
+            .eq("user_id", user_id)
+            .is_("withdrawn_at", "null")
+            .order("delivered_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
     def documents(self, user_id: str, kind: str | None = None, limit: int = 5) -> dict:
         """The user's uploaded documents.
 

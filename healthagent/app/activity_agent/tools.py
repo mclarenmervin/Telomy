@@ -172,6 +172,42 @@ def build_tools(loader) -> list:
         )
 
     @tool
+    def get_clinical_insights(
+        runtime: ToolRuntime[ActivityContext], limit: int = 5
+    ) -> dict:
+        """Findings a clinician has signed off for this user.
+
+        These are the only clinical claims in this product that a named human
+        has agreed to. Each one carries `reviewer_name`, `reviewer_registration`
+        and `reviewed_at`, and when you refer to a finding you may say a
+        clinician reviewed it -- that is what those fields are for.
+
+        **Check `delivery_route` first.** `clinician_signed` means a clinician
+        read and signed exactly that text. `sla_expired` means NO clinician read
+        it: it was released unreviewed because nobody reached it in time, and
+        `reviewer_name` will be null. Never imply a review that did not happen,
+        and never describe an `sla_expired` finding as reviewed, checked or
+        confirmed by anyone.
+
+        If `disputed_at` is set, the user has told us they disagree with it and
+        `dispute_reason` says why. Do not quote it back at them as settled fact.
+        Acknowledge the disagreement if it is relevant and move on.
+
+        `body` is the finding as signed. Quote it or paraphrase it closely --
+        do not extend it, sharpen it or add a verdict of your own. A clinician
+        put their registration number against those words and not against
+        yours, and `evidence` carries the values the finding rests on so you can
+        cite them rather than inventing support.
+
+        There is no tool for unreviewed drafts and there will not be one. A
+        finding that is still waiting for a clinician does not exist as far as
+        you are concerned.
+        """
+        return loader.clinical_insights(
+            runtime.context.user_id, limit=clamp(limit, 1, MAX_LIMIT)
+        )
+
+    @tool
     def get_past_reports(runtime: ToolRuntime[ActivityContext], limit: int = 3) -> dict:
         """Previous activity reports, for continuity with advice already given."""
         return loader.past_activity_reports(runtime.context.user_id, limit=clamp(limit, 1, 10))
@@ -207,4 +243,5 @@ def build_tools(loader) -> list:
         compare_window,
         get_biological_age,
         get_epigenetic_clocks,
+        get_clinical_insights,
     ]

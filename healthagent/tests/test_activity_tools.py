@@ -32,7 +32,7 @@ def test_runtime_is_injected_not_model_supplied():
     assert "runtime" not in tool.tool_call_schema.model_json_schema()["properties"]
 
 
-def test_the_expected_ten_tools_are_present():
+def test_the_expected_eleven_tools_are_present():
     assert set(_tools()) == {
         "get_past_sessions",
         "get_logs",
@@ -50,6 +50,12 @@ def test_the_expected_ten_tools_are_present():
         # extraction came to be correct in Postgres and absent from the app.
         "get_biological_age",
         "get_epigenetic_clocks",
+        # F5. Findings a named clinician signed off. Deliberately the only
+        # window the agent has onto the clinician spine -- there is no tool for
+        # drafts, because an unreviewed draft in the agent's context would
+        # leave the guardrails as the only thing between a sentence nobody
+        # checked and the person it is about.
+        "get_clinical_insights",
     }
 
 
@@ -140,3 +146,23 @@ def test_both_docstrings_tell_the_model_not_to_interpret():
     assert "null" in bio or "unknown" in bio
     assert "third-party" in clocks or "third party" in clocks
     assert "never" in clocks or "do not" in clocks
+
+
+def test_no_tool_exposes_an_unreviewed_draft():
+    """F5's boundary, stated as a test so a later phase has to argue with it.
+
+    The database enforces this for the phone and the console by having no
+    user-facing select policy on `clinical_drafts`. It cannot enforce it for us:
+    the agent holds service-role credentials and bypasses RLS by design, so
+    application code is solely responsible, and the enforcement is that no tool
+    and no loader method reaches that table.
+
+    If an unreviewed draft were ever in the agent's context, the guardrails
+    would be the only thing standing between a sentence no clinician has read
+    and the person it is about — which is the arrangement this phase replaces
+    with a signature.
+    """
+    names = set(_tools())
+
+    assert not {n for n in names if "draft" in n or "review" in n}
+    assert "get_clinical_insights" in names
