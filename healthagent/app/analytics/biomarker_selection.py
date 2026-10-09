@@ -185,6 +185,33 @@ def _usable(row: dict, markers) -> tuple[_Candidate | None, tuple[str, str] | No
     ), None
 
 
+def usable_values(rows, markers=None) -> list[SelectedValue]:
+    """Every row that may be used as a measurement, in collection order.
+
+    The same four exclusions `_usable` applies for a score -- censored,
+    qualitative, undated, wrong context -- exposed for callers that need a
+    *series* rather than one value per marker. `marker_trends` is the first.
+
+    A second copy of those rules would eventually disagree with this one, and
+    the disagreement would be invisible: both would return plausible numbers.
+
+    `markers=None` means every marker the catalog knows, rather than the fitted
+    PhenoAge set. A trend is not restricted to markers some published model
+    happened to use.
+    """
+    out = []
+    for row in rows or []:
+        marker = row.get("biomarker_id")
+        if not marker:
+            continue
+        candidate, _ = _usable(row, markers if markers is not None else (marker,))
+        if candidate is not None:
+            out.append(candidate.value)
+    # Collection date first, then the marker, so a caller enumerating these
+    # gets the same order whatever order the database returned.
+    return sorted(out, key=lambda v: (v.collected_at, v.biomarker_id, v.context))
+
+
 def _best_within(candidates, anchor: date, markers) -> dict[str, SelectedValue]:
     """One value per marker, inside the window ending at `anchor`.
 
