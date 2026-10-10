@@ -316,8 +316,13 @@ def _build(entry: dict) -> Biomarker:
     return marker
 
 
-def _fingerprint(entry: dict) -> str:
-    """Hex sha256 over a marker's whole catalog entry.
+def content_fingerprint(entry: dict) -> str:
+    """Hex sha256 over one entry of reviewed medical content.
+
+    Public because `supplement_rules` signs its rules the same way, and what a
+    signature is over must be one decision in one place: two hashes that
+    disagreed about whether key order matters would withdraw sign-offs in one
+    file and not the other, for the same reformat.
 
     The whole entry, not a chosen subset. A clinician signing off a marker is
     signing off the ranges, the unit they are expressed in, the conversions
@@ -352,7 +357,7 @@ def load_catalog(path: Path | None = None) -> tuple[str, dict[str, Biomarker]]:
         if marker.id in markers:
             raise CatalogError(f"{marker.id}: declared twice")
         markers[marker.id] = marker
-        fingerprints[marker.id] = _fingerprint(entry)
+        fingerprints[marker.id] = content_fingerprint(entry)
     if not markers:
         raise CatalogError("catalog declares no biomarkers")
 

@@ -1,0 +1,188 @@
+# Telomy supplement rules — when a measured deficiency justifies repletion.
+#
+# THIS FILE IS MEDICAL CONTENT, and it makes a stronger claim than
+# `biomarkers.v1.yaml` does. A reference range says what a number means; a rule
+# here says what to do about it. That is why it is a separate file with its own
+# sign-off: a clinician who agreed vitamin D's reference interval is
+# 30–100 ng/mL has not thereby agreed that a level below it should be
+# supplemented, and binding both to one signature would mean exactly that.
+#
+# STATUS: v1 draft — NOT clinically reviewed. No rule here can produce anything
+# until a clinician signs it off, and `supplement_rules.review_status` is what
+# enforces that. The queue stays empty rather than filling with unreviewed
+# recommendations.
+#
+# ── What a rule is allowed to be ─────────────────────────────────────────────
+#
+# `trigger: below_standard` is the only accepted value, and the only one the
+# loader will accept. Repletion of a measured deficiency is the defensible
+# claim: the value is outside the clinical reference interval, and the response
+# is to correct it. Recommending a supplement for a value *inside* the range —
+# `below_optimal` — is optimisation, which rests on a much weaker evidence base
+# and is a clinical decision to add rather than a typo somebody can make in
+# passing.
+#
+# Four rules, not forty. The same discipline the biomarker catalog started with:
+# a small set with citations a reviewer can actually check beats a long list of
+# plausible ones, because the long list is what nobody ever signs.
+#
+# ── What a rule produces ─────────────────────────────────────────────────────
+#
+# `recommendation` is printed verbatim into the draft a clinician reads and
+# signs. The code fills in the number, the unit, the date and the range; the
+# sentence itself comes from this file, so the medical wording is reviewed
+# content rather than a string a programmer chose. It is deliberately written
+# as what is *usual*, not as an instruction to this person — the clinician
+# supplies that when they revise it.
+#
+# ── Interactions ─────────────────────────────────────────────────────────────
+#
+# `medications` are match terms, looked for in what the user recorded in the
+# app. A match never blocks a rule and never silences it: it is named in the
+# draft and in its evidence, because "this person is on metformin" is precisely
+# the fact that makes the recommendation a human's decision rather than an
+# arithmetic one. Several of these interactions also change the answer
+# entirely — a magnesium low on a proton-pump inhibitor may call for reviewing
+# the drug rather than adding a supplement — which is why the note says so and
+# the draft prints the note.
+#
+# ── Citations ────────────────────────────────────────────────────────────────
+#
+# Each rule cites the source for the recommendation, not for the range. A PMID
+# is given only where it is certain; everything else is named well enough for a
+# reviewer to find it. Verifying them is part of signing them off — that is what
+# the signature is for.
+#
+# ── Sign-off ─────────────────────────────────────────────────────────────────
+#
+# Per rule, bound to a hash of that rule's entry, so editing the recommendation
+# or the citation afterwards withdraws the sign-off rather than inheriting it:
+#
+#   clinical_review:
+#     reviewed: false
+#     rules:
+#       - id: vitamin_d_repletion
+#         reviewer: "Dr A. Example, MBBS MD (Endocrinology), reg. 12345"
+#         reviewed_at: "2026-10-10"
+#         content_sha256: "<fingerprint>"
+#
+# Get the fingerprint for a rule with:
+#
+#   cd healthagent && PYTHONPATH=. .venv/bin/python -c \
+#     "from app.analytics.supplement_rules import rule_fingerprint as f; \
+#      print(f('vitamin_d_repletion'))"
+#
+# A rule also needs its *marker* signed off in `biomarkers.v1.yaml`, because
+# the draft states the range the value falls below and that range is a separate
+# claim by a separate signature. Both, or no draft.
+
+version: supplements.v1
+
+clinical_review:
+  reviewed: false
+  reviewer:
+  reviewed_at:
+  # Per-rule sign-offs go here. See above.
+  rules: []
+
+rules:
+
+  - id: vitamin_d_repletion
+    biomarker: vitamin_d_25oh
+    supplement: "Vitamin D3 (cholecalciferol)"
+    trigger: below_standard
+    recommendation: >-
+      Vitamin D supplementation is the usual response to a level this low,
+      at a dose and duration a clinician sets.
+    citation: >-
+      Holick MF et al. Evaluation, treatment, and prevention of vitamin D
+      deficiency: an Endocrine Society clinical practice guideline.
+      J Clin Endocrinol Metab 2011. PMID 21646368
+    interactions:
+      - medications: ["thiazide", "hydrochlorothiazide", "chlorthalidone", "indapamide"]
+        note: >-
+          Thiazide diuretics reduce urinary calcium excretion, so vitamin D
+          alongside one raises the risk of hypercalcaemia.
+      - medications: ["digoxin", "digitalis"]
+        note: >-
+          Hypercalcaemia potentiates digoxin toxicity, so calcium and vitamin D
+          need monitoring rather than assuming.
+      - medications: ["prednisolone", "prednisone", "dexamethasone", "steroid"]
+        note: >-
+          Glucocorticoids impair vitamin D metabolism and bone density, which
+          usually argues for treating the deficiency rather than against it, but
+          the dose is not the standard one.
+
+  - id: b12_repletion
+    biomarker: vitamin_b12
+    supplement: "Vitamin B12 (oral or intramuscular)"
+    trigger: below_standard
+    recommendation: >-
+      Vitamin B12 supplementation is the usual response to a level this low,
+      by a route a clinician chooses once the cause is known.
+    citation: >-
+      Stabler SP. Vitamin B12 deficiency. N Engl J Med 2013. PMID 23301732
+    interactions:
+      - medications: ["metformin"]
+        note: >-
+          Metformin lowers B12 absorption and is a common cause of a low level
+          in people taking it, so the finding may be explained by the drug.
+      - medications: ["omeprazole", "pantoprazole", "esomeprazole", "rabeprazole",
+                      "lansoprazole", "ranitidine", "famotidine"]
+        note: >-
+          Acid suppression reduces B12 absorption from food, which affects both
+          the cause and the route of repletion.
+
+  - id: iron_repletion
+    biomarker: ferritin
+    supplement: "Oral iron"
+    trigger: below_standard
+    recommendation: >-
+      Iron supplementation is the usual response to a ferritin this low, once
+      the reason for the loss has been considered.
+    citation: >-
+      Camaschella C. Iron-deficiency anaemia. N Engl J Med 2015; and WHO
+      guidance on ferritin concentrations to assess iron status (2020)
+    interactions:
+      - medications: ["levothyroxine", "thyroxine", "eltroxin"]
+        note: >-
+          Iron binds levothyroxine and reduces its absorption; the doses have to
+          be separated by several hours.
+      - medications: ["omeprazole", "pantoprazole", "esomeprazole", "rabeprazole",
+                      "lansoprazole"]
+        note: >-
+          Acid suppression reduces oral iron absorption, so an oral trial may
+          fail for a reason that has nothing to do with the dose.
+      - medications: ["warfarin", "apixaban", "rivaroxaban", "clopidogrel",
+                      "aspirin"]
+        note: >-
+          A low ferritin on an antithrombotic raises the question of occult
+          blood loss, which is a reason to investigate before supplementing.
+
+  - id: magnesium_repletion
+    biomarker: magnesium
+    supplement: "Oral magnesium"
+    trigger: below_standard
+    recommendation: >-
+      Magnesium supplementation is the usual response to a level below the
+      reference range, once the cause of the loss has been considered.
+    citation: >-
+      Ayuk J, Gittoes NJ. Contemporary view of the clinical relevance of
+      magnesium homeostasis. Ann Clin Biochem 2014; and Costello RB et al.
+      Interpreting magnesium status. PMID 27385293
+    interactions:
+      - medications: ["spironolactone", "amiloride", "eplerenone", "triamterene"]
+        note: >-
+          Potassium-sparing diuretics retain magnesium, so supplementing on top
+          of one risks hypermagnesaemia, particularly with any renal impairment.
+      - medications: ["omeprazole", "pantoprazole", "esomeprazole", "rabeprazole",
+                      "lansoprazole"]
+        note: >-
+          Proton-pump inhibitors are a recognised cause of hypomagnesaemia, so
+          the finding may call for reviewing the drug rather than adding a
+          supplement.
+      - medications: ["furosemide", "frusemide", "torasemide", "bumetanide",
+                      "thiazide", "hydrochlorothiazide"]
+        note: >-
+          Loop and thiazide diuretics waste magnesium, so repletion without
+          addressing the cause tends not to hold.
