@@ -85,12 +85,20 @@ class _InsightCardState extends State<InsightCard> {
                 autofocus: true,
                 maxLines: 3,
                 minLines: 1,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'What is wrong about it?',
-                  helperText:
-                      'This goes to the clinician who reviewed it. It does '
-                      'not remove the finding.',
-                  border: OutlineInputBorder(),
+                  // Found on a device: this said "goes to the clinician who
+                  // reviewed it" on a card whose own badge said nobody had.
+                  // The unreviewed case is the one where the dispute matters
+                  // most, and promising a reviewer who does not exist is the
+                  // same false claim the badge above is there to prevent.
+                  helperText: insight.wasReviewed
+                      ? 'This goes to the clinician who reviewed it. It does '
+                          'not remove the finding.'
+                      : 'This goes to the clinician who picks it up. It does '
+                          'not remove the finding.',
+                  helperMaxLines: 3,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),

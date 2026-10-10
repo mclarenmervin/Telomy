@@ -38,6 +38,7 @@ BiomarkerResult result(
   String grade = 'ungraded',
   Map<String, dynamic>? bbox,
   String resultType = 'quantitative',
+  String rawUnit = '%',
 }) {
   return BiomarkerResult(
     id: id,
@@ -46,9 +47,9 @@ BiomarkerResult result(
     resultType: resultType,
     operator: operator,
     rawValue: rawValue,
-    rawUnit: '%',
+    rawUnit: rawUnit,
     valueCanonical: double.tryParse(rawValue),
-    unitCanonical: '%',
+    unitCanonical: rawUnit,
     grade: grade,
     page: 0,
     confidence: 1,
@@ -268,8 +269,26 @@ void main() {
   });
 
   group('how a result reads in a list', () {
-    test('an ordinary marker reads as its name', () {
-      expect(result('r1', biomarkerId: 'hba1c').displayLabel, 'hba1c');
+    test('an ordinary marker reads as its printed name', () {
+      // Was asserting 'hba1c', which is the identifier and not a label. Found
+      // on a device: the confirmed-results list read "hba1c", "wbc" and
+      // "alkaline phosphatase" down the screen while every test passed —
+      // the same bug as F4's "Rdw" and "Hs crp", one layer along.
+      expect(result('r1', biomarkerId: 'hba1c').displayLabel, 'HbA1c');
+    });
+
+    test('an acronym keeps the form a lab report prints', () {
+      expect(result('r1', biomarkerId: 'wbc').displayLabel, 'WBC');
+      expect(result('r1', biomarkerId: 'hs_crp').displayLabel, 'hs-CRP');
+    });
+
+    test('a marker the app has not heard of still reads as words', () {
+      // A marker added to the catalog after this build shipped. It must not
+      // fall back to showing a database identifier.
+      expect(
+        result('r1', biomarkerId: 'some_new_marker').displayLabel,
+        'Some new marker',
+      );
     });
 
     test('a context that changes the meaning is shown', () {
@@ -283,17 +302,28 @@ void main() {
         collectedAt: null,
       );
 
-      expect(r.displayLabel, 'glucose fasting (post prandial)');
+      expect(r.displayLabel, 'Fasting glucose (post prandial)');
     });
 
-    test('the value carries its unit', () {
-      expect(result('r1', rawValue: '7.8').displayValueWithUnit, '7.8 %');
+    test('a percentage takes no space before the sign', () {
+      // Was asserting '7.8 %'. No lab report prints it that way, and a user
+      // checking the screen against their own PDF should read the same string
+      // on both.
+      expect(result('r1', rawValue: '7.8').displayValueWithUnit, '7.8%');
+    });
+
+    test('any other unit keeps its space', () {
+      expect(
+        result('r1', biomarkerId: 'haemoglobin', rawValue: '12.4',
+               rawUnit: 'g/dL').displayValueWithUnit,
+        '12.4 g/dL',
+      );
     });
 
     test('a censored value keeps its operator in the list too', () {
       expect(
         result('r1', operator: '<', rawValue: '3.0').displayValueWithUnit,
-        '<3.0 %',
+        '<3.0%',
       );
     });
   });

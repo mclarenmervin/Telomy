@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../../biological_age/data/biological_age_view.dart'
+    show markerLabel;
+
 /// One value read off a report, awaiting the user's confirmation.
 ///
 /// `grade` comes from the server and is `ungraded` until a clinician has signed
@@ -78,16 +81,29 @@ class BiomarkerResult {
   /// what the number means. Fasting and post-prandial glucose are one marker
   /// and two results, and a list showing both as "glucose fasting" twice is
   /// not a list anyone can use.
+  ///
+  /// Goes through [markerLabel] rather than tidying up the id. Substituting
+  /// spaces for underscores gives "hba1c", "wbc" and "vitamin d 25oh" — which
+  /// is what this list actually read on a device, with every test passing,
+  /// because the tests asserted the identifier. The same bug as F4's "Rdw"
+  /// and "Hs crp", one layer along.
   String get displayLabel {
-    final name = biomarkerId.replaceAll('_', ' ');
+    final name = markerLabel(biomarkerId);
     if (context == 'standard') return name;
     return '$name (${context.replaceAll('_', ' ')})';
   }
 
-  /// What the report said, with its unit. Empty unit is omitted rather than
-  /// leaving a trailing space.
-  String get displayValueWithUnit =>
-      '$displayValue ${rawUnit ?? unitCanonical ?? ''}'.trim();
+  /// What the report said, with its unit.
+  ///
+  /// No space before a percentage, a space before everything else, and an
+  /// empty unit omitted rather than leaving a trailing space. No lab report
+  /// prints "7.8 %", and a user checking the screen against their own PDF
+  /// should be reading the same string on both.
+  String get displayValueWithUnit {
+    final unit = rawUnit ?? unitCanonical ?? '';
+    if (unit.isEmpty) return displayValue;
+    return unit == '%' ? '$displayValue$unit' : '$displayValue $unit';
+  }
 
   static BiomarkerResult fromRow(Map<String, dynamic> row) => BiomarkerResult(
         id: row['id']?.toString() ?? '',

@@ -250,6 +250,37 @@ void main() {
 
       expect(find.text('This is wrong'), findsNothing);
     });
+
+    testWidgets('a reviewed finding says the dispute reaches its reviewer',
+        (tester) async {
+      await pumpCard(tester, row());
+
+      await tester.tap(find.text('This is wrong'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('the clinician who reviewed it'),
+          findsOneWidget);
+    });
+
+    testWidgets('an unreviewed finding does not promise a reviewer',
+        (tester) async {
+      // Found on a device: the helper text said "goes to the clinician who
+      // reviewed it" on a card whose own badge said nobody had. The unreviewed
+      // case is where a dispute matters most, and promising a reviewer who
+      // does not exist is the same false claim the badge prevents.
+      await pumpCard(tester, row(
+        route: 'sla_expired',
+        reviewer: null,
+        registration: null,
+        reviewedAt: null,
+      ));
+
+      await tester.tap(find.text('This is wrong'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('who reviewed it'), findsNothing);
+      expect(find.textContaining('who picks it up'), findsOneWidget);
+    });
   });
 
   group('malformed data', () {
