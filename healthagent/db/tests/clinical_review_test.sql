@@ -765,4 +765,155 @@ select pg_temp.asserts(
   ),
   'a review does not vanish when the clinician does');
 
+
+-- ── F6: the supplement asymmetry, end to end ─────────────────────────────────
+--
+-- F5's drafts were all observation-only and therefore all eligible for the SLA
+-- escape hatch. A supplement draft is the first one that is not, and the
+-- asymmetry is the whole point of the phase, so it is tested from both sides
+-- against a draft that looks like the ones the producer actually writes.
+--
+-- Note the flag. `app/clinical/supplement_drafts.py` does not choose it: it
+-- runs the body through the guardrail's clinician profile and carries back
+-- whatever that returns, which for a supplement recommendation is `medication`
+-- rather than `supplement`. The gate must therefore key on *any* flag being
+-- present and never on a flag it recognises -- otherwise a draft carrying a
+-- flag nobody enumerated would take the unreviewed path.
+
+insert into clinical_drafts
+  (id, user_id, clinic_id, kind, title, body, evidence, model_version,
+   source_kind, routing_flags, dedupe_key)
+values ('d0d0d0d0-0000-4000-8000-000000000005', :patient,
+        'c0c0c0c0-0000-4000-8000-000000000001', 'supplement',
+        'Vitamin D (25-OH) is below the standard range',
+        'Vitamin D (25-OH) was 14 ng/mL on 30 September 2026, below the '
+        'standard range of 30–100 ng/mL. Vitamin D supplementation is the '
+        'usual response to a level this low, at a dose and duration a '
+        'clinician sets.',
+        '[{"kind":"measurement","biomarker_id":"vitamin_d_25oh",'
+        '"value_canonical":14,"unit_canonical":"ng/mL",'
+        '"collected_at":"2026-09-30","context":"standard",'
+        '"lab_name":"Thyrocare"}]'::jsonb,
+        'supplement-rule-v1', 'biomarker_deficiency',
+        array['medication'], 'f6:supplement:vitamin_d_repletion');
+
+update clinical_drafts set status = 'queued'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000005';
+update clinical_drafts set status = 'expired'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000005';
+
+select pg_temp.refuses(format($$
+  insert into insights
+    (user_id, draft_id, kind, title, body, noticed_by, delivery_route)
+  values (%L, 'd0d0d0d0-0000-4000-8000-000000000005', 'supplement',
+          'Vitamin D (25-OH) is below the standard range',
+          (select body from clinical_drafts
+            where id = 'd0d0d0d0-0000-4000-8000-000000000005'),
+          'agent', 'sla_expired')
+$$, :patient),
+  'a supplement draft the queue gave up on is stranded, not delivered');
+
+
+-- The other side. The same draft, reviewed: back to a human, claimed, signed
+-- over the exact body, and delivered. If this failed, the phase would have
+-- built a queue nothing can ever leave.
+update clinical_drafts set status = 'delivered'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000005';
+
+insert into clinical_drafts
+  (id, user_id, clinic_id, kind, title, body, model_version, source_kind,
+   routing_flags, dedupe_key)
+values ('d0d0d0d0-0000-4000-8000-000000000006', :patient,
+        'c0c0c0c0-0000-4000-8000-000000000001', 'supplement',
+        'Magnesium is below the standard range',
+        'Magnesium was 1.4 mg/dL on 30 September 2026, below the standard '
+        'range of 1.7–2.2 mg/dL. Magnesium supplementation is the usual '
+        'response to a level below the reference range, once the cause of the '
+        'loss has been considered. Also recorded: Spironolactone 25mg. '
+        'Potassium-sparing diuretics retain magnesium, so supplementing on top '
+        'of one risks hypermagnesaemia, particularly with any renal '
+        'impairment.',
+        'supplement-rule-v1', 'biomarker_deficiency',
+        array['medication'], 'f6:supplement:magnesium_repletion');
+
+update clinical_drafts set status = 'queued'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000006';
+update clinical_drafts
+   set status = 'in_review', claimed_by = :doctor, claimed_at = now()
+ where id = 'd0d0d0d0-0000-4000-8000-000000000006';
+
+insert into clinical_reviews
+  (id, draft_id, clinician_id, action, signed_body_sha256, notes)
+select 'e0e0e0e0-0000-4000-8000-000000000006', id, :doctor, 'signed',
+       encode(sha256(convert_to(body, 'UTF8')), 'hex'),
+       'Agree. Reviewing the spironolactone dose first.'
+  from clinical_drafts where id = 'd0d0d0d0-0000-4000-8000-000000000006';
+
+update clinical_drafts set status = 'signed'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000006';
+
+select pg_temp.accepts(format($$
+  insert into insights
+    (user_id, draft_id, review_id, kind, title, body, evidence, noticed_by)
+  select %L, d.id, 'e0e0e0e0-0000-4000-8000-000000000006', d.kind, d.title,
+         d.body, d.evidence, 'agent'
+    from clinical_drafts d
+   where d.id = 'd0d0d0d0-0000-4000-8000-000000000006'
+$$, :patient), 'a signed supplement recommendation is delivered');
+
+-- Stamped by the trigger from the signature, never accepted from the caller.
+-- A supplement insight is the one the user is most likely to act on, so "who
+-- stands behind this" has to be on the row rather than resolved at read time.
+select pg_temp.asserts(
+  exists (
+    select 1 from insights
+     where draft_id = 'd0d0d0d0-0000-4000-8000-000000000006'
+       and delivery_route = 'clinician_signed'
+       and reviewed_by = :doctor
+       and reviewer_name = 'Dr A. Example'
+       and reviewer_registration is not null
+  ),
+  'the delivered supplement names the clinician who signed it');
+
+-- The gate, on the row that was actually written: the stored hash of the
+-- delivered body equals the hash the clinician signed.
+select pg_temp.asserts(
+  (select i.body_sha256 = r.signed_body_sha256
+     from insights i
+     join clinical_reviews r on r.id = i.review_id
+    where i.draft_id = 'd0d0d0d0-0000-4000-8000-000000000006'),
+  'the supplement the user reads is byte-identical to what was signed');
+
+-- A supplement draft a clinician rejected must not then leak out by the SLA
+-- path. `rejected` only moves to `withdrawn`, so this is the machine and the
+-- gate agreeing rather than either alone.
+insert into clinical_drafts
+  (id, user_id, clinic_id, kind, title, body, model_version, routing_flags,
+   dedupe_key)
+values ('d0d0d0d0-0000-4000-8000-000000000007', :patient,
+        'c0c0c0c0-0000-4000-8000-000000000001', 'supplement',
+        'Ferritin is below the standard range',
+        'Ferritin was 10 ng/mL on 30 September 2026, below the standard range '
+        'of 15–200 ng/mL. Iron supplementation is the usual response to a '
+        'ferritin this low, once the reason for the loss has been considered.',
+        'supplement-rule-v1', array['medication'],
+        'f6:supplement:iron_repletion');
+
+update clinical_drafts set status = 'queued'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000007';
+update clinical_drafts
+   set status = 'in_review', claimed_by = :doctor, claimed_at = now()
+ where id = 'd0d0d0d0-0000-4000-8000-000000000007';
+insert into clinical_reviews (draft_id, clinician_id, action, notes)
+values ('d0d0d0d0-0000-4000-8000-000000000007', :doctor, 'rejected',
+        'Investigating the cause first; not a supplement question yet.');
+update clinical_drafts set status = 'rejected'
+ where id = 'd0d0d0d0-0000-4000-8000-000000000007';
+
+select pg_temp.refuses($$
+  update clinical_drafts set status = 'expired'
+   where id = 'd0d0d0d0-0000-4000-8000-000000000007'
+$$, 'a rejected supplement draft cannot be expired into the SLA path');
+
+
 rollback;
