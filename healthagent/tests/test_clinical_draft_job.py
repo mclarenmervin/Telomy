@@ -163,3 +163,159 @@ def test_a_database_failure_does_not_raise():
             raise RuntimeError("postgres is having a moment")
 
     process_job(job(), Broken())
+
+
+# ── Supplements ──────────────────────────────────────────────────────────────
+#
+# The same job, because the trigger is the same: a confirmed panel. A separate
+# job would mean two queue entries per confirmation, two sweeps to reason about
+# and two chances for one of them to be the one that never ran.
+#
+# What the supplement half needs that the trend half does not is the rest of the
+# person: their date of birth and sex decide whether anything may be recommended
+# to them at all, and their medications decide what the draft has to say.
+
+from app.analytics import catalog, supplement_rules  # noqa: E402
+
+
+@pytest.fixture
+def signed(monkeypatch, tmp_path):
+    """The rule file and the catalog signed off, as a clinician would.
+
+    Without this the job produces no supplement drafts at all, which is the
+    shipped state and the first thing asserted below.
+    """
+    import yaml
+
+    def clear():
+        for cache in (catalog.load_catalog, catalog.review_status,
+                      catalog.alias_index, supplement_rules.load_rules,
+                      supplement_rules.review_status, supplement_rules.rules_for):
+            cache.cache_clear()
+
+    raw = yaml.safe_load(supplement_rules.RULES_PATH.read_text())
+    path = tmp_path / "supplements.yaml"
+    path.write_text(yaml.safe_dump(raw, sort_keys=False))
+    monkeypatch.setattr(supplement_rules, "RULES_PATH", path)
+    clear()
+    raw["clinical_review"]["rules"] = [
+        {"id": "vitamin_d_repletion",
+         "reviewer": "Dr A. Example, MBBS MD, reg. 12345",
+         "reviewed_at": "2026-10-10",
+         "content_sha256": supplement_rules.rule_fingerprint("vitamin_d_repletion")}
+    ]
+    path.write_text(yaml.safe_dump(raw, sort_keys=False))
+    clear()
+
+    craw = yaml.safe_load(catalog.CATALOG_PATH.read_text())
+    cpath = tmp_path / "biomarkers.yaml"
+    cpath.write_text(yaml.safe_dump(craw, sort_keys=False))
+    monkeypatch.setattr(catalog, "CATALOG_PATH", cpath)
+    clear()
+    craw["clinical_review"]["markers"] = [
+        {"id": "vitamin_d_25oh", "reviewer": "Dr A. Example, MBBS MD, reg. 12345",
+         "reviewed_at": "2026-10-10",
+         "content_sha256": catalog.marker_fingerprint("vitamin_d_25oh")}
+    ]
+    cpath.write_text(yaml.safe_dump(craw, sort_keys=False))
+    clear()
+    yield
+    clear()
+
+
+LOW_D = [result(14, 10, marker="vitamin_d_25oh", unit="ng/mL")]
+ADULT = [{"user_id": USER, "profile": {"dob": "1985-03-02", "sex": "female"}}]
+
+
+def db_for_supplements(results=LOW_D, profile=ADULT, medications=()):
+    return FakeSupabase({
+        "biomarker_results": list(results),
+        "clinic_members": [],
+        "clinical_drafts": [],
+        "user_preferences": list(profile),
+        "medications": list(medications),
+    })
+
+
+def test_a_deficiency_becomes_a_supplement_draft(signed):
+    db = db_for_supplements()
+
+    process_job(job(), db)
+
+    drafts = db.tables["clinical_drafts"]
+    assert len(drafts) == 1
+    assert drafts[0]["kind"] == "supplement"
+    assert drafts[0]["routing_flags"] == ["medication"]
+
+
+def test_no_supplement_draft_while_the_rules_are_unsigned():
+    """The shipped state: the job runs, finds the deficiency, and writes
+    nothing, because no clinician has agreed what to do about one."""
+    db = db_for_supplements()
+
+    process_job(job(), db)
+
+    assert db.tables["clinical_drafts"] == []
+
+
+def test_the_draft_names_the_medication_that_complicates_it(signed):
+    """The job has to actually fetch the medications. A supplement draft built
+    without them is the confidently wrong version of this feature."""
+    db = db_for_supplements(
+        medications=[{"user_id": USER, "title": "Hydrochlorothiazide 12.5mg",
+                      "notes": "morning", "recorded_at": "2026-09-01"}],
+    )
+
+    process_job(job(), db)
+
+    assert "Hydrochlorothiazide" in db.tables["clinical_drafts"][0]["body"]
+
+
+def test_a_profile_the_rule_refuses_produces_no_supplement_draft(signed):
+    """The job has to pass the subject through, not substitute a default one.
+    A missing date of birth means the minimum age cannot be enforced."""
+    db = db_for_supplements(profile=[{"user_id": USER, "profile": {"sex": "female"}}])
+
+    process_job(job(), db)
+
+    assert db.tables["clinical_drafts"] == []
+
+
+def test_a_trend_and_a_deficiency_are_both_drafted(signed):
+    """One confirmation, two kinds of finding, one job. The trend draft stays
+    unflagged and the supplement draft does not, which is the asymmetry and the
+    reason both must come out of the same pass."""
+    db = db_for_supplements(results=rising() + LOW_D)
+
+    process_job(job(), db)
+
+    by_kind = {d["kind"]: d for d in db.tables["clinical_drafts"]}
+    assert set(by_kind) == {"lab_finding", "supplement"}
+    assert by_kind["lab_finding"]["routing_flags"] == []
+    assert by_kind["supplement"]["routing_flags"] == ["medication"]
+
+
+def test_running_twice_does_not_draft_a_supplement_twice(signed):
+    db = db_for_supplements()
+
+    process_job(job(), db)
+    process_job(job(), db)
+
+    assert len(db.tables["clinical_drafts"]) == 1
+
+
+def test_a_supplement_failure_does_not_lose_the_trend_draft(signed, monkeypatch):
+    """Two producers in one job, and one of them raising must not silently take
+    the other's findings with it."""
+    import app.score_worker.handlers as handlers
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("the rule file is on fire")
+
+    monkeypatch.setattr(handlers, "supplement_drafts", boom)
+    db = db_for_supplements(results=rising() + LOW_D)
+
+    process_job(job(), db)
+
+    kinds = [d["kind"] for d in db.tables["clinical_drafts"]]
+    assert kinds == ["lab_finding"]
