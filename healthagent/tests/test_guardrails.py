@@ -317,3 +317,50 @@ def test_an_actual_dose_is_still_blocked():
 
         assert "medication" in flags, text
         assert cleaned == SAFE_FALLBACK, text
+
+
+# ── Supplement advice phrased as repletion ───────────────────────────────────
+#
+# Found by F6, and a gap in the autonomous profile rather than only an
+# inconvenience for the clinician one. Every rule above needed a recommending
+# verb near the supplement's name, so the phrasing a clinical source actually
+# uses -- "vitamin D supplementation is the usual response to a level this low"
+# -- went to a user untouched and unflagged. That is unreviewed supplement
+# advice on somebody's screen, which is the single thing these rules exist to
+# stop.
+#
+# It matters twice over here: a supplement draft that the guardrail did not
+# flag would be eligible for the SLA path, and F6's whole asymmetry is that a
+# recommendation can never reach a user unreviewed.
+
+REPLETION_PHRASINGS = [
+    "Vitamin D supplementation is the usual response to a level this low.",
+    "Iron supplementation is the usual response once the cause has been "
+    "considered.",
+    "Magnesium supplementation is the usual response to a level below the "
+    "reference range.",
+    "Supplementing with vitamin B12 is the usual response.",
+    "A magnesium supplement is the usual response here.",
+    "Vitamin D repletion is the usual response.",
+]
+
+
+def test_supplement_advice_phrased_as_repletion_is_blocked():
+    for text in REPLETION_PHRASINGS:
+        cleaned, flags = apply_guardrails(text, {"metrics": {}})
+
+        assert "medication" in flags, text
+        assert cleaned == SAFE_FALLBACK, text
+
+
+def test_repletion_phrasing_is_flagged_for_the_clinician_too():
+    """The other half of the same rule. A supplement draft that the guardrail
+    did not flag could be delivered unreviewed by the SLA path, which is the one
+    thing a recommendation must never do."""
+    for text in REPLETION_PHRASINGS:
+        cleaned, flags = apply_guardrails(
+            text, {"metrics": {}}, profile=CLINICIAN_QUEUE
+        )
+
+        assert "medication" in flags, text
+        assert cleaned == text, text

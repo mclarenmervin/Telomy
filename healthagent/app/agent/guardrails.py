@@ -57,6 +57,28 @@ _MEDICATION = [
         r"before bed|after training|daily)\b",
         re.I,
     ),
+    # A supplement named next to the act of taking it, which is how a clinical
+    # source phrases a recommendation and how a reviewed rule file states one:
+    # "vitamin D supplementation is the usual response to a level this low".
+    # Every rule here used to need a recommending verb, so that sentence reached
+    # a user untouched and unflagged -- unreviewed supplement advice on a
+    # screen, which is the one thing these rules exist to stop. It also decides
+    # whether a supplement draft is flagged, and an unflagged one would be
+    # eligible for the unreviewed SLA path.
+    #
+    # A couple of intervening words are allowed because the name and the noun
+    # are rarely adjacent: "vitamin D supplementation", "a magnesium
+    # supplement", "vitamin D repletion".
+    re.compile(
+        rf"\b(?:{_SUPPLEMENT_NAMES})\b[\s,)-]*(?:[\w-]+\s+){{0,2}}"
+        r"(?:supplementation|supplements?\b|repletion|replacement)",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:supplementing|supplementation|repletion)\b(?:\s+with)?\s+"
+        rf"(?:[\w-]+\s+){{0,2}}(?:{_SUPPLEMENT_NAMES})\b",
+        re.I,
+    ),
     re.compile(
         r"\b(?:take|taking|try|trying|start|starting|add|adding|consider|considering|"
         r"supplement|look into|looking into|benefit from|more of|some)\w*\b"
