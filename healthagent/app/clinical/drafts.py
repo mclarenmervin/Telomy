@@ -101,8 +101,12 @@ class DraftCandidate:
         }
 
 
-def _quantity(value: float, unit: str) -> str:
+def quantity(value: float, unit: str) -> str:
     """A number with its unit, printed the way a report prints it.
+
+    Public because the supplement producer prints the same quantities, and two
+    copies of this would eventually print a percentage two different ways on
+    one screen.
 
     "5.4 %" is not how a lab prints a percentage and "12.4g/dL" is not how it
     prints a concentration. F4 shipped "Rdw" and "Hs crp" to a real screen with
@@ -116,7 +120,7 @@ def _quantity(value: float, unit: str) -> str:
     return f"{text}{unit}" if unit == "%" else f"{text} {unit}"
 
 
-def _printed_date(value: date) -> str:
+def printed_date(value: date) -> str:
     # No zero padding: "1 February 2026", as a person would write it.
     return f"{value.day} {value.strftime('%B %Y')}"
 
@@ -170,10 +174,10 @@ def draft_for_trend(trend: MarkerTrend, user_id: str) -> DraftCandidate | None:
     body = (
         f"{name} has {moved} {abs(trend.relative_change) * 100:.1f}% across "
         f"{len(trend.points)} results, from "
-        f"{_quantity(first.value_canonical, first.unit_canonical)} on "
-        f"{_printed_date(first.collected_at)} to "
-        f"{_quantity(latest.value_canonical, latest.unit_canonical)} on "
-        f"{_printed_date(latest.collected_at)}."
+        f"{quantity(first.value_canonical, first.unit_canonical)} on "
+        f"{printed_date(first.collected_at)} to "
+        f"{quantity(latest.value_canonical, latest.unit_canonical)} on "
+        f"{printed_date(latest.collected_at)}."
     )
 
     # Run through the guardrail rather than trusted to be safe. The flags are
