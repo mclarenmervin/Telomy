@@ -70,6 +70,7 @@ Future<void> pumpCard(
 }
 
 void main() {
+  supplementTests();
   group('a signed finding', () {
     testWidgets('names the clinician and their registration', (tester) async {
       // "A doctor reviewed this" is unverifiable. A name and a registration
@@ -296,6 +297,129 @@ void main() {
       await pumpCard(tester, {});
 
       expect(find.textContaining('Reviewed by'), findsNothing);
+    });
+  });
+}
+
+// ── A supplement recommendation ──────────────────────────────────────────────
+//
+// The first insight the user can be told to act on, and the first whose
+// evidence is not all one shape. Two things have to be unmistakable: that this
+// is a suggestion about taking something, and what it rests on — the
+// measurement, the range, the rule, and the medications that complicate it.
+//
+// The blank-row test at the end of this group is the one that matters most. An
+// evidence entry the app cannot read does not throw; it renders as an empty
+// line under "Based on", exactly as F4's "Rdw" and F5's dispute box went out
+// with every test green.
+
+Map<String, dynamic> supplementCardRow({List<Object>? evidence}) => {
+      ...row(reviewer: 'Dr M. Raghavan', registration: 'KMC-2019-44871'),
+      'kind': 'supplement',
+      'title': 'Magnesium is below the standard range',
+      'body': 'Magnesium was 1.4 mg/dL on 30 September 2026, below the '
+          'standard range of 1.7–2.2 mg/dL. Magnesium supplementation is the '
+          'usual response to a level below the reference range, once the cause '
+          'of the loss has been considered. Also recorded: Spironolactone '
+          '25mg. Potassium-sparing diuretics retain magnesium, so '
+          'supplementing on top of one risks hypermagnesaemia, particularly '
+          'with any renal impairment.',
+      'evidence': evidence ??
+          [
+            {
+              'kind': 'measurement',
+              'biomarker_id': 'magnesium',
+              'value_canonical': 1.4,
+              'unit_canonical': 'mg/dL',
+              'collected_at': '2026-09-30',
+              'lab_name': 'Thyrocare',
+            },
+            {
+              'kind': 'reference_range',
+              'biomarker_id': 'magnesium',
+              'standard_low': 1.7,
+              'standard_high': 2.2,
+              'unit_canonical': 'mg/dL',
+              'ranges_version': 'global.v1',
+              'citation': 'Costello RB et al. PMID 27385293',
+            },
+            {
+              'kind': 'rule',
+              'rule_id': 'magnesium_repletion',
+              'supplement': 'Oral magnesium',
+              'citation': 'Ayuk J, Gittoes NJ. Ann Clin Biochem 2014',
+              'reviewer': 'Dr A. Example, MBBS MD, reg. 12345',
+              'reviewed_at': '2026-10-10',
+            },
+            {
+              'kind': 'interaction',
+              'medication': 'spironolactone',
+              'recorded_as': 'Spironolactone 25mg',
+              'note': 'Potassium-sparing diuretics retain magnesium.',
+            },
+          ],
+    };
+
+void supplementTests() {
+  group('a supplement recommendation', () {
+    testWidgets('says it is a suggestion about taking something',
+        (tester) async {
+      await pumpCard(tester, supplementCardRow());
+
+      expect(find.textContaining('Supplement'), findsWidgets);
+    });
+
+    testWidgets('a lab finding carries no such label', (tester) async {
+      await pumpCard(tester, row());
+
+      expect(find.text('Supplement'), findsNothing);
+    });
+
+    testWidgets('shows the range the value fell below', (tester) async {
+      // Not derivable from the body alone once a clinician has revised it, and
+      // the thing a user most often wants: "below what, exactly?"
+      await pumpCard(tester, supplementCardRow());
+
+      expect(find.textContaining('1.7–2.2 mg/dL'), findsWidgets);
+    });
+
+    testWidgets('names the supplement that was suggested', (tester) async {
+      await pumpCard(tester, supplementCardRow());
+
+      expect(find.textContaining('Oral magnesium'), findsWidgets);
+    });
+
+    testWidgets('lists the medication that was taken into account',
+        (tester) async {
+      // The person is entitled to know their spironolactone was considered.
+      // Without this the card reads as advice given in ignorance of it.
+      await pumpCard(tester, supplementCardRow());
+
+      expect(find.textContaining('Spironolactone 25mg'), findsWidgets);
+    });
+
+    testWidgets('prints no blank evidence rows', (tester) async {
+      await pumpCard(tester, supplementCardRow());
+
+      final texts = tester.widgetList<Text>(find.byType(Text));
+      for (final text in texts) {
+        final data = text.data;
+        if (data == null) continue;
+        expect(data.trim(), isNotEmpty,
+            reason: 'a widget rendered an empty line');
+        expect(data.trim(), isNot(startsWith('·')),
+            reason: 'a line lost its leading value: "$data"');
+      }
+    });
+
+    testWidgets('says when it cannot show a supporting detail', (tester) async {
+      // Rather than an empty bullet. A future evidence shape is a thing this
+      // app version does not know, which is different from a missing result.
+      await pumpCard(tester, supplementCardRow(evidence: [
+        {'kind': 'genetic_variant', 'rsid': 'rs1801133'}
+      ]));
+
+      expect(find.textContaining('cannot show'), findsOneWidget);
     });
   });
 }

@@ -63,6 +63,16 @@ class _InsightCardState extends State<InsightCard> {
           children: [
             _ReviewBadge(insight: insight),
             const SizedBox(height: 12),
+            // Said in words, like the review badge above it. This is the first
+            // kind of insight the user can be told to act on, and "a number
+            // moved" and "consider taking this" should not look alike.
+            if (insight.isSupplement) ...[
+              _KindChip(
+                icon: Icons.medication_outlined,
+                label: 'Supplement suggestion',
+              ),
+              const SizedBox(height: 10),
+            ],
             if (insight.title.isNotEmpty)
               Text(insight.title, style: theme.textTheme.titleMedium),
             if (insight.title.isNotEmpty) const SizedBox(height: 8),
@@ -198,6 +208,38 @@ class _ReviewBadge extends StatelessWidget {
   }
 }
 
+/// What kind of finding this is, for the kinds where it changes what to do.
+class _KindChip extends StatelessWidget {
+  const _KindChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.colorScheme.onSecondaryContainer),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: theme.colorScheme.onSecondaryContainer),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The values the finding rests on.
 ///
 /// The user is entitled to the same workings the clinician saw.
@@ -214,22 +256,48 @@ class _Evidence extends StatelessWidget {
       children: [
         Text('Based on', style: theme.textTheme.labelMedium),
         const SizedBox(height: 4),
-        for (final point in evidence)
+        for (final entry in evidence)
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              [
-                '${markerLabel(point.biomarkerId)} ${point.display}',
-                if (point.collectedAt != null) _printed(point.collectedAt!),
-                if (point.labName?.isNotEmpty ?? false) point.labName!,
-              ].join(' · '),
-              style: theme.textTheme.bodySmall,
-            ),
+            child: Text(_line(entry), style: theme.textTheme.bodySmall),
           ),
       ],
     );
   }
 }
+
+/// One evidence entry as a line.
+///
+/// An exhaustive switch, which is the reason the evidence is a sealed union: a
+/// shape added to the backend without a case here stops the analyzer rather
+/// than rendering a blank bullet under "Based on". `UnknownEvidence` is the
+/// deliberate exception -- it exists so that an app version older than the
+/// backend says what it cannot show instead of pretending there is nothing.
+String _line(InsightEvidence entry) => switch (entry) {
+      MeasurementEvidence(:final biomarkerId, :final collectedAt, :final labName) =>
+        [
+          '${markerLabel(biomarkerId)} ${entry.summary}'.trim(),
+          if (collectedAt != null) _printed(collectedAt),
+          if (labName?.isNotEmpty ?? false) labName!,
+        ].join(' · '),
+      // The citation rather than the range's version string: the user is being
+      // told what the threshold is and where it comes from, and `global.v1`
+      // means nothing to them. The version is kept on the row for the trail.
+      RangeEvidence(:final citation) => [
+          entry.summary,
+          if (citation?.isNotEmpty ?? false) citation!,
+        ].join(' · '),
+      RuleEvidence(:final citation) => [
+          entry.summary,
+          if (citation?.isNotEmpty ?? false) citation!,
+        ].join(' · '),
+      // The note is already in the signed body, where the clinician's revision
+      // may have changed it. Repeating it here would either duplicate that
+      // sentence or quietly contradict it.
+      InteractionEvidence() => entry.summary,
+      UnknownEvidence() => entry.summary,
+    };
+
 
 class _DisputeNote extends StatelessWidget {
   const _DisputeNote({required this.reason});

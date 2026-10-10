@@ -53,6 +53,12 @@ Map<String, dynamic> unreviewedRow() => {
       'delivery_route': 'sla_expired',
     };
 
+/// The evidence is a tagged union from F6 onward: a trend's points are
+/// measurements, and a supplement recommendation carries three other shapes.
+/// These tests are about the measurement shape, so they say so.
+MeasurementEvidence _measurement(InsightEvidence entry) =>
+    entry as MeasurementEvidence;
+
 void main() {
   group('the review distinction', () {
     test('a signed insight knows a clinician reviewed it', () {
@@ -144,15 +150,15 @@ void main() {
       final insight = ClinicalInsight.fromRow(signedRow());
 
       expect(insight.evidence, hasLength(2));
-      expect(insight.evidence.first.value, 5.4);
-      expect(insight.evidence.last.value, 6.0);
+      expect(_measurement(insight.evidence.first).value, 5.4);
+      expect(_measurement(insight.evidence.last).value, 6.0);
     });
 
     test('a value is printed the way a lab report prints it', () {
       // F4 shipped "5.4 %" and "Rdw" to a real screen with every test green.
       final insight = ClinicalInsight.fromRow(signedRow());
 
-      expect(insight.evidence.first.display, '5.4%');
+      expect(_measurement(insight.evidence.first).display, '5.4%');
     });
 
     test('a non-percentage unit keeps its space', () {
@@ -168,7 +174,7 @@ void main() {
         ],
       });
 
-      expect(insight.evidence.first.display, '12.4 g/dL');
+      expect(_measurement(insight.evidence.first).display, '12.4 g/dL');
     });
 
     test('evidence with no unit does not print a stray space', () {
@@ -179,7 +185,7 @@ void main() {
         ],
       });
 
-      expect(insight.evidence.first.display, '3');
+      expect(_measurement(insight.evidence.first).display, '3');
     });
 
     test('an insight with no evidence is still an insight', () {
