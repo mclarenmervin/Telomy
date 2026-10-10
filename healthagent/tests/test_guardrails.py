@@ -258,3 +258,62 @@ def test_an_unknown_profile_falls_back_to_the_stricter_one():
 
 def test_the_profiles_are_enumerated_so_a_caller_cannot_invent_one():
     assert PROFILES == (AUTONOMOUS, CLINICIAN_QUEUE)
+
+
+# ── A concentration is not a dose ────────────────────────────────────────────
+#
+# The dosage rule matched any number followed by mg, mcg or ml, which is how
+# every lab concentration in the catalog's units came to read as medication
+# advice: `92 mg/dL`, `1.8 mg/dL`, `95 mL/min`. Two consequences, and both were
+# live before F6 found them.
+#
+# In the autonomous profile a report quoting a glucose in mg/dL was replaced
+# wholesale by the safe fallback. In the clinician profile — which is the one
+# that matters here — F5's trend drafts for glucose, creatinine, magnesium,
+# uric acid and eGFR were all flagged `medication`, which made every one of
+# them ineligible for the SLA path and guaranteed to strand the moment nobody
+# signed it. The flag has to mean "a human is needed", and a unit cannot be
+# what decides that.
+
+LAB_CONCENTRATIONS = [
+    "Fasting glucose has risen 18.0% across 3 results, from 92 mg/dL on "
+    "12 February 2026 to 109 mg/dL on 30 September 2026.",
+    "Magnesium has fallen 14.3% across 3 results, from 2.1 mg/dL on "
+    "12 February 2026 to 1.8 mg/dL on 30 September 2026.",
+    "eGFR has fallen 11.6% across 3 results, from 95 mL/min/1.73m² on "
+    "12 February 2026 to 84 mL/min/1.73m² on 30 September 2026.",
+    "Creatinine was 0.9 mg/dL on this panel.",
+]
+
+
+def test_a_lab_concentration_is_not_a_dose():
+    for text in LAB_CONCENTRATIONS:
+        cleaned, flags = apply_guardrails(text, {"metrics": {}})
+
+        assert flags == [], text
+        assert cleaned == text, text
+
+
+def test_a_lab_concentration_leaves_a_draft_eligible_for_the_sla_path():
+    """The consequence, stated where it bites. A trend draft is a statement of
+    arithmetic and carries no flags on purpose, so that a stalled queue still
+    lets it reach the user. A unit that flagged it took that away silently."""
+    for text in LAB_CONCENTRATIONS:
+        _, flags = apply_guardrails(text, {"metrics": {}}, profile=CLINICIAN_QUEUE)
+
+        assert flags == [], text
+
+
+def test_an_actual_dose_is_still_blocked():
+    """The narrowing is to concentrations only. A dose is never written per
+    volume, and the rule this fixes still has to fire on one."""
+    for text in (
+        "You should take 20 mg of your medication now.",
+        "Take 500 mg twice daily.",
+        "Magnesium glycinate 200mg before bed would help your sleep.",
+        "Try 1000 mcg of B12 each morning.",
+    ):
+        cleaned, flags = apply_guardrails(text, {"metrics": {}})
+
+        assert "medication" in flags, text
+        assert cleaned == SAFE_FALLBACK, text

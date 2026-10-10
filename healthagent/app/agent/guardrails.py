@@ -29,7 +29,18 @@ _SUPPLEMENT_NAMES = (
     r"ashwaghanda|rhodiola|st\.? john'?s wort"
 )
 _MEDICATION = [
-    re.compile(r"\b\d+(?:\.\d+)?\s?(?:mg|mcg|ml|milligrams?)\b", re.I),
+    # A dose, and deliberately not a concentration. `mg/dL` and `mL/min` are how
+    # every lab in the catalog prints a result, and matching them meant a glucose
+    # of 92 mg/dL read as medication advice: replaced wholesale in the autonomous
+    # profile, and flagged in the clinician profile, which made F5's trend drafts
+    # for glucose, creatinine, magnesium, uric acid and eGFR permanently
+    # ineligible for the SLA path and certain to strand.
+    #
+    # The lookahead costs the `mg/kg` form of a weight-based dose, which is rare
+    # in consumer-facing text and still caught by the verb rule below and by the
+    # drug-name rule. A unit deciding that a human is needed was the worse of the
+    # two errors: it made the flag mean nothing.
+    re.compile(r"\b\d+(?:\.\d+)?\s?(?:mg|mcg|ml|milligrams?)\b(?!\s*/)", re.I),
     re.compile(
         r"\b(?:stop|stopping|skip|skipping|increase|decrease|double|halve|start|starting|"
         r"take|taking|change|changing)\b[^.]{0,40}\b(?:medication|medications|medicine|dose|"
