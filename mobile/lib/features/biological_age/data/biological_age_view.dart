@@ -194,7 +194,17 @@ const phenoAgeMarkers = [
 /// Deriving a label from the id gives "Rdw", "Mcv" and "Hs crp". These are
 /// acronyms with a fixed printed form, and a user checking the screen against
 /// their own PDF should be reading the same string on both.
+///
+/// The nine PhenoAge markers came first, for the biological-age screen. The
+/// rest arrived with F5, whose clinical insights can name any marker the
+/// catalog maps — a trend in ferritin or TSH reaches a screen now, and "Tsh"
+/// is the same bug as "Rdw" with a different id.
+///
+/// Where this disagrees with the catalog's `name` it is deliberate. The server
+/// spells out "Mean corpuscular volume"; a lab report prints "MCV", and the
+/// user is comparing against the report rather than against our catalog.
 const _markerLabels = {
+  // PhenoAge
   'albumin': 'Albumin',
   'creatinine': 'Creatinine',
   'glucose_fasting': 'Fasting glucose',
@@ -204,6 +214,31 @@ const _markerLabels = {
   'rdw': 'RDW',
   'alkaline_phosphatase': 'Alkaline phosphatase',
   'wbc': 'WBC',
+  // The rest of the catalog, for anything that can appear in an insight.
+  'alt': 'ALT',
+  'apob': 'Apolipoprotein B',
+  'ast': 'AST',
+  'cortisol_morning': 'Morning cortisol',
+  'dhea_s': 'DHEA-S',
+  'egfr': 'eGFR',
+  'ferritin': 'Ferritin',
+  'free_t3': 'Free T3',
+  'free_t4': 'Free T4',
+  'ggt': 'GGT',
+  'haemoglobin': 'Haemoglobin',
+  'hba1c': 'HbA1c',
+  'hdl_cholesterol': 'HDL cholesterol',
+  'homocysteine': 'Homocysteine',
+  'igf_1': 'IGF-1',
+  'insulin_fasting': 'Fasting insulin',
+  'ldl_cholesterol': 'LDL cholesterol',
+  'lipoprotein_a': 'Lipoprotein(a)',
+  'magnesium': 'Magnesium',
+  'triglycerides': 'Triglycerides',
+  'tsh': 'TSH',
+  'uric_acid': 'Uric acid',
+  'vitamin_b12': 'Vitamin B12',
+  'vitamin_d_25oh': 'Vitamin D (25-OH)',
 };
 
 /// A marker's printed name. An id the app has not heard of -- a marker added to

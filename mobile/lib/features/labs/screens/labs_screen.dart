@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/widgets/async_action.dart';
 import '../../journal/models/journal_entry.dart';
 import '../../journal/providers/wellness_provider.dart';
+import '../../insights/widgets/clinical_insights_section.dart';
 import '../../journal/screens/entry_editor.dart';
 import '../data/lab_analysis.dart';
 import '../widgets/confirmed_results_list.dart';
@@ -43,6 +44,12 @@ class _LabsScreenState extends ConsumerState<LabsScreen> {
         // upload, confirm every value, and still see "0 Results" because the
         // list below reads hand-typed entries only.
         const ConfirmedResultsList(),
+        const SizedBox(height: 8),
+        // Directly under the values they were derived from, so a finding and
+        // the numbers behind it are read together. Below the escalation
+        // banner, because a clinician-reviewed finding is never the thing that
+        // cannot wait — that is what the banner is for.
+        const ClinicalInsightsSection(),
         const SizedBox(height: 24),
         const Divider(),
         const SizedBox(height: 16),
