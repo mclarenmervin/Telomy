@@ -748,6 +748,57 @@ select pg_temp.asserts(
       and confdeltype = 'c') = 2,
   'drafts and insights cascade when the account is deleted');
 
+-- Asserted by actually deleting an account, not by inspecting the constraint.
+--
+-- `confdeltype = 'c'` was true the whole time this was broken. The append-only
+-- trigger on clinical_reviews refuses every DELETE, including the one the
+-- cascade issues, so a user with a single signed draft could not be erased --
+-- and the shape of the test is the reason nobody noticed: it checked what the
+-- schema said rather than what the database did. The same mistake F3 made with
+-- a missing insert policy and F4 repeated.
+--
+-- F6 is when it would have started happening, because a supplement insight
+-- cannot exist without a signature, where F5's signed drafts existed only in
+-- the demo seed.
+insert into auth.users (id, email)
+values ('a1a1a1a1-0000-4000-8000-00000000dead', 'f6-erasure@example.com');
+
+insert into clinical_drafts
+  (id, user_id, clinic_id, kind, title, body, model_version, routing_flags,
+   dedupe_key)
+values ('d0d0d0d0-0000-4000-8000-0000000000de',
+        'a1a1a1a1-0000-4000-8000-00000000dead',
+        'c0c0c0c0-0000-4000-8000-000000000001', 'supplement',
+        'Magnesium is below the standard range', 'A recommendation.',
+        'supplement-rule-v1', array['medication'], 'f6:erasure');
+
+update clinical_drafts set status = 'queued'
+ where id = 'd0d0d0d0-0000-4000-8000-0000000000de';
+update clinical_drafts
+   set status = 'in_review', claimed_by = :doctor, claimed_at = now()
+ where id = 'd0d0d0d0-0000-4000-8000-0000000000de';
+insert into clinical_reviews (draft_id, clinician_id, action, signed_body_sha256)
+values ('d0d0d0d0-0000-4000-8000-0000000000de', :doctor, 'signed',
+        encode(sha256(convert_to('A recommendation.', 'UTF8')), 'hex'));
+update clinical_drafts set status = 'signed'
+ where id = 'd0d0d0d0-0000-4000-8000-0000000000de';
+insert into insights
+  (user_id, draft_id, review_id, kind, title, body, noticed_by)
+select d.user_id, d.id, r.id, d.kind, d.title, d.body, 'agent'
+  from clinical_drafts d
+  join clinical_reviews r on r.draft_id = d.id and r.action = 'signed'
+ where d.id = 'd0d0d0d0-0000-4000-8000-0000000000de';
+
+select pg_temp.accepts($$
+  delete from auth.users where id = 'a1a1a1a1-0000-4000-8000-00000000dead'
+$$, 'a user with a signed recommendation can still be erased');
+
+select pg_temp.asserts(
+  not exists (select 1 from clinical_reviews
+               where draft_id = 'd0d0d0d0-0000-4000-8000-0000000000de'),
+  'erasing the person takes the review trail about them with it');
+
+
 -- A review cascades from its draft rather than from the clinician: a clinician
 -- leaving must not erase the signatures that explain insights other people are
 -- still looking at.

@@ -293,7 +293,8 @@ def test_an_empty_queue_is_a_clean_report():
     report = sweep_queue(db_with(), now=NOW)
 
     assert report == {"queued": 0, "claims_expired": 0, "sla_expired": 0,
-                      "delivered": 0, "stranded": 0, "depth": 0}
+                      "delivered": 0, "stranded": 0, "stranded_total": 0,
+                      "depth": 0}
 
 
 # ── Robustness ───────────────────────────────────────────────────────────────
@@ -320,3 +321,58 @@ def test_one_bad_draft_does_not_stop_the_others():
 
     assert report["delivered"] == 1
     assert db.tables["insights"][0]["draft_id"] == "d2"
+
+
+# ── A rate is not a level ────────────────────────────────────────────────────
+#
+# `stranded` counts the drafts that stranded *on this tick*, which is a rate.
+# A draft strands permanently: it is already `expired`, so no later sweep
+# considers it again, and the counter goes back to zero on the next tick while
+# the draft sits there forever.
+#
+# Found while seeding the demo for a device check: one stranded supplement
+# draft, and the sweep that is supposed to be the alarm reported nothing. The
+# handoff says to watch this number from day one, and a dashboard showing zero
+# with forty-one people waiting is worse than no dashboard -- so the sweep also
+# reports the standing total, which is the number somebody would actually alert
+# on.
+
+def test_a_draft_that_stranded_on_an_earlier_tick_is_still_counted():
+    db = db_with([draft(status="expired", sla_due_at=ts(hours=48),
+                        routing_flags=["medication"], kind="supplement")])
+
+    report = sweep_queue(db, now=NOW)
+
+    assert report["stranded"] == 0, "it did not strand on this tick"
+    assert report["stranded_total"] == 1, "but it is still stranded"
+
+
+def test_the_standing_total_includes_the_ones_that_just_stranded():
+    """Otherwise the two numbers disagree on the tick that matters most."""
+    db = db_with([draft(status="queued", sla_due_at=ts(hours=1),
+                        routing_flags=["medication"], kind="supplement")])
+
+    report = sweep_queue(db, now=NOW)
+
+    assert report["stranded"] == 1
+    assert report["stranded_total"] == 1
+
+
+def test_a_delivered_draft_is_not_stranded():
+    db = db_with(
+        [draft(status="expired", sla_due_at=ts(hours=48),
+               routing_flags=["medication"], kind="supplement")],
+        insights=[{"id": "i1", "draft_id": "d1"}],
+    )
+
+    assert sweep_queue(db, now=NOW)["stranded_total"] == 0
+
+
+def test_an_unflagged_expired_draft_is_not_stranded():
+    """It took the SLA path and the user was told. Counting it would make the
+    number mean "expired" rather than "nobody will ever hear about this"."""
+    db = db_with([draft(status="expired", sla_due_at=ts(hours=48))])
+
+    sweep_queue(db, now=NOW)
+
+    assert sweep_queue(db, now=NOW)["stranded_total"] == 0

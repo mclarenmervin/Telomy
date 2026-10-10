@@ -119,6 +119,33 @@ def _deliver(supabase, draft: dict, review: dict | None) -> bool:
     return True
 
 
+def _standing_stranded(supabase, drafts: list[dict]) -> int:
+    """Flagged drafts that expired and have no insight, however long ago.
+
+    Counted from the same page of open drafts the sweep already read rather
+    than with a second query: `_OPEN` includes `expired`, so they are all here,
+    and a count that needed its own query would be a count that gets dropped
+    the first time the sweep is made cheaper.
+    """
+    total = 0
+    for draft in drafts:
+        if draft.get("status") != "expired":
+            continue
+        if not (draft.get("routing_flags") or []):
+            # It took the SLA path and the user was told. Counting it would
+            # make the number mean "expired" rather than "nobody will ever
+            # hear about this".
+            continue
+        try:
+            if not _already_delivered(supabase, draft["id"]):
+                total += 1
+        except Exception:
+            logger.exception(
+                f"could not tell whether draft {draft.get('id')} is stranded"
+            )
+    return total
+
+
 def sweep_queue(supabase: Any, now: datetime | None = None) -> dict:
     """One pass over the clinician queue. Returns what it did, for the log."""
     now = now or datetime.now(timezone.utc)
@@ -128,6 +155,7 @@ def sweep_queue(supabase: Any, now: datetime | None = None) -> dict:
         "sla_expired": 0,
         "delivered": 0,
         "stranded": 0,
+        "stranded_total": 0,
         "depth": 0,
     }
 
@@ -221,7 +249,19 @@ def sweep_queue(supabase: Any, now: datetime | None = None) -> dict:
             logger.exception(f"could not expire draft {draft_id}")
 
     report["depth"] = sum(1 for d in drafts if d.get("status") in _WAITING)
+    # A level, where `stranded` above is a rate.
+    #
+    # A draft strands permanently: it is `expired`, so no later sweep considers
+    # it again and `stranded` returns to zero on the next tick while the draft
+    # sits there forever. The handoff says to watch this number from day one,
+    # and a dashboard reading zero with forty-one people waiting is worse than
+    # no dashboard at all -- so this is the one to alert on, and `stranded`
+    # stays as the thing that happened just now.
+    report["stranded_total"] = _standing_stranded(supabase, drafts)
+    # `stranded_total` is in this list deliberately: a tick where nothing
+    # happened but forty-one drafts are sitting stranded is exactly the tick
+    # that needs to appear in the log.
     if any(report[k] for k in ("queued", "claims_expired", "sla_expired",
-                               "delivered", "stranded")):
+                               "delivered", "stranded", "stranded_total")):
         logger.info(f"clinical queue swept {report}")
     return report
