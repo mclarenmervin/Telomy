@@ -49,6 +49,7 @@ from app.agent.guardrails import CLINICIAN_QUEUE, apply_guardrails
 from app.analytics import catalog
 from app.analytics.reference_ranges import ResolvedRange
 from app.analytics.supplement_rules import review_status as rule_review_status
+from app.analytics.subject import Subject
 from app.analytics.supplements import SupplementFinding, find_deficiencies
 from app.clinical.drafts import DraftCandidate, printed_date, quantity
 from app.common.logging_config import get_logger, log_context
@@ -212,15 +213,17 @@ def supplement_drafts(
     user_id: str,
     as_of: date,
     resolve: Callable[[str], ResolvedRange | None],
+    subject: Subject,
     medications=None,
 ) -> list[DraftCandidate]:
     """Every supplement draft this user's confirmed results currently justify.
 
-    Empty while `supplements.v1.yaml` is unsigned, which is the shipped state.
+    Empty while `supplements.v1.yaml` is unsigned, which is the shipped state,
+    and empty for anyone `find_deficiencies` refuses to recommend to at all.
     """
     candidates = []
     for finding in find_deficiencies(
-        rows, as_of=as_of, resolve=resolve, medications=medications
+        rows, as_of=as_of, resolve=resolve, subject=subject, medications=medications
     ):
         candidate = draft_for_finding(finding, user_id=user_id)
         if candidate is not None:

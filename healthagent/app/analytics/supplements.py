@@ -50,6 +50,7 @@ from app.analytics.reference_ranges import (
     grade_for_display,
 )
 from app.analytics.supplement_rules import Interaction, SupplementRule, rules_for
+from app.analytics.subject import Subject
 from app.analytics.supplement_rules import review_status as rule_review_status
 from app.extraction.ingest import HISTORY_DAYS
 
@@ -181,6 +182,7 @@ def find_deficiencies(
     *,
     as_of: date,
     resolve: Callable[[str], ResolvedRange | None],
+    subject: Subject,
     medications=None,
 ) -> list[SupplementFinding]:
     """Every deficiency this user's confirmed results currently justify asking about.
@@ -194,7 +196,23 @@ def find_deficiencies(
     keeps the user out of this module entirely: the caller closes over the
     user's id, their overrides and their sex, and what comes back here is a
     range or nothing.
+
+    `subject` is required rather than optional. It decides whether anything may
+    be recommended to this person at all, and a safety input with a default is
+    a safety input somebody forgets to pass.
     """
+    # Exactly `Subject.scorable`: a known adult age and no refusals. Asked
+    # rather than re-derived, for the same reason the review gate is asked
+    # through `grade_for_display` -- a second copy of a safety rule is a rule
+    # that will disagree with itself.
+    #
+    # Pregnancy shifts reference ranges substantially and changes what should be
+    # taken; adult ranges do not apply to a minor; and the minimum age cannot be
+    # enforced against an age we do not hold. Refusing costs a recommendation,
+    # which is the better direction to be wrong in.
+    if not subject.scorable:
+        return []
+
     findings: list[SupplementFinding] = []
     history_before = as_of - timedelta(days=HISTORY_DAYS)
 

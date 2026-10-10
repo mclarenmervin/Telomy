@@ -24,7 +24,8 @@ import pytest
 from app.agent.guardrails import CLINICIAN_QUEUE, apply_guardrails, gate_delivery
 from app.analytics import catalog, supplement_rules
 from app.analytics.reference_ranges import RangeResolver
-from app.analytics.supplements import MODEL_VERSION, find_deficiencies
+from app.analytics.subject import Subject
+from app.analytics.supplements import MODEL_VERSION
 from app.clinical.supplement_drafts import (
     DRAFT_KIND,
     supplement_drafts,
@@ -120,12 +121,13 @@ def sign_off(monkeypatch, tmp_path, *, rules=("vitamin_d_repletion",),
     _clear()
 
 
-def drafts(rows, *, medications=(), sex=None):
+def drafts(rows, *, medications=(), sex=None, subject=None):
     return supplement_drafts(
         rows,
         user_id=USER,
         as_of=TODAY,
         resolve=lambda marker: RangeResolver().resolve(marker, USER, sex),
+        subject=subject if subject is not None else Subject(age_years=41.0, sex=sex),
         medications=medications,
     )
 
@@ -462,3 +464,13 @@ def test_every_rule_in_the_file_is_covered_by_that_test():
     """A rule added to the file without a case here would be untested, and the
     way it fails is that it never drafts."""
     assert set(DEFICIENT) == set(supplement_rules.load_rules()[1])
+
+
+def test_a_subject_who_must_not_be_recommended_to_gets_no_draft(monkeypatch, tmp_path):
+    """The refusal belongs to `find_deficiencies` and is tested there. This is
+    the pass-through: a producer that built its own subject, or forgot to pass
+    one, would be a second copy of the rule."""
+    sign_off(monkeypatch, tmp_path)
+    pregnant = Subject(age_years=31.0, sex="female", refusals=("pregnancy",))
+
+    assert drafts(LOW_D, subject=pregnant) == []

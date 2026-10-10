@@ -27,6 +27,7 @@ import pytest
 
 from app.analytics import catalog, supplement_rules
 from app.analytics.reference_ranges import RangeResolver
+from app.analytics.subject import Subject
 from app.analytics.supplements import MODEL_VERSION, find_deficiencies
 
 TODAY = date(2026, 10, 10)
@@ -124,12 +125,13 @@ def _sign_markers(monkeypatch, tmp_path, marker_ids):
     _clear()
 
 
-def find(rows, *, medications=(), sex=None):
+def find(rows, *, medications=(), sex=None, subject=None):
     return find_deficiencies(
         rows,
         as_of=TODAY,
         resolve=lambda marker: RangeResolver().resolve(marker, "u1", sex),
         medications=medications,
+        subject=subject if subject is not None else Subject(age_years=41.0, sex=sex),
     )
 
 
@@ -318,3 +320,50 @@ def test_no_medications_is_not_an_error(monkeypatch, tmp_path):
     sign_off(monkeypatch, tmp_path)
 
     assert find([result(14, 10)], medications=None)[0].interactions == ()
+
+
+# ── Who the recommendation is for ────────────────────────────────────────────
+#
+# The plan names three cases where a score must be refused rather than produced
+# wrongly, and all three apply at least as strongly to a recommendation.
+# Pregnancy shifts reference ranges substantially and changes what should be
+# taken; adult ranges do not apply to a minor; and an unknown age means the
+# minimum cannot be enforced at all.
+#
+# `Subject.scorable` is already exactly this question -- a known adult age and
+# no refusals -- so it is asked rather than re-derived, for the same reason the
+# review gate is asked through `grade_for_display`.
+
+ADULT = Subject(age_years=41.0, sex=None)
+
+
+def test_a_pregnant_subject_produces_nothing(monkeypatch, tmp_path):
+    sign_off(monkeypatch, tmp_path)
+    pregnant = Subject(age_years=31.0, sex="female", refusals=("pregnancy",))
+
+    assert find([result(14, 10)], subject=pregnant) == []
+
+
+def test_a_minor_produces_nothing(monkeypatch, tmp_path):
+    """Adult ranges do not apply to a child, and a paediatric rule is separate
+    medical content rather than a default."""
+    sign_off(monkeypatch, tmp_path)
+    minor = Subject(age_years=14.0, sex=None, refusals=("under_minimum_age",))
+
+    assert find([result(14, 10)], subject=minor) == []
+
+
+def test_an_unknown_age_produces_nothing(monkeypatch, tmp_path):
+    """The minimum age cannot be enforced against an age we do not hold.
+    Refusing costs a recommendation; proceeding risks recommending iron to a
+    fourteen-year-old."""
+    sign_off(monkeypatch, tmp_path)
+    unknown = Subject(age_years=None, sex=None, refusals=("date_of_birth",))
+
+    assert find([result(14, 10)], subject=unknown) == []
+
+
+def test_an_adult_with_no_refusals_still_produces_one(monkeypatch, tmp_path):
+    sign_off(monkeypatch, tmp_path)
+
+    assert len(find([result(14, 10)], subject=ADULT)) == 1
