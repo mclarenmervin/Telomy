@@ -23,6 +23,7 @@ from app.concierge.turn import (
     ANSWERED,
     EMERGENCY,
     GUARDRAIL_REPLACED,
+    RATE_LIMITED,
     UNAVAILABLE,
     Concierge,
     TurnRefused,
@@ -171,6 +172,24 @@ def test_the_daily_cap_refuses_before_spending_anything():
     # Nothing was spent and nothing was said, so there is no turn to record --
     # and a row for it would count towards the cap that produced it.
     assert len(saved(db)) == 3
+
+
+def test_the_cap_refusal_reads_as_a_sentence_on_a_screen():
+    """The one refusal a well-behaved client can provoke is the one a person
+    reads, and the app prints it as the whole reply.
+
+    Found on the emulator with MAX_CHAT_TURNS_PER_DAY=1: it rendered as "you
+    have reached today's limit for questions." under an offline icon, which
+    reads as a truncated error rather than as the product speaking. The other
+    refusals are 422s the client validates against and nobody sees.
+    """
+    concierge, _ = build(max_chat_turns_per_day=0)
+
+    with pytest.raises(TurnRefused) as refused:
+        concierge.answer(user_id=USER, message="how did I sleep?")
+
+    assert refused.value.reason == RATE_LIMITED
+    assert refused.value.message[0].isupper()
 
 
 def test_an_empty_message_is_refused():

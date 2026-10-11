@@ -271,10 +271,13 @@ class Concierge:
             # Raised before anything is spent, and no row is written: a turn
             # that never ran would otherwise count towards the cap that
             # produced it.
+            # Capitalised because the app prints this as the whole reply, not
+            # as the tail of a sentence it supplies. On the emulator it read
+            # as a truncated error rather than as the product speaking.
             raise TurnRefused(
                 RATE_LIMITED,
-                "you have reached today's limit for questions. It resets through "
-                "the day.",
+                "You have reached today's limit for questions. It resets "
+                "through the day.",
             )
 
     def _narrate(self, *, user_id, asked, history, profile, safety_facts,
