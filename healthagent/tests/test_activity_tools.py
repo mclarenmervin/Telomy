@@ -32,7 +32,7 @@ def test_runtime_is_injected_not_model_supplied():
     assert "runtime" not in tool.tool_call_schema.model_json_schema()["properties"]
 
 
-def test_the_expected_eleven_tools_are_present():
+def test_the_expected_twelve_tools_are_present():
     assert set(_tools()) == {
         "get_past_sessions",
         "get_logs",
@@ -56,6 +56,9 @@ def test_the_expected_eleven_tools_are_present():
         # leave the guardrails as the only thing between a sentence nobody
         # checked and the person it is about.
         "get_clinical_insights",
+        # F8. The same computation the Correlations screen renders, so a card
+        # and a sentence cannot disagree about the same two series.
+        "get_correlations",
     }
 
 

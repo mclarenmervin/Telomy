@@ -399,3 +399,64 @@ def test_one_marginal_pair_among_many_does_not_survive_the_correction(tmp_path):
     assert marked["p_value"] == pytest.approx(0.030, abs=0.002)
     assert abs(marked["coefficient"]) > MIN_ABS_R
     assert marked["withheld"] == NOT_SIGNIFICANT
+
+
+# ── The seam ─────────────────────────────────────────────────────────────────
+
+def test_every_declared_series_can_actually_be_built():
+    """A pair naming a series nothing populates would never fire, and the
+    failure is invisible: one fewer pattern on the screen and no way to tell a
+    quiet month from a typo."""
+    from app.analytics.correlation_mechanisms import SERIES
+
+    buildable = set(correlations.MEASUREMENT_SERIES) | set(correlations.ENTRY_SERIES)
+    assert buildable == SERIES
+
+
+def test_a_resting_heart_rate_is_averaged_and_steps_are_totalled():
+    """Summing two heart rates gives 120 bpm; averaging two half-days of
+    steps halves them. The flag is per metric, not a preference."""
+    assert correlations.MEASUREMENT_SERIES["resting_heart_rate"][1] is False
+    assert correlations.MEASUREMENT_SERIES["steps"][1] is True
+
+
+def test_for_user_reads_everything_through_the_scoped_loader():
+    from tests.fakes import FakeSupabase
+    from app.common.context_loader import ContextLoader
+
+    user = "00000000-0000-0000-0000-0000000000aa"
+    other = "00000000-0000-0000-0000-0000000000bb"
+    now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+
+    def reading(uid, mtype, value, offset):
+        return {
+            "user_id": uid, "measurement_type": mtype, "value": value,
+            "recorded_at": (now - timedelta(days=offset)).isoformat(),
+        }
+
+    rows = []
+    for day in range(40):
+        rows.append(reading(user, "hrv", 40 + (day % 7) * 3, day))
+        rows.append(reading(user, "restingHeartRate", 70 - (day % 7) * 2, day))
+        rows.append(reading(other, "hrv", 999, day))
+
+    loader = ContextLoader(FakeSupabase({
+        "health_measurements": rows,
+        "meals": [], "workouts": [], "hydration_logs": [],
+    }))
+
+    result = correlations.for_user(loader, user, days=90)
+
+    assert result["tested"] == 1
+    assert [r["pair_id"] for r in result["reported"]] == ["hrv__resting_heart_rate"]
+
+
+def test_a_series_with_no_data_is_absent_rather_than_empty():
+    from tests.fakes import FakeSupabase
+    from app.common.context_loader import ContextLoader
+
+    loader = ContextLoader(FakeSupabase({
+        "health_measurements": [], "meals": [], "workouts": [], "hydration_logs": [],
+    }))
+
+    assert correlations.build_series(loader, "u") == {}

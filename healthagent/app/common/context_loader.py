@@ -258,6 +258,38 @@ class ContextLoader:
         )
         return _ok(rows)
 
+    def daily_measurements(self, user_id: str, types, days: int = 90) -> dict:
+        """Several measurement types over a window, in one query.
+
+        `measurements` above answers "show me this one metric"; this answers
+        "give me everything the correlation engine needs", and the difference
+        matters because six round trips would be six times the latency on a
+        screen somebody is waiting in front of.
+
+        Paged, like `load_readings`: ninety days of a wearable's heart-rate
+        stream is thousands of rows and PostgREST caps a response. Unpaged,
+        this would silently correlate the first thousand rows and the result
+        would look plausible.
+        """
+        low = _since(days)
+        rows, offset = [], 0
+        while True:
+            page = (
+                self._db.table("health_measurements")
+                .select("measurement_type,value,recorded_at")
+                .eq("user_id", user_id)
+                .in_("measurement_type", list(types))
+                .gte("recorded_at", low)
+                .order("recorded_at")
+                .range(offset, offset + self._page_size - 1)
+                .execute()
+                .data
+            )
+            rows.extend(page)
+            if len(page) < self._page_size:
+                return _ok(rows)
+            offset += self._page_size
+
     def daily_snapshots(self, user_id: str, days: int = 7) -> dict:
         rows = (
             self._db.table("wearable_daily_reports")

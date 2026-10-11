@@ -22,6 +22,8 @@ from dataclasses import dataclass
 
 from langchain.tools import ToolRuntime, tool
 
+from app.analytics import correlations
+
 MAX_DAYS = 365
 MAX_LIMIT = 50
 
@@ -234,6 +236,36 @@ def build_data_tools(loader) -> list:
         )
 
     @tool
+    def get_correlations(runtime: ToolRuntime[UserScope], days: int = 90) -> dict:
+        """Patterns between the user's own daily series, already tested.
+
+        The same computation the Correlations screen renders -- read it, do
+        not redo it. Every pair here was declared in advance with a named
+        physiological mechanism; pairs with no mechanism are never tested, so
+        the absence of something the user asks about is not evidence against
+        it and must not be reported as "no relationship".
+
+        `reported` is what may be mentioned. `withheld` carries the same
+        arithmetic and the reason it did not qualify, and is there so you can
+        say we looked -- do NOT present a withheld pair as a finding. The
+        reasons mean: `too_few_days` not enough matching days; `weak` real but
+        too small to matter; `not_significant` could be chance; and
+        `direction_mismatch` the two moved together but against the direction
+        the mechanism predicts, which means we cannot explain it.
+
+        `mechanism` is null until a clinician has signed that explanation off,
+        and it is null today for every pair. When it is null you may say the
+        two series moved together and you may NOT say why -- do not supply a
+        reason of your own, however obvious it seems.
+
+        Correlation is not cause. Say so if you report one, and never tell the
+        user that changing one of the two will change the other.
+        """
+        return correlations.for_user(
+            loader, runtime.context.user_id, days=clamp(days, 30, 90)
+        )
+
+    @tool
     def get_past_reports(runtime: ToolRuntime[UserScope], limit: int = 3) -> dict:
         """Previous activity reports, for continuity with advice already given."""
         return loader.past_activity_reports(runtime.context.user_id, limit=clamp(limit, 1, 10))
@@ -246,6 +278,7 @@ def build_data_tools(loader) -> list:
         get_documents,
         get_lab_results,
         get_past_reports,
+        get_correlations,
         get_biological_age,
         get_epigenetic_clocks,
         get_clinical_insights,

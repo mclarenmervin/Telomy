@@ -136,3 +136,40 @@ def test_no_tool_exposes_an_unreviewed_draft():
 def test_every_tool_has_a_description():
     for name, tool in _tools().items():
         assert tool.description, f"{name} has no description for the model to read"
+
+
+def test_the_concierge_reads_correlations_rather_than_computing_them():
+    """The same function the Correlations screen's endpoint calls. A third
+    caller is a third caller, not a third implementation."""
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    rows = []
+    for day in range(40):
+        swing = (day % 7) * 3
+        for mtype, value in (("hrv", 40 + swing), ("restingHeartRate", 70 - swing)):
+            rows.append({
+                "user_id": "u1", "measurement_type": mtype, "value": value,
+                "recorded_at": (now - timedelta(days=day)).isoformat(),
+            })
+
+    tool = _tools({
+        "health_measurements": rows,
+        "meals": [], "workouts": [], "hydration_logs": [],
+    })["get_correlations"]
+
+    out = tool.func(_runtime("u1"))
+
+    assert [r["pair_id"] for r in out["reported"]] == ["hrv__resting_heart_rate"]
+    # Unsigned catalog: the association goes out, the explanation does not.
+    assert out["reported"][0]["mechanism"] is None
+
+
+def test_the_correlation_window_a_model_asks_for_is_clamped():
+    """Every model-supplied number is clamped before it reaches a query."""
+    tool = _tools({
+        "health_measurements": [], "meals": [], "workouts": [], "hydration_logs": [],
+    })["get_correlations"]
+
+    assert tool.func(_runtime(), days=99999)["window_days"] == 90
+    assert tool.func(_runtime(), days=-5)["window_days"] == 30

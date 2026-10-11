@@ -161,3 +161,44 @@ def test_range_overrides_excludes_another_users_personal_rows():
 
 def test_range_overrides_is_empty_when_there_are_none():
     assert ContextLoader(FakeSupabase({})).range_overrides(ALICE) == []
+
+
+# ── Correlation inputs ───────────────────────────────────────────────────────
+
+def test_daily_measurements_fetches_several_types_in_one_query():
+    """Ninety days across six measurement types must not be six round trips.
+    The correlation screen is interactive and somebody is waiting for it."""
+    now = datetime.now(UTC)
+    db = FakeSupabase({"health_measurements": [
+        reading(ALICE, "hrv", 40, now),
+        reading(ALICE, "steps", 9000, now),
+        reading(ALICE, "weight", 70, now),
+    ]})
+
+    result = ContextLoader(db).daily_measurements(ALICE, ["hrv", "steps"], days=90)
+
+    assert {r["measurement_type"] for r in result["items"]} == {"hrv", "steps"}
+
+
+def test_daily_measurements_is_scoped_to_the_user():
+    now = datetime.now(UTC)
+    db = FakeSupabase({"health_measurements": [
+        reading(ALICE, "hrv", 40, now),
+        reading(BOB, "hrv", 99, now),
+    ]})
+
+    result = ContextLoader(db).daily_measurements(ALICE, ["hrv"], days=90)
+
+    assert [r["value"] for r in result["items"]] == [40]
+
+
+def test_daily_measurements_stops_at_the_window():
+    now = datetime.now(UTC)
+    db = FakeSupabase({"health_measurements": [
+        reading(ALICE, "hrv", 40, now),
+        reading(ALICE, "hrv", 99, now - timedelta(days=120)),
+    ]})
+
+    result = ContextLoader(db).daily_measurements(ALICE, ["hrv"], days=90)
+
+    assert [r["value"] for r in result["items"]] == [40]

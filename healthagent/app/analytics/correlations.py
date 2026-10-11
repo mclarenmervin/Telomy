@@ -260,3 +260,81 @@ def _row(pair, coefficient, paired_days, effective, p_value, withheld_reason, pa
         "reviewer": review.reviewer if reviewed else None,
         "withheld": withheld_reason,
     }
+
+
+# ── The seam: one implementation, two callers ────────────────────────────────
+#
+# The REST endpoint the screen reads and the tool the concierge calls both
+# land here. If they ever became two implementations, a card would say one
+# thing and a conversation another about the same two series, which is the
+# defect this whole layer exists to close.
+
+#: Which daily series comes from where. The `total` flag is per metric and not
+#: a preference: steps are a count of something that happened, a resting heart
+#: rate is a state. Summing two heart rates gives 120 bpm.
+MEASUREMENT_SERIES = {
+    "sleep_duration": ("sleep", True),
+    "steps": ("steps", True),
+    "active_minutes": ("activity", True),
+    "resting_heart_rate": ("restingHeartRate", False),
+    "hrv": ("hrv", False),
+    "stress": ("stress", False),
+}
+
+#: The most journal rows one table may contribute to a window. A person
+#: logging five meals a day for ninety days reaches 450.
+ENTRY_ROW_CAP = 1000
+
+#: series id -> (log table, field inside the free-text `fields` blob)
+ENTRY_SERIES = {
+    "food_energy": ("meals", "calories"),
+    "protein": ("meals", "protein"),
+    "hydration": ("hydration_logs", "amount"),
+    "workout_minutes": ("workouts", "duration"),
+}
+
+
+def build_series(loader, user_id: str, days: int = WINDOW_DAYS) -> dict[str, dict[date, float]]:
+    """Every daily series this person has, read through the one scoped loader.
+
+    A series with no data is left out rather than included empty, so its pairs
+    are never tested — which also keeps the correction honest, since a
+    hypothesis we had no data for must not make the threshold harsher for the
+    ones we did.
+    """
+    measurements = loader.daily_measurements(
+        user_id, [name for name, _ in MEASUREMENT_SERIES.values()], days=days
+    )["items"]
+
+    series: dict[str, dict[date, float]] = {}
+    for series_id, (measurement_type, total) in MEASUREMENT_SERIES.items():
+        built = daily_measurement_series(measurements, measurement_type, total=total)
+        if built:
+            series[series_id] = built
+
+    # One read per log table rather than one per series: meals carry both the
+    # energy and the protein.
+    by_table: dict[str, list] = {}
+    for table, _ in ENTRY_SERIES.values():
+        if table not in by_table:
+            # Bounded, and deliberately not "everything": PostgREST caps a
+            # response anyway, and a silently truncated series would correlate
+            # the first N rows and look entirely plausible. Ninety days of
+            # meals, workouts or water logs is comfortably inside this.
+            by_table[table] = loader.logs(
+                user_id, table, days=days, limit=ENTRY_ROW_CAP
+            )["items"]
+
+    for series_id, (table, field) in ENTRY_SERIES.items():
+        built = daily_entry_series(by_table[table], field)
+        if built:
+            series[series_id] = built
+
+    return series
+
+
+def for_user(loader, user_id: str, days: int = WINDOW_DAYS) -> dict:
+    """This person's correlations, as both the endpoint and the tool see them."""
+    result = correlate(build_series(loader, user_id, days=days))
+    result["window_days"] = days
+    return result
