@@ -1,217 +1,20 @@
 """Tools for the activity agent.
 
-Two invariants, both load-bearing:
-  * no tool takes an identity argument — `user_id` comes from `ToolRuntime.context`
-  * every model-supplied number is clamped before it reaches a query
+The user-scoped tools live in `app/agent/data_tools.py` and are shared with the
+concierge — one implementation, several callers. What is left here is the one
+tool that only means something inside a session.
 """
 
 from langchain.tools import ToolRuntime, tool
 
 from app.activity_agent.state import ActivityContext
+from app.agent.data_tools import MAX_DAYS, MAX_LIMIT, build_data_tools, clamp
 from app.analytics.activity_analysis import analyze_activity
 
-MAX_DAYS = 365
-MAX_LIMIT = 50
-
-
-def clamp(value, low: int, high: int) -> int:
-    try:
-        value = int(value)
-    except (TypeError, ValueError):
-        return low
-    return max(low, min(high, value))
+__all__ = ["MAX_DAYS", "MAX_LIMIT", "build_tools", "clamp"]
 
 
 def build_tools(loader) -> list:
-    @tool
-    def get_past_sessions(
-        runtime: ToolRuntime[ActivityContext],
-        activity_type: str | None = None,
-        limit: int = 5,
-        window_days: int = 90,
-    ) -> dict:
-        """Aggregated past activity sessions for the current user.
-
-        Pass activity_type=None to span all activity types. Never returns raw samples.
-        """
-        return loader.past_activity_sessions(
-            runtime.context.user_id,
-            activity_type,
-            limit=clamp(limit, 1, MAX_LIMIT),
-            window_days=clamp(window_days, 1, MAX_DAYS),
-        )
-
-    @tool
-    def get_logs(
-        runtime: ToolRuntime[ActivityContext],
-        kind: str,
-        days: int = 30,
-        limit: int = 20,
-    ) -> dict:
-        """Entries the user logged, by kind.
-
-        kind is one of: lab_results, therapy_sessions, genetic_records, environment_logs,
-        meals, workouts, hydration_logs, plans, progress_checkins, consultations,
-        timeline_events. Use this to explain a session from what happened around it.
-        """
-        try:
-            return loader.logs(
-                runtime.context.user_id,
-                kind,
-                days=clamp(days, 1, MAX_DAYS),
-                limit=clamp(limit, 1, MAX_LIMIT),
-            )
-        except ValueError as exc:
-            return {"status": "error", "items": [], "reason": str(exc)}
-
-    @tool
-    def get_measurements(
-        runtime: ToolRuntime[ActivityContext],
-        measurement_type: str,
-        days: int = 30,
-        limit: int = 100,
-    ) -> dict:
-        """Typed body or vital measurements, e.g. weight, restingHeartRate, sleepDuration."""
-        return loader.measurements(
-            runtime.context.user_id,
-            measurement_type,
-            days=clamp(days, 1, MAX_DAYS),
-            limit=clamp(limit, 1, MAX_LIMIT),
-        )
-
-    @tool
-    def get_daily_snapshot(runtime: ToolRuntime[ActivityContext], days: int = 7) -> dict:
-        """Daily ring summaries (sleep, readiness) around the session."""
-        return loader.daily_snapshots(runtime.context.user_id, days=clamp(days, 1, 31))
-
-    @tool
-    def get_documents(
-        runtime: ToolRuntime[ActivityContext],
-        kind: str | None = None,
-        limit: int = 5,
-    ) -> dict:
-        """Uploaded documents such as lab reports.
-
-        A status of 'unconfigured' means document storage is not set up — it does NOT
-        mean the user has no documents. Never tell the user they have none in that case.
-        """
-        return loader.documents(runtime.context.user_id, kind, limit=clamp(limit, 1, MAX_LIMIT))
-
-    @tool
-    def get_lab_results(
-        runtime: ToolRuntime[ActivityContext],
-        biomarker_id: str | None = None,
-        days: int = 730,
-        limit: int = 50,
-    ) -> dict:
-        """Lab values the user has confirmed from an uploaded report.
-
-        Pass biomarker_id to follow one marker over time, or None for everything.
-
-        These are measurements, not judgements. State them and compare them
-        across dates; do NOT say whether a value is normal, high, low or
-        concerning. Our reference ranges have not been reviewed by a clinician
-        yet, so the app deliberately shows these numbers without any verdict and
-        you must do the same. `operator` of '<' or '>' means the lab could not
-        measure past that bound -- report it as written and never as the number
-        alone.
-        """
-        return loader.biomarker_results(
-            runtime.context.user_id,
-            biomarker_id,
-            days=clamp(days, 1, 3650),
-            limit=clamp(limit, 1, MAX_LIMIT),
-        )
-
-    @tool
-    def get_biological_age(runtime: ToolRuntime[ActivityContext]) -> dict:
-        """The user's server-computed biological age, as stored.
-
-        This is OUR number, computed from confirmed lab values on a published
-        model (PhenoAge, Levine 2018). Quote it with its `as_of_date`, which is
-        the date the blood was drawn and not today.
-
-        `value` may be null, and null means UNKNOWN -- never zero and never
-        "young". There are two reasons for it and `missing_inputs` says which:
-        marker names mean the panel was incomplete, and `clinical_review` means
-        we have the data but our reference ranges have not been reviewed by a
-        clinician yet, so we are deliberately not giving a number. Say which
-        applies. Do NOT estimate, infer or fill in a biological age yourself
-        under any circumstances -- an invented one is the most convincing wrong
-        number this product could produce.
-
-        `drivers` carry each marker's contribution in years against an optimal
-        value. Report them as written. Do not add a verdict of your own about
-        whether a marker is high, low or concerning.
-        """
-        return loader.score_snapshot(runtime.context.user_id, "biological_age")
-
-    @tool
-    def get_epigenetic_clocks(
-        runtime: ToolRuntime[ActivityContext], limit: int = 10
-    ) -> dict:
-        """Third-party epigenetic clock results the user already has.
-
-        These are NOT ours. Horvath, Hannum, PhenoAge-DNAm, GrimAge and
-        DunedinPACE results come from a provider the user paid, and we display
-        and track them without ever computing one. Always name the `provider`
-        when you mention a value, and never present one as our output or
-        alongside our biological age as though the two were the same kind of
-        thing.
-
-        Different clocks disagree by years on the same sample. That is how the
-        clocks are, not an error -- do not average them, reconcile them or pick
-        the one that looks best.
-
-        Mind the `unit`. DunedinPACE is a rate of ageing, not an age: 0.92 means
-        ageing at 0.92 years per year, and calling it an age of 0.92 years is
-        nonsense.
-        """
-        return loader.epigenetic_results(
-            runtime.context.user_id, limit=clamp(limit, 1, MAX_LIMIT)
-        )
-
-    @tool
-    def get_clinical_insights(
-        runtime: ToolRuntime[ActivityContext], limit: int = 5
-    ) -> dict:
-        """Findings a clinician has signed off for this user.
-
-        These are the only clinical claims in this product that a named human
-        has agreed to. Each one carries `reviewer_name`, `reviewer_registration`
-        and `reviewed_at`, and when you refer to a finding you may say a
-        clinician reviewed it -- that is what those fields are for.
-
-        **Check `delivery_route` first.** `clinician_signed` means a clinician
-        read and signed exactly that text. `sla_expired` means NO clinician read
-        it: it was released unreviewed because nobody reached it in time, and
-        `reviewer_name` will be null. Never imply a review that did not happen,
-        and never describe an `sla_expired` finding as reviewed, checked or
-        confirmed by anyone.
-
-        If `disputed_at` is set, the user has told us they disagree with it and
-        `dispute_reason` says why. Do not quote it back at them as settled fact.
-        Acknowledge the disagreement if it is relevant and move on.
-
-        `body` is the finding as signed. Quote it or paraphrase it closely --
-        do not extend it, sharpen it or add a verdict of your own. A clinician
-        put their registration number against those words and not against
-        yours, and `evidence` carries the values the finding rests on so you can
-        cite them rather than inventing support.
-
-        There is no tool for unreviewed drafts and there will not be one. A
-        finding that is still waiting for a clinician does not exist as far as
-        you are concerned.
-        """
-        return loader.clinical_insights(
-            runtime.context.user_id, limit=clamp(limit, 1, MAX_LIMIT)
-        )
-
-    @tool
-    def get_past_reports(runtime: ToolRuntime[ActivityContext], limit: int = 3) -> dict:
-        """Previous activity reports, for continuity with advice already given."""
-        return loader.past_activity_reports(runtime.context.user_id, limit=clamp(limit, 1, 10))
-
     @tool
     def compare_window(runtime: ToolRuntime[ActivityContext], window_days: int = 30) -> dict:
         """Recompute this session's comparison against a different history window.
@@ -232,16 +35,4 @@ def build_tools(loader) -> list:
         )["items"]
         return {"status": "ok", "items": [analyze_activity(session, past)]}
 
-    return [
-        get_past_sessions,
-        get_logs,
-        get_measurements,
-        get_daily_snapshot,
-        get_documents,
-        get_lab_results,
-        get_past_reports,
-        compare_window,
-        get_biological_age,
-        get_epigenetic_clocks,
-        get_clinical_insights,
-    ]
+    return [*build_data_tools(loader), compare_window]
