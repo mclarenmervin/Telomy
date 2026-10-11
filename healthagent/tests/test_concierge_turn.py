@@ -22,6 +22,7 @@ from app.common.context_loader import ContextLoader
 from app.concierge.turn import (
     ANSWERED,
     EMERGENCY,
+    GENETIC_RISK,
     GUARDRAIL_REPLACED,
     RATE_LIMITED,
     UNAVAILABLE,
@@ -549,3 +550,60 @@ def test_describing_an_unreviewed_finding_still_works():
 
     assert turn.route == ANSWERED
     assert turn.flags == []
+
+
+# ── A question about an inherited disease risk ───────────────────────────────
+
+def test_a_genetic_risk_question_is_answered_without_a_model():
+    """The plan names APOE as the live hazard, and the handoff asks what the
+    concierge says when somebody asks "do I have the Alzheimer's gene". It is
+    decided here, deterministically, because a model's behaviour varies
+    between two identical runs and this is the one question where that is not
+    acceptable."""
+    narrator = FakeNarrator()
+    concierge, db = build(narrator=narrator)
+
+    turn = concierge.answer(user_id=USER, message="do I have the Alzheimer's gene?")
+
+    assert turn.route == GENETIC_RISK
+    assert narrator.calls == []
+    assert "genetic counsellor" in turn.answered or "counsellor" in turn.answered
+    assert saved(db)[0]["route"] == GENETIC_RISK
+
+
+def test_the_genetic_screen_does_not_outrank_an_emergency():
+    """Somebody describing chest pain and asking about their genes needs the
+    first answer. The genetic question is not urgent; the chest pain is."""
+    concierge, _ = build(narrator=FakeNarrator())
+
+    turn = concierge.answer(
+        user_id=USER,
+        message="I have crushing chest pain, is it the heart disease gene?",
+    )
+
+    assert turn.route == EMERGENCY
+
+
+def test_a_genetic_risk_question_is_refused_before_the_daily_cap():
+    """It costs nothing to produce, so a person who has used their questions
+    for the day still gets the honest answer rather than a rate limit."""
+    history = [{
+        "id": f"t{n}", "user_id": USER, "asked": "q", "answered": "a",
+        "route": ANSWERED, "guardrail_flags": [], "quoted_insight_ids": [],
+        "model": "m", "created_at": "2026-10-11T08:00:00+00:00",
+    } for n in range(3)]
+    concierge, _ = build({"chat_turns": history}, narrator=FakeNarrator(),
+                         max_chat_turns_per_day=3)
+
+    turn = concierge.answer(user_id=USER, message="what is my APOE status?")
+
+    assert turn.route == GENETIC_RISK
+
+
+def test_an_ordinary_question_still_reaches_the_model():
+    narrator = FakeNarrator()
+    concierge, _ = build(narrator=narrator)
+
+    concierge.answer(user_id=USER, message="what was my vitamin D last time?")
+
+    assert narrator.calls

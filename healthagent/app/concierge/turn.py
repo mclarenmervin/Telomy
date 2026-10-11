@@ -10,11 +10,21 @@ deterministic, and that is the design rather than an accident of implementation
    with no model involved. A model having a bad generation must never be the
    thing standing between somebody in crisis and a phone number, so the turn
    ends here when it fires.
-2. The budget. `max_llm_calls` and `max_tool_calls` bound one turn from inside
+2. The message is screened for a question about inherited disease risk, by
+   `analytics/genetics.py`, also with no model involved. "Do I have the
+   Alzheimer's gene" is the highest-stakes sentence a person can type into
+   this product, the plan names APOE as the live hazard, and a model's
+   behaviour varies between two identical runs. The answer is fixed text and
+   the model never sees the question -- the only sentence about inherited
+   risk in this product is one nobody generated. It is deliberately *after*
+   the emergency screen, because somebody describing chest pain and asking
+   about their genes needs the other answer, and deliberately *before* the
+   budget, because it costs nothing to produce.
+3. The budget. `max_llm_calls` and `max_tool_calls` bound one turn from inside
    the agent; this bounds the number of turns, which is the part an agent that
    loops cannot reach. A chat turn is the easiest place in this product to
    spend hundreds of dollars unnoticed.
-3. Context is read — history, signed insights, open escalations, the profile,
+4. Context is read — history, signed insights, open escalations, the profile,
    the recorded medications — all through the one scoped loader, every query
    filtered by `user_id`.
 
@@ -26,24 +36,24 @@ memory, and it computes nothing (P2).
 
 **After the model**
 
-4. The figure check: a number with a unit beside it that no tool returned is an
+5. The figure check: a number with a unit beside it that no tool returned is an
    invented measurement about somebody's body, and the reply does not go out.
-5. The guardrails, in the `quoting_signed` profile, so the model may repeat a
+6. The guardrails, in the `quoting_signed` profile, so the model may repeat a
    clinician's signed words and nothing else.
-6. The promise check, because there is no clinician console yet and "a
+7. The promise check, because there is no clinician console yet and "a
    clinician will get back to you" is a sentence a person acts on by waiting.
-7. The escalation line, if a critical lab value is sitting unacknowledged. It
+8. The escalation line, if a critical lab value is sitting unacknowledged. It
    is appended last so it survives every replacement above, and it is never
    gated on the route, the profile, or whether the model worked at all — a
    critical value cannot wait for a conversation and must never be delayed by
    one.
-8. The turn is recorded.
+9. The turn is recorded.
 
 Chat bypasses the job queue, as CLAUDE.md already settled: a human is waiting,
 and routing that behind ten thousand weekly reports makes it unusable. So this
-runs in the gateway, and steps 1, 2 and 7 are the reasons that is safe.
+runs in the gateway, and steps 1, 3 and 8 are the reasons that is safe.
 
-**Why there is no token streaming.** Step 5 is the last deterministic thing
+**Why there is no token streaming.** Step 6 is the last deterministic thing
 between a model and a user, and it operates on the finished text: a rule can
 replace a reply, but nothing can un-say a token already on somebody's screen.
 A streamed concierge would have to either run the guardrails on fragments,
@@ -67,6 +77,7 @@ from app.agent.guardrails import (
     promises_human_action,
 )
 from app.agent.numbers import check_numbers, collect_tool_numbers
+from app.analytics.genetics import screen_for_genetic_risk
 from app.analytics.safety import screen_for_emergency
 from app.common.logging_config import get_logger, log_context
 from app.concierge.grounding import (
@@ -90,6 +101,8 @@ ANSWERED = "answered"
 GUARDRAIL_REPLACED = "guardrail_replaced"
 #: The emergency screen fired before any model ran.
 EMERGENCY = "emergency"
+#: A question about an inherited disease risk, answered deterministically.
+GENETIC_RISK = "genetic_risk"
 #: No model configured, or the call failed. An honest fallback went out.
 UNAVAILABLE = "unavailable"
 
@@ -208,6 +221,32 @@ class Concierge:
                     answered=emergency.response,
                     route=EMERGENCY,
                     flags=["emergency", emergency.category],
+                ),
+            )
+
+        genetic = screen_for_genetic_risk(asked)
+        if genetic is not None:
+            # After the emergency screen, because somebody describing chest
+            # pain and asking about their genes needs the first answer, and
+            # before the budget, because this costs nothing to produce and a
+            # person who has used their questions for the day should still
+            # get the honest answer rather than a rate limit.
+            #
+            # The reply is fixed text and the model never sees the question.
+            # A variant may never originate an insight, and the surest way to
+            # hold that is for the only sentence about inherited risk in the
+            # product to be one nobody generated.
+            logger.info(
+                "a genetic risk question was answered deterministically "
+                f"{log_context(user_id=user_id)} rule={genetic.matched_rule}"
+            )
+            return self._record(
+                user_id,
+                Turn(
+                    asked=asked,
+                    answered=genetic.response,
+                    route=GENETIC_RISK,
+                    flags=["genetic_risk", genetic.matched_rule],
                 ),
             )
 

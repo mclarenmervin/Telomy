@@ -1,0 +1,141 @@
+# Telomy wellness variants — the only genotypes this product will store.
+#
+# THIS FILE IS AN ALLOWLIST AND THE LIST IS THE ENFORCEMENT. An imported file
+# is filtered against it and everything else is discarded before anything is
+# written. Not flagged, not hidden behind a setting, not stored for later:
+# discarded at parse time, so there is no table, no column and no tool from
+# which it could ever be recovered.
+#
+# ── Why it is default-deny ───────────────────────────────────────────────────
+#
+# A 23andMe raw file has about 600,000 rows in it and several of them are
+# answers to questions nobody should receive from a wellness app on a Tuesday
+# afternoon. APOE is the one the programme plan names, and rightly: a person
+# can learn their Alzheimer's risk genotype from two SNPs, and in a clinical
+# setting that disclosure is surrounded by counselling, consent taken in
+# advance, and somebody in the room.
+#
+# A blocklist would mean the next hazard is whatever we did not think of. An
+# allowlist means the next hazard is discarded by default and the cost of
+# being wrong is a feature that does less than it could.
+#
+# ── Why every variant names a biomarker ──────────────────────────────────────
+#
+# The plan's rule is that a variant may never ORIGINATE an insight: it appears
+# only as context beside a measured marker. `context_for` is how that is
+# structural rather than a line in a prompt. A variant is surfaced only
+# alongside a result for one of the markers it names, so a user with no
+# homocysteine result never sees anything about MTHFR -- there is nothing for
+# it to be context for.
+#
+# This is also why the list is four entries and not forty. A variant that
+# pairs with no marker in `biomarkers.v1.yaml` could never be shown, and
+# adding it would be adding a genotype we store and cannot use.
+#
+# STATUS: v1 draft — NOT clinically reviewed. Until a clinician signs an
+# entry, the variant is stored and shown as a genotype beside the marker, and
+# the `note` explaining what it means is withheld.
+
+version: variants.v1
+
+# ── Refused by name ──────────────────────────────────────────────────────────
+#
+# Redundant, deliberately: the allowlist above already discards every one of
+# these, because it discards everything it does not name. They are written
+# out so that "we do not store APOE" is a thing a test asserts and a reader
+# can check, rather than a property you have to derive from an absence.
+#
+# A new chip array, a new file format or a careless widening of the allowlist
+# all fail loudly here instead of quietly shipping a genotype.
+refused:
+  - rsid: rs429358
+    gene: APOE
+    reason: >
+      With rs7412 this determines APOE ε4 status, the strongest common
+      genetic risk factor for late-onset Alzheimer's disease. Disclosure
+      belongs in a consultation with consent taken beforehand, not in a
+      wellness app, and there is no measured marker it would be context for.
+  - rsid: rs7412
+    gene: APOE
+    reason: The other half of the APOE ε2/ε3/ε4 call. See rs429358.
+  - rsid: rs1800562
+    gene: HFE
+    reason: >
+      C282Y homozygosity is hereditary haemochromatosis, which is a diagnosis
+      and not a wellness trait. It would pair with ferritin, which is exactly
+      what makes it tempting and exactly why it is refused.
+  - rsid: rs1799945
+    gene: HFE
+    reason: H63D, the other common haemochromatosis allele. See rs1800562.
+  - rsid: rs7903146
+    gene: TCF7L2
+    reason: >
+      The largest common-variant risk factor for type 2 diabetes. It would
+      pair with fasting glucose and HbA1c, and a product that puts a diabetes
+      risk genotype beside a glucose result has diagnosed somebody.
+
+# ── Stored ───────────────────────────────────────────────────────────────────
+
+variants:
+
+  - rsid: rs1801133
+    gene: MTHFR
+    trait: folate metabolism
+    context_for: [homocysteine, vitamin_b12]
+    note: >
+      The T allele reduces the activity of the enzyme that converts folate
+      into its active form, and people carrying two copies tend to show
+      higher homocysteine, particularly when folate intake is low. It
+      describes a tendency across groups of people and not a diagnosis.
+    citation: >
+      Frosst P, Blom HJ, Milos R, et al. A candidate genetic risk factor for
+      vascular disease: a common mutation in methylenetetrahydrofolate
+      reductase. Nat Genet 1995;10(1):111-113.
+
+  - rsid: rs2282679
+    gene: GC
+    trait: vitamin D transport
+    context_for: [vitamin_d_25oh]
+    note: >
+      This variant sits in the gene for vitamin D binding protein, which
+      carries 25-hydroxyvitamin D in the blood. Carriers of the minor allele
+      average slightly lower measured 25-OH vitamin D for the same sun
+      exposure and intake.
+    citation: >
+      Wang TJ, Zhang F, Richards JB, et al. Common genetic determinants of
+      vitamin D insufficiency: a genome-wide association study. Lancet
+      2010;376(9736):180-188.
+
+  - rsid: rs10741657
+    gene: CYP2R1
+    trait: vitamin D synthesis
+    context_for: [vitamin_d_25oh]
+    note: >
+      CYP2R1 performs the first hydroxylation step that turns vitamin D into
+      the 25-OH form a blood test measures, and this variant is associated
+      with small average differences in that measurement.
+    citation: >
+      Wang TJ, Zhang F, Richards JB, et al. Common genetic determinants of
+      vitamin D insufficiency: a genome-wide association study. Lancet
+      2010;376(9736):180-188.
+
+  - rsid: rs855791
+    gene: TMPRSS6
+    trait: iron regulation
+    context_for: [ferritin, haemoglobin]
+    note: >
+      TMPRSS6 regulates hepcidin, which controls how much dietary iron is
+      absorbed. The A allele is associated with slightly lower average iron
+      indices. This is a tendency across populations and says nothing about
+      whether this person is iron deficient, which their ferritin does.
+    citation: >
+      Benyamin B, Ferreira MAR, Willemsen G, et al. Common variants in
+      TMPRSS6 are associated with iron status and erythrocyte volume. Nat
+      Genet 2009;41(11):1173-1175.
+
+# ── Sign-off ─────────────────────────────────────────────────────────────────
+#
+# Per variant, bound to a content hash. A signature here is over the `note` --
+# the sentence a user reads beside their own genotype -- and its citation.
+clinical_review:
+  variants: []

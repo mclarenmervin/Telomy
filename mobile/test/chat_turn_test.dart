@@ -78,4 +78,21 @@ void main() {
     expect(pending.isAwaitingAnswer, isTrue);
     expect(ChatTurn.fromRow(row()).isAwaitingAnswer, isFalse);
   });
+
+  test('a genetic risk answer is an ordinary answer and not an emergency', () {
+    // The red treatment is for something somebody may need to act on in the
+    // next few minutes. "We never read those variants, and here is who can
+    // help you find out" is a complete, honest answer, and styling it as an
+    // alarm would make it read as a rebuff.
+    final turn = ChatTurn.fromRow({
+      'asked': 'do I have the Alzheimer gene?',
+      'answered': 'I have no way to answer that, and that is deliberate.',
+      'route': 'genetic_risk',
+      'quoted_insight_ids': const [],
+    });
+
+    expect(turn.isGeneticRisk, isTrue);
+    expect(turn.isEmergency, isFalse);
+    expect(turn.isRenderable, isTrue);
+  });
 }

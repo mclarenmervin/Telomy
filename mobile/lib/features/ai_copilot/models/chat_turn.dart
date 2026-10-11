@@ -37,6 +37,7 @@ class ChatTurn {
   static const pendingRoute = 'pending';
   static const emergencyRoute = 'emergency';
   static const replacedRoute = 'guardrail_replaced';
+  static const geneticRiskRoute = 'genetic_risk';
 
   final String asked;
   final String answered;
@@ -57,6 +58,17 @@ class ChatTurn {
   /// fallback text says what it needs to — but the screen does not invite a
   /// follow-up on an answer the product declined to give.
   bool get wasReplaced => route == replacedRoute;
+
+  /// A question about inherited disease risk, answered by a fixed sentence
+  /// the server produced before any model ran.
+  ///
+  /// Rendered as an ordinary answer and deliberately NOT as an emergency: the
+  /// red treatment is for something somebody may need to act on in the next
+  /// few minutes, and "we never read those variants, and here is who can help
+  /// you find out" is not that. The text explains itself in full, so it needs
+  /// no label of its own — a badge saying "refused" would make an honest,
+  /// complete answer read like a rebuff.
+  bool get isGeneticRisk => route == geneticRiskRoute;
 
   bool get quotesSignedFinding => quotedInsightIds.isNotEmpty;
 
