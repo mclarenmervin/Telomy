@@ -1,0 +1,174 @@
+# Telomy correlation mechanisms — which pairs of daily series are worth testing
+# at all, and which direction each one should run in.
+#
+# THIS FILE IS THE PLAUSIBILITY GATE. A statistically clean correlation between
+# two things with no mechanism is noise with a p-value, and a conversational
+# interface will narrate it confidently. The significance machinery in
+# `statistics.py` answers "could this be chance?"; nothing in it can answer
+# "could this be real?", and that is the question this file exists for.
+#
+# STATUS: v1 draft — NOT clinically reviewed. The consequence is deliberately
+# narrower than it is for the supplement rules. A correlation is a statement
+# about measurements, like a lab value, so it may be reported without a
+# signature; the `mechanism` sentence is a clinical claim about why, so it is
+# withheld until somebody signs it. Until then the user is told two of their
+# series moved together and is not told why.
+#
+# ── Only what is declared here is ever tested ────────────────────────────────
+#
+# This is not merely a filter applied after the fact. The engine tests the
+# pairs in this file and no others, which is pre-registration: it is the
+# difference between "we looked at forty-five pairs and three came out
+# significant" and "we had eight hypotheses and three held". It also keeps the
+# multiple-comparison correction honest, because the number of tests is the
+# number of things we were ever prepared to report.
+#
+# ── The three outcomes ───────────────────────────────────────────────────────
+#
+# `verdict: mechanism` — a named physiological path, a direction it predicts,
+#   and a citation. Testable, and reportable when the statistics hold AND the
+#   observed sign matches `expect`. A clean correlation running the wrong way
+#   is not this mechanism; it is a confounder, and it is refused.
+#
+# `verdict: tautological` — the two series are substantially the same
+#   measurement. Never tested and never reported. "Your steps correlate with
+#   your active minutes" is arithmetic presented as a discovery, and the stress
+#   score is computed from HRV by the device, so reporting that pair would be
+#   handing the user back the ring's own working.
+#
+# Absent — not testable. Not a judgement that no relationship exists; a
+#   statement that we have not named one, and we do not report what we cannot
+#   explain.
+#
+# ── Pairs deliberately left out, and why ─────────────────────────────────────
+#
+# workout_minutes × resting_heart_rate: both directions are real and they are
+#   not the same timescale. A hard session raises resting heart rate that
+#   night; months of training lower it. At daily resolution over ninety days
+#   the acute effect dominates, but a user who is genuinely getting fitter
+#   would then be told their correlation "runs the wrong way". Declaring one
+#   direction would be wrong for one of those two people and we cannot tell
+#   which from the data, so it waits for a model with a timescale in it.
+#
+# ── Conventions ──────────────────────────────────────────────────────────────
+#
+# `first` and `second` are in alphabetical order and `id` is `first__second`,
+# so an unordered pair has exactly one spelling and cannot be declared twice
+# under two verdicts.
+
+version: correlations.v1
+
+pairs:
+
+  # ── Mechanisms ─────────────────────────────────────────────────────────────
+
+  - id: hrv__sleep_duration
+    first: hrv
+    second: sleep_duration
+    verdict: mechanism
+    expect: positive
+    mechanism: >
+      Shortened or disrupted sleep raises overnight sympathetic activity and
+      lowers vagal tone, which is what heart rate variability measures, so
+      nights of less sleep tend to show lower HRV.
+    citation: >
+      Tobaldini E, Costantino G, Solbiati M, et al. Sleep, sleep deprivation,
+      autonomic nervous system and cardiovascular diseases. Neurosci Biobehav
+      Rev 2017;74(Pt B):321-329.
+
+  - id: resting_heart_rate__sleep_duration
+    first: resting_heart_rate
+    second: sleep_duration
+    verdict: mechanism
+    expect: negative
+    mechanism: >
+      Sleep restriction raises sympathetic drive and nocturnal heart rate, so
+      shorter nights tend to be followed by a higher resting heart rate.
+    citation: >
+      Sauvet F, Leftheriotis G, Gomez-Merino D, et al. Effect of acute sleep
+      deprivation on vascular function in healthy subjects. J Appl Physiol
+      2010;108(1):68-75.
+
+  - id: hrv__resting_heart_rate
+    first: hrv
+    second: resting_heart_rate
+    verdict: mechanism
+    expect: negative
+    mechanism: >
+      Both are set by the same autonomic balance and by the length of the
+      cardiac cycle: vagal withdrawal shortens the interval between beats and
+      reduces its variability at the same time, so the two move oppositely.
+    citation: >
+      Shaffer F, Ginsberg JP. An overview of heart rate variability metrics
+      and norms. Front Public Health 2017;5:258.
+
+  - id: hydration__resting_heart_rate
+    first: hydration
+    second: resting_heart_rate
+    verdict: mechanism
+    expect: negative
+    mechanism: >
+      A lower circulating volume reduces stroke volume, and heart rate rises
+      to hold cardiac output, so days with less fluid intake tend to show a
+      higher resting heart rate.
+    citation: >
+      González-Alonso J, Mora-Rodríguez R, Coyle EF. Stroke volume during
+      exercise: interaction of environment and hydration. Am J Physiol Heart
+      Circ Physiol 2000;278(2):H321-H330.
+
+  - id: sleep_duration__steps
+    first: sleep_duration
+    second: steps
+    verdict: mechanism
+    expect: positive
+    mechanism: >
+      Daytime physical activity increases homeostatic sleep pressure and is
+      associated with longer sleep that night; the relationship also runs the
+      other way, as a short night reduces the next day's activity.
+    citation: >
+      Kline CE. The bidirectional relationship between exercise and sleep.
+      Am J Lifestyle Med 2014;8(6):375-379.
+
+  # ── Tautologies ────────────────────────────────────────────────────────────
+
+  - id: active_minutes__steps
+    first: active_minutes
+    second: steps
+    verdict: tautological
+    reason: >
+      Both are counts of the same walking, derived from the same accelerometer
+      stream. A correlation between them describes the device, not the person.
+
+  - id: hrv__stress
+    first: hrv
+    second: stress
+    verdict: tautological
+    reason: >
+      Every wearable in this product derives its stress score from heart rate
+      variability. Reporting the correlation would hand the user the ring's own
+      arithmetic back as a discovery about their body.
+
+  - id: food_energy__protein
+    first: food_energy
+    second: protein
+    verdict: tautological
+    reason: >
+      Protein is one of the three components summed into food energy, so the
+      two are related by definition and not by physiology.
+
+  - id: active_minutes__workout_minutes
+    first: active_minutes
+    second: workout_minutes
+    verdict: tautological
+    reason: >
+      A logged workout is the same time the wearable counted as active. One is
+      the user's record of it and the other is the device's.
+
+# ── Sign-off ─────────────────────────────────────────────────────────────────
+#
+# Per pair, bound to a content hash, exactly as the supplement rules are. A
+# signature here is over a mechanism sentence and the citation behind it, and
+# editing either withdraws it. Empty until a clinician with a name and a
+# registration number has read them.
+clinical_review:
+  pairs: []
