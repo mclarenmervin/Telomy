@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from app.analytics import genetics
+from app.analytics import environment, genetics
 from app.analytics.check_in import CHECK_IN_PREFIX
 from app.analytics.event_analysis import BASELINE_DAYS, TRACKED, WINDOW, Reading, to_readings
 
@@ -441,6 +441,33 @@ class ContextLoader:
             .data
         )
         return genetics.context_for_results(rows, biomarker_results)
+
+    def environment_snapshots(self, user_id: str, days: int = 14) -> dict:
+        """Air quality and UV where this person was, newest day first.
+
+        `empty` here means we have no snapshot, which is usually because the
+        user has not given a location rather than because the air was fine.
+        The tool is told to keep those apart.
+
+        Each row carries its provider and the hours of the day it was built
+        from, because "the AQI was 180" is a claim somebody else made and a
+        day assembled from four hours is not a day.
+        """
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).date()
+        rows = (
+            self._db.table("environment_snapshots")
+            .select(
+                "observed_on,latitude,longitude,us_aqi_mean,us_aqi_max,"
+                "european_aqi_mean,pm2_5_mean,pm10_mean,uv_index_max,"
+                "hours_observed,provider"
+            )
+            .eq("user_id", user_id)
+            .gte("observed_on", since.isoformat())
+            .order("observed_on", desc=True)
+            .execute()
+            .data
+        )
+        return _ok([environment.describe(row) for row in rows])
 
     def score_snapshot(self, user_id: str, kind: str, limit: int = 1) -> dict:
         """Server-computed scores, newest first. The row the app renders.

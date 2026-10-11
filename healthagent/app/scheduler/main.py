@@ -20,6 +20,8 @@ from app.common.config import get_settings
 from app.common.logging_config import configure_logging, get_logger
 from app.common.queue import DelayedQueue, JobQueue
 from app.common.supabase_client import get_supabase_client
+from app.scheduler.environment_sweep import sweep_environment
+from app.scheduler.http_fetch import fetch_json
 from app.scheduler.lab_sweep import sweep_uploads
 from app.scheduler.plan import (
     NIGHTLY_HOUR_UTC,
@@ -56,7 +58,8 @@ def _due_for_lab_sweep(now: datetime) -> bool:
     return now.minute % LAB_SWEEP_EVERY_MINUTES == 0
 
 
-def tick(supabase, delayed, work_queue, now: datetime | None = None) -> None:
+def tick(supabase, delayed, work_queue, now: datetime | None = None,
+         fetch_environment=None) -> None:
     """One pass. Never raises: a scheduler that dies on a transient Redis error
     stops every scheduled thing in the product."""
     now = now or datetime.now(timezone.utc)
@@ -87,6 +90,13 @@ def tick(supabase, delayed, work_queue, now: datetime | None = None) -> None:
         if not _inside_sweep_window(now):
             return
 
+        # Once a night, beside the recompute: yesterday is complete, and the
+        # provider is a free public service that should see one small burst
+        # rather than a trickle all day. Injected fetcher, so the single
+        # outbound call in this product is easy to find and easy to switch off.
+        if fetch_environment is not None:
+            sweep_environment(supabase, fetch_environment, now=now)
+
         users = active_user_ids(supabase, now=now)
         jobs = due_score_jobs(users, now=now)
         for job in jobs:
@@ -113,7 +123,7 @@ def run() -> None:
         f"lane={settings.score_queue_name}"
     )
     while True:
-        tick(supabase, delayed, work_queue)
+        tick(supabase, delayed, work_queue, fetch_environment=fetch_json)
         time.sleep(TICK_SECONDS)
 
 

@@ -321,6 +321,39 @@ def build_data_tools(loader) -> list:
         )
 
     @tool
+    def get_environment(runtime: ToolRuntime[UserScope], days: int = 14) -> dict:
+        """Air quality and UV where the user was, one row per day.
+
+        From a public weather provider, named in `provider`, for a location
+        rounded to about 11km -- a city and not a street. Say the provider's
+        name when you quote a figure: this is somebody else's measurement of
+        the air, not ours of the person.
+
+        `us_aqi_max` is the day's peak and `us_aqi_mean` its average; the
+        bands (`us_aqi_band`, `uv_band`) are the published definitions of
+        those scales and may be stated as written. `uv_index_max` is the
+        day's peak, which is the only UV figure worth anything -- it is 0 at
+        night by definition.
+
+        `hours_observed` below 24 means the provider had a partial day. Say so
+        rather than presenting it as the whole day.
+
+        **This is context and never a cause.** You may say what the air was
+        doing on a day and you may say what the user's readings did on that
+        day. You may NOT say that one explains the other, that pollution
+        affected their sleep or heart rate, or that they should change what
+        they do because of it -- nobody has reviewed any of that, and an air
+        quality index sitting next to a resting heart rate is two numbers,
+        not a finding.
+
+        An `empty` status usually means the user has not given us a location,
+        not that the air was clean. Never report clean air you did not look at.
+        """
+        return loader.environment_snapshots(
+            runtime.context.user_id, days=clamp(days, 1, 90)
+        )
+
+    @tool
     def get_past_reports(runtime: ToolRuntime[UserScope], limit: int = 3) -> dict:
         """Previous activity reports, for continuity with advice already given."""
         return loader.past_activity_reports(runtime.context.user_id, limit=clamp(limit, 1, 10))
@@ -335,6 +368,7 @@ def build_data_tools(loader) -> list:
         get_past_reports,
         get_correlations,
         get_therapy_effects,
+        get_environment,
         get_biological_age,
         get_epigenetic_clocks,
         get_clinical_insights,
