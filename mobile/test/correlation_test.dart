@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:telomy/features/correlations/data/correlation_repository.dart';
+import 'package:telomy/features/correlations/providers/correlation_provider.dart';
 import 'package:telomy/features/correlations/models/correlation.dart';
 
 /// Reading correlations, and what the phone is allowed to do with them.
@@ -194,4 +196,50 @@ void main() {
       expect(withheldReason(reason, 90), isNot('Not reportable.'));
     }
   });
+
+  test('leaving the screen and coming back works the patterns out again',
+      () async {
+    // Found on the emulator. The screen said "there is not enough recorded
+    // yet to test any pattern", sixty days of readings arrived, and going
+    // back and reopening it said exactly the same thing -- one request had
+    // been made for the whole life of the app. A patterns screen whose
+    // answer is "nothing yet" has to be able to stop saying that.
+    var fetches = 0;
+    final container = ProviderContainer(
+      overrides: [
+        correlationRepositoryProvider.overrideWithValue(
+          _CountingRepository(() => fetches++),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final first = container.listen(correlationReportProvider, (_, _) {});
+    await container.read(correlationReportProvider.future);
+    first.close();
+
+    // A frame, so the autoDispose actually runs.
+    await Future<void>.delayed(Duration.zero);
+
+    final second = container.listen(correlationReportProvider, (_, _) {});
+    await container.read(correlationReportProvider.future);
+    second.close();
+
+    expect(fetches, 2);
+  });
+}
+
+class _CountingRepository implements CorrelationRepository {
+  _CountingRepository(this.onFetch);
+
+  final void Function() onFetch;
+
+  @override
+  Future<CorrelationReport> fetch({int days = 90}) async {
+    onFetch();
+    return CorrelationReport.fromJson(reportBody());
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

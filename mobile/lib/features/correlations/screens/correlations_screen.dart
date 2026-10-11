@@ -144,8 +144,13 @@ class _ReportedCard extends StatelessWidget {
             ] else ...[
               const SizedBox(height: 10),
               Text(
-                'We have not had a clinician review why these two move '
-                'together, so we are not going to tell you.',
+                // Not "we are not going to tell you", which was the first
+                // wording and read on a real screen as a product being
+                // withholding rather than careful. And not "move together"
+                // either: this card is shown for correlations that move
+                // oppositely, where it would contradict the line above it.
+                'Nobody has reviewed why these two are related, so we are '
+                'not going to guess at it.',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: theme.colorScheme.outline),
               ),

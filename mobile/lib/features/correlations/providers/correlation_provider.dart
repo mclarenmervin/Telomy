@@ -20,7 +20,19 @@ final correlationWindowProvider = NotifierProvider<CorrelationWindow, int>(
   CorrelationWindow.new,
 );
 
-final correlationReportProvider = FutureProvider<CorrelationReport>((ref) async {
+/// Worked out again each time the screen is opened.
+///
+/// `autoDispose`, unlike the chat history, and the difference is what each
+/// one is. A conversation is a record: coming back to it should show the
+/// conversation that is already there. A set of patterns is a calculation
+/// over readings that arrive all day, and its most common answer early on is
+/// "there is not enough recorded yet" — which a cached provider will keep
+/// saying for the life of the app after the data has arrived. Found on the
+/// emulator doing exactly that: sixty days of readings landed and reopening
+/// the screen still said there was nothing to test, because one request had
+/// been made and never repeated.
+final correlationReportProvider =
+    FutureProvider.autoDispose<CorrelationReport>((ref) async {
   final days = ref.watch(correlationWindowProvider);
   return ref.read(correlationRepositoryProvider).fetch(days: days);
 });
