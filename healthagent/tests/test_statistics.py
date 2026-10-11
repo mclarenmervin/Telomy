@@ -13,6 +13,7 @@ from app.analytics.statistics import (
     benjamini_hochberg,
     effective_sample_size,
     lag1_autocorrelation,
+    one_sample_t,
     pearson,
     pearson_p_value,
     student_t_two_tailed,
@@ -156,3 +157,44 @@ def test_order_is_preserved_rather_than_sorted():
 
 def test_an_empty_run_rejects_nothing_rather_than_failing():
     assert benjamini_hochberg([], 0.05) == []
+
+
+# ── One sample, for a before/after delta ─────────────────────────────────────
+
+def test_a_set_of_deltas_centred_on_zero_is_not_a_change():
+    assert one_sample_t([-2.0, 1.0, -1.0, 2.0, 0.0])[1] > 0.5
+
+
+def test_a_consistent_shift_is_a_change():
+    mean, p = one_sample_t([4.0, 5.0, 3.5, 4.5, 5.5, 4.0, 3.0, 5.0])
+    assert mean == pytest.approx(4.3125)
+    assert p < 0.001
+
+
+def test_the_textbook_one_sample_t():
+    """Five values, mean 2, sample sd 1.5811, so t = 2/(1.5811/sqrt(5)) =
+    2.828 on 4 df, which is p = 0.0474 in any table."""
+    mean, p = one_sample_t([0.0, 1.0, 2.0, 3.0, 4.0])
+    assert mean == pytest.approx(2.0)
+    assert p == pytest.approx(0.0474, abs=5e-4)
+
+
+def test_one_observation_is_not_evidence():
+    assert one_sample_t([3.0]) == (3.0, None)
+
+
+def test_nothing_at_all_has_no_mean_and_no_p():
+    assert one_sample_t([]) == (None, None)
+
+
+def test_identical_deltas_are_a_certain_change_rather_than_a_crash():
+    """Zero variance makes the t statistic infinite. Eight sessions that each
+    moved the needle by exactly 4 is the most certain thing there is, not a
+    division by zero."""
+    mean, p = one_sample_t([4.0] * 8)
+    assert mean == 4.0
+    assert p == 0.0
+
+
+def test_identical_deltas_of_zero_are_no_change_at_all():
+    assert one_sample_t([0.0] * 8) == (0.0, 1.0)

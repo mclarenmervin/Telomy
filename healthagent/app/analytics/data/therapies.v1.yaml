@@ -1,0 +1,111 @@
+# Telomy therapy effects — what each modality is expected to do to a measured
+# signal, and in which direction.
+#
+# THIS FILE IS THE PLAUSIBILITY GATE for before/after evidence, and it is the
+# sibling of `correlations.v1.yaml`. The arithmetic can tell you that heart
+# rate was eleven beats higher after your sauna sessions than before them.
+# Nothing in the arithmetic can tell you whether that is the sauna, and a
+# product that reports "your sauna sessions raise your heart rate" about a
+# person who happens to use the sauna after training has said something false
+# with a p-value attached.
+#
+# STATUS: v1 draft — NOT clinically reviewed. Same consequence as the
+# correlation catalog: the measured change may be reported, because it is a
+# statement about measurements; the sentence explaining the physiology is
+# withheld until somebody signs it.
+#
+# ── Only declared effects are tested ─────────────────────────────────────────
+#
+# Each modality declares the metrics it is expected to move. The engine tests
+# those and no others, so the false discovery rate is computed over hypotheses
+# we were prepared to report rather than over every metric we happen to
+# collect. Four modalities times four tracked signals would be sixteen tests
+# per user and two or three spurious findings each.
+#
+# ── Timescale, and what "after" means ────────────────────────────────────────
+#
+# Every effect here is ACUTE: the hour after the session against the hour
+# before it, both read against the person's own fourteen-day baseline. That is
+# what `event_analysis.py` already computes for one session, and this file
+# aggregates it across sessions.
+#
+# Chronic adaptation — the thing most people actually care about — is a
+# different question on a different timescale and is deliberately not here.
+# Sauna's effect on resting heart rate over months runs opposite to its effect
+# over the following hour, and declaring one direction would be wrong for one
+# of those two readings. Asking an acute model a chronic question is the
+# mistake this note exists to prevent.
+#
+# ── Conventions ──────────────────────────────────────────────────────────────
+#
+# `metric` is a key of `event_analysis.TRACKED`. `expect` is `increase` or
+# `decrease`, meaning the direction of the after-minus-before delta.
+
+version: therapies.v1
+
+modalities:
+
+  - id: sauna
+    label: sauna
+    event_types: [sauna]
+    effects:
+      - metric: heartRate
+        expect: increase
+        mechanism: >
+          Heat stress drives cutaneous vasodilation, and heart rate rises to
+          maintain blood pressure and cardiac output while blood is shifted to
+          the skin. The rise persists for a period after leaving the heat
+          while core temperature falls.
+        citation: >
+          Laukkanen JA, Laukkanen T, Kunutsor SK. Cardiovascular and other
+          health benefits of sauna bathing. Mayo Clin Proc 2018;93(8):1111-1121.
+      - metric: temperature
+        expect: increase
+        mechanism: >
+          Core and skin temperature rise during heat exposure and fall back
+          over the period afterwards, so a reading taken soon after a session
+          is above the person's own baseline.
+        citation: >
+          Hussain J, Cohen M. Clinical effects of regular dry sauna bathing.
+          Evid Based Complement Alternat Med 2018;2018:1857413.
+
+  - id: cold_plunge
+    label: cold plunge
+    event_types: [cold_plunge]
+    effects:
+      - metric: hrv
+        expect: increase
+        mechanism: >
+          Cold water immersion triggers a vagally mediated bradycardic
+          response, and parasympathetic reactivation after the exposure raises
+          heart rate variability relative to the person's baseline.
+        citation: >
+          Buchheit M, Peiffer JJ, Abbiss CR, Laursen PB. Effect of cold water
+          immersion on postexercise parasympathetic reactivation. Am J Physiol
+          Heart Circ Physiol 2009;296(2):H421-H427.
+      - metric: heartRate
+        expect: decrease
+        mechanism: >
+          The same vagal response slows the heart; peripheral
+          vasoconstriction raises stroke volume, so the rate needed to hold
+          cardiac output falls.
+        citation: >
+          Bleakley CM, Davison GW. What is the biochemical and physiological
+          rationale for using cold-water immersion in sports recovery? A
+          systematic review. Br J Sports Med 2010;44(3):179-187.
+
+# ── Declared but not yet testable ────────────────────────────────────────────
+#
+# Photobiomodulation (red light) and hyperbaric oxygen are named in the plan
+# and are deliberately absent rather than guessed at. Neither has an event
+# type in the app yet, so no session of either can reach this engine, and
+# writing speculative effects for them would put unreviewable content in a
+# file whose whole purpose is to be reviewable. They are one entry each once
+# the app can log them and somebody can cite what they do.
+
+# ── Sign-off ─────────────────────────────────────────────────────────────────
+#
+# Per modality-and-metric, bound to a content hash. A signature here is over a
+# mechanism and its citation; editing either withdraws it.
+clinical_review:
+  effects: []

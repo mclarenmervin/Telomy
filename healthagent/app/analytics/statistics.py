@@ -197,6 +197,37 @@ def pearson_p_value(r: float, n: float) -> float | None:
     return student_t_two_tailed(t, df)
 
 
+# ── One sample, for a before/after delta ─────────────────────────────────────
+
+def one_sample_t(deltas) -> tuple[float | None, float | None]:
+    """(mean, two-tailed p) for a set of per-session before/after changes.
+
+    One-sample rather than two: each session supplies its own before and its
+    own after, so the pairing is already done and what is being tested is
+    whether the differences are centred on zero. Pooling all the befores and
+    all the afters instead would throw that pairing away and compare one
+    person's good weeks with their bad ones.
+
+    `(mean, None)` for a single observation. One session is a story, and a
+    p-value computed from it would be a number with no evidence behind it.
+    """
+    deltas = list(deltas)
+    if not deltas:
+        return None, None
+    mean = fmean(deltas)
+    if len(deltas) < 2:
+        return mean, None
+
+    variance = sum((d - mean) ** 2 for d in deltas) / (len(deltas) - 1)
+    if variance == 0:
+        # Every session moved it by exactly the same amount. That is the most
+        # certain result there is, unless the amount was nothing.
+        return mean, 0.0 if mean != 0 else 1.0
+
+    t = mean / math.sqrt(variance / len(deltas))
+    return mean, student_t_two_tailed(t, len(deltas) - 1)
+
+
 # ── Multiple comparisons ─────────────────────────────────────────────────────
 
 def benjamini_hochberg(p_values, q: float) -> list[bool]:

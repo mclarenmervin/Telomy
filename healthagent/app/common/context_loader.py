@@ -290,6 +290,75 @@ class ContextLoader:
                 return _ok(rows)
             offset += self._page_size
 
+    def therapy_sessions(self, user_id: str, event_types, days: int = 365,
+                         limit: int = 20) -> dict:
+        """Finished therapy sessions, newest first.
+
+        `ended_at` must be set: a session still running has no "after" to
+        measure yet, and a null end would make `analyze_event` read the hour
+        after a time that has not happened.
+
+        Rejected events are excluded. A user who tapped sauna by mistake and
+        said so must not have it analysed anyway.
+        """
+        rows = (
+            self._db.table("events")
+            .select("id,event_type,started_at,ended_at,status")
+            .eq("user_id", user_id)
+            .in_("event_type", list(event_types))
+            .not_.is_("ended_at", "null")
+            .neq("status", "rejected")
+            .gte("started_at", _since(days))
+            .order("started_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def events_between(self, user_id: str, low: str, exclude_types=()) -> list:
+        """Everything else the user logged since `low`, as (start, end) spans.
+
+        "Else" is the point: a therapy session must not be treated as a
+        confounder of itself, so the modality's own event types are excluded
+        by the caller. What is left is the alcohol, the meal and the workout
+        that might be the real explanation for what the readings did.
+        """
+        query = (
+            self._db.table("events")
+            .select("event_type,started_at,ended_at")
+            .eq("user_id", user_id)
+            .not_.is_("ended_at", "null")
+            .gte("started_at", low)
+        )
+        rows = query.execute().data
+        return [
+            (datetime.fromisoformat(r["started_at"]), datetime.fromisoformat(r["ended_at"]))
+            for r in rows
+            if r.get("event_type") not in set(exclude_types)
+        ]
+
+    def readings_between(self, user_id: str, low: str, high: str) -> list[dict]:
+        """The tracked signals in one span. Narrow by design.
+
+        The therapy engine asks for the two hours around a session and no
+        more, because each session is its own control and the baseline
+        cancels out of a before/after difference. Asking for the fortnight
+        `analyze_event` would use for its baseline would be a few thousand
+        rows per session for a number that subtracts itself away.
+        """
+        return (
+            self._db.table("health_measurements")
+            .select("measurement_type,value,recorded_at")
+            .eq("user_id", user_id)
+            .in_("measurement_type", list(TRACKED))
+            .gte("recorded_at", low)
+            .lte("recorded_at", high)
+            .order("recorded_at")
+            .execute()
+            .data
+        )
+
     def daily_snapshots(self, user_id: str, days: int = 7) -> dict:
         rows = (
             self._db.table("wearable_daily_reports")

@@ -32,7 +32,7 @@ def test_runtime_is_injected_not_model_supplied():
     assert "runtime" not in tool.tool_call_schema.model_json_schema()["properties"]
 
 
-def test_the_expected_twelve_tools_are_present():
+def test_the_expected_thirteen_tools_are_present():
     assert set(_tools()) == {
         "get_past_sessions",
         "get_logs",
@@ -59,6 +59,9 @@ def test_the_expected_twelve_tools_are_present():
         # F8. The same computation the Correlations screen renders, so a card
         # and a sentence cannot disagree about the same two series.
         "get_correlations",
+        # F8. What a run of the user's own sauna or cold plunge sessions did
+        # to their readings, acute only.
+        "get_therapy_effects",
     }
 
 

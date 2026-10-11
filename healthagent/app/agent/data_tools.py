@@ -22,7 +22,7 @@ from dataclasses import dataclass
 
 from langchain.tools import ToolRuntime, tool
 
-from app.analytics import correlations
+from app.analytics import correlations, therapy_effect
 
 MAX_DAYS = 365
 MAX_LIMIT = 50
@@ -266,6 +266,43 @@ def build_data_tools(loader) -> list:
         )
 
     @tool
+    def get_therapy_effects(runtime: ToolRuntime[UserScope], days: int = 365) -> dict:
+        """What this user's own therapy sessions did to their readings.
+
+        Already computed and already gated -- read it, do not redo it. Each
+        session is its own control: the hour after against the hour before,
+        averaged across sessions, so the number is a change and not a level.
+
+        **Everything here is the hour after a session.** It says nothing about
+        whether a therapy is making the user fitter, healthier or younger over
+        months, and for several of these signals the long-term effect runs the
+        OPPOSITE way to the short-term one. If they ask whether the sauna is
+        working, say what it does in the hour afterwards and say plainly that
+        we cannot yet answer the longer question.
+
+        `reported` is what may be mentioned. `withheld` carries the reason it
+        did not qualify and is never a finding: `too_few_sessions` means they
+        have not done it enough times yet, `not_significant` means the
+        sessions disagreed with each other, and `direction_mismatch` means the
+        change ran against what the therapy is expected to do, which means
+        something else was going on and we cannot attribute it.
+
+        `sessions_confounded` counts sessions dropped because something else
+        the user logged overlapped them. Worth mentioning when it is large:
+        it is why the number of sessions used is lower than the number they
+        remember doing.
+
+        `mechanism` is null until a clinician signs that explanation off, and
+        is null for everything today. When it is null you may state the
+        measured change and you may NOT explain it.
+
+        Never tell the user to start, stop, lengthen or shorten a therapy.
+        """
+        return therapy_effect.for_user(
+            loader, runtime.context.user_id, days=clamp(days, 30, 365)
+        )
+
+    @tool
     def get_past_reports(runtime: ToolRuntime[UserScope], limit: int = 3) -> dict:
         """Previous activity reports, for continuity with advice already given."""
         return loader.past_activity_reports(runtime.context.user_id, limit=clamp(limit, 1, 10))
@@ -279,6 +316,7 @@ def build_data_tools(loader) -> list:
         get_lab_results,
         get_past_reports,
         get_correlations,
+        get_therapy_effects,
         get_biological_age,
         get_epigenetic_clocks,
         get_clinical_insights,
