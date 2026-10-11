@@ -137,11 +137,58 @@ AUTONOMOUS = "autonomous"
 #: half is safe alone.
 CLINICIAN_QUEUE = "clinician_queue"
 
-PROFILES = (AUTONOMOUS, CLINICIAN_QUEUE)
+#: Text goes straight to the user, and may repeat — verbatim — an insight this
+#: user has already been delivered. Everything else is the autonomous profile.
+#:
+#: F7 is the phase that needed it, and the reason is narrow enough to state in
+#: one sentence: a delivered supplement insight says "Magnesium supplementation
+#: is the usual response to a level below the reference range", a clinician put
+#: their registration number against those exact words, the user is reading
+#: them on the Labs screen, and an agent that quoted them had its whole reply
+#: replaced by SAFE_FALLBACK. The concierge was mute about the most valuable
+#: thing in the product.
+#:
+#: What this profile deliberately does NOT do is loosen the rules. "The model
+#: says a clinician said it" is precisely the claim the gate exists to refuse,
+#: so the exemption is not a judgement about the sentence — it is a byte
+#: comparison against text this user has actually been delivered, which the
+#: caller reads from the scoped loader and the model cannot influence.
+#:
+#: Three properties hold it in place, each with a test:
+#:   * with nothing signed, this profile *is* the autonomous profile
+#:   * one edited character and the sentence is the model's, not the clinician's
+#:   * what the model adds around a quote still faces the full rules
+QUOTING_SIGNED = "quoting_signed"
+
+PROFILES = (AUTONOMOUS, CLINICIAN_QUEUE, QUOTING_SIGNED)
 
 
 def _matches(patterns, text: str) -> bool:
     return any(p.search(text) for p in patterns)
+
+
+def _without_signed_quotes(text: str, signed_bodies) -> str:
+    """`text` with every verbatim delivered body removed, leaving the model's
+    own words to be judged on their own.
+
+    Each quote becomes a single space and deliberately not a full stop, even
+    though a full stop would terminate the `[^.]{0,40}` spans the rules are
+    built from. That is the point: a model that split its own recommendation
+    around a quote -- "Consider" + quote + "supplements" -- would have the two
+    halves separated by a sentence boundary and the rule would stop matching.
+    A space keeps them in the same sentence, so the recommendation is still
+    caught. The cost is the reverse case, where removing a quote leaves two
+    unrelated fragments adjacent and the rule fires on text nobody wrote; that
+    is an over-refusal, and the cheaper of the two errors.
+
+    Whitespace is not normalised and the comparison is exact, for the same
+    reason `body_sha256` normalises nothing: a quote that is approximately the
+    clinician's words is the model's words.
+    """
+    for body in signed_bodies:
+        if body:
+            text = text.replace(body, " ")
+    return text
 
 
 def _dangerous_values(analysis: dict) -> bool:
@@ -154,15 +201,21 @@ def _dangerous_values(analysis: dict) -> bool:
 
 
 def apply_guardrails(
-    text: str, analysis: dict, profile: str = AUTONOMOUS
+    text: str, analysis: dict, profile: str = AUTONOMOUS, signed_bodies=()
 ) -> tuple[str, list[str]]:
     """Deterministic checks after the LLM has spoken.
 
-    Detection is identical in both profiles and only the consequence differs:
-    `autonomous` replaces the text, `clinician_queue` labels it. They must not
-    disagree about what counts as medication content — a draft that reached a
-    user unflagged, carrying text the autonomous profile would have replaced,
-    is the exact failure the flags exist to prevent.
+    Detection is identical in `autonomous` and `clinician_queue` and only the
+    consequence differs: `autonomous` replaces the text, `clinician_queue`
+    labels it. They must not disagree about what counts as medication content —
+    a draft that reached a user unflagged, carrying text the autonomous profile
+    would have replaced, is the exact failure the flags exist to prevent.
+
+    `quoting_signed` is the one place detection differs, and only by
+    subtraction: bytes this user has already been delivered are not the model's
+    words, so they are lifted out before the rules run. `signed_bodies` is
+    ignored by the other two profiles, so no caller can buy an exemption in a
+    profile that has no notion of one.
     """
     if profile not in PROFILES:
         # A typo at a call site must not become a censorship bypass. Falling
@@ -175,12 +228,23 @@ def apply_guardrails(
         )
         profile = AUTONOMOUS
 
+    # What the model is answerable for. The same text in every profile but
+    # `quoting_signed`, where a verbatim delivered body belongs to whoever
+    # signed it.
+    own_words = text
+    if profile == QUOTING_SIGNED:
+        own_words = _without_signed_quotes(text, signed_bodies)
+
     flags: list[str] = []
-    if _matches(_DIAGNOSIS, text):
+    if _matches(_DIAGNOSIS, own_words):
         flags.append("diagnosis")
-    if _matches(_MEDICATION, text):
+    if _matches(_MEDICATION, own_words):
         flags.append("medication")
-    if flags and profile == AUTONOMOUS:
+    # Every profile except the clinician queue is text on its way to a user, so
+    # the replacement is the default and a new profile has to opt out of it
+    # deliberately. Written the other way round, adding a fourth profile and
+    # forgetting this line would put unreviewed medication advice on a screen.
+    if flags and profile != CLINICIAN_QUEUE:
         text = SAFE_FALLBACK
 
     # Never gated on the profile, and deliberately after the replacement above

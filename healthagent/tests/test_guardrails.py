@@ -257,7 +257,7 @@ def test_an_unknown_profile_falls_back_to_the_stricter_one():
 
 
 def test_the_profiles_are_enumerated_so_a_caller_cannot_invent_one():
-    assert PROFILES == (AUTONOMOUS, CLINICIAN_QUEUE)
+    assert PROFILES == (AUTONOMOUS, CLINICIAN_QUEUE, QUOTING_SIGNED)
 
 
 # ── A concentration is not a dose ────────────────────────────────────────────
@@ -364,3 +364,140 @@ def test_repletion_phrasing_is_flagged_for_the_clinician_too():
 
         assert "medication" in flags, text
         assert cleaned == text, text
+
+
+# ── Repeating what a clinician signed ────────────────────────────────────────
+#
+# F6's parting gift, and the first thing F7 had to decide. A delivered
+# supplement insight says "Magnesium supplementation is the usual response to a
+# level below the reference range". A clinician put their registration number
+# against those exact words, the user is looking at them on the Labs screen --
+# and until this profile existed, an agent that quoted them had its whole reply
+# replaced by SAFE_FALLBACK. The concierge was mute about the most valuable
+# thing in the product.
+#
+# The fix is deliberately not "loosen the autonomous profile". "The model says a
+# clinician said it" is exactly the claim this gate exists to refuse. What is
+# permitted is narrower: bytes that appear verbatim in an insight already
+# delivered to *this* user, supplied by the caller from the scoped loader and
+# never by the model. Everything the model wrote itself still faces the full
+# autonomous rules.
+
+from app.agent.guardrails import ESCALATION_LINE, QUOTING_SIGNED
+
+SIGNED_BODY = (
+    "Magnesium was 1.4 mg/dL on 3 October 2026, below the standard range of "
+    "1.7-2.2 mg/dL. Magnesium supplementation is the usual response to a level "
+    "below the reference range."
+)
+
+
+def test_a_signed_body_is_replaced_in_the_autonomous_profile():
+    """The starting position, pinned so a later widening of the autonomous
+    profile cannot pass as this feature."""
+    cleaned, flags = apply_guardrails(SIGNED_BODY, {"metrics": {}})
+
+    assert flags == ["medication"]
+    assert cleaned == SAFE_FALLBACK
+
+
+def test_a_delivered_body_may_be_quoted_back_verbatim():
+    reply = f'Your clinician signed this off: "{SIGNED_BODY}"'
+
+    cleaned, flags = apply_guardrails(
+        reply, {"metrics": {}}, profile=QUOTING_SIGNED, signed_bodies=[SIGNED_BODY]
+    )
+
+    assert flags == []
+    assert cleaned == reply
+
+
+def test_a_body_the_user_was_never_delivered_is_not_quotable():
+    """The claim the gate refuses. Nothing about the sentence changes -- only
+    whether this user actually has it, which the caller reads from the database
+    and the model cannot influence."""
+    reply = f'Your clinician signed this off: "{SIGNED_BODY}"'
+
+    cleaned, flags = apply_guardrails(
+        reply, {"metrics": {}}, profile=QUOTING_SIGNED, signed_bodies=[]
+    )
+
+    assert flags == ["medication"]
+    assert cleaned == SAFE_FALLBACK
+
+
+def test_an_edited_quote_is_not_the_text_that_was_signed():
+    """One word, and it is the model's sentence rather than the clinician's.
+    'Usual' became 'recommended', which is a sharper claim than the words a
+    registration number stands behind."""
+    edited = SIGNED_BODY.replace("the usual response", "the recommended response")
+
+    cleaned, flags = apply_guardrails(
+        edited, {"metrics": {}}, profile=QUOTING_SIGNED, signed_bodies=[SIGNED_BODY]
+    )
+
+    assert flags == ["medication"]
+    assert cleaned == SAFE_FALLBACK
+
+
+def test_the_models_own_advice_beside_a_valid_quote_is_still_replaced():
+    """The reply a model actually writes: quote the clinician, then helpfully
+    add a sentence of its own. The quote is exempt and the addition is not, so
+    the reply still goes."""
+    reply = (
+        f'Your clinician signed this off: "{SIGNED_BODY}" '
+        "I would take 400 mg of it before bed."
+    )
+
+    cleaned, flags = apply_guardrails(
+        reply, {"metrics": {}}, profile=QUOTING_SIGNED, signed_bodies=[SIGNED_BODY]
+    )
+
+    assert flags == ["medication"]
+    assert cleaned == SAFE_FALLBACK
+
+
+def test_with_nothing_signed_the_quoting_profile_is_the_autonomous_profile():
+    """The property that makes the third path narrow rather than lenient: it
+    adds exactly one thing, verbatim signed text, and nothing else. Anything
+    the autonomous profile blocks with an empty signed set is a widening of the
+    gate rather than a use of it."""
+    for text in [CLEAN, *REPLETION_PHRASINGS, "You likely have an infection."]:
+        strict = apply_guardrails(text, analysis())
+        quoting = apply_guardrails(
+            text, analysis(), profile=QUOTING_SIGNED, signed_bodies=[]
+        )
+
+        assert quoting == strict, text
+
+
+def test_signed_bodies_are_ignored_by_the_other_profiles():
+    """A caller cannot buy an exemption in a profile that has no notion of one.
+    The autonomous profile is what every F0-F6 caller uses and it must keep
+    behaving byte-identically whatever else is passed to it."""
+    for profile in (AUTONOMOUS, CLINICIAN_QUEUE):
+        with_exemption = apply_guardrails(
+            SIGNED_BODY, {"metrics": {}}, profile=profile, signed_bodies=[SIGNED_BODY]
+        )
+        without = apply_guardrails(SIGNED_BODY, {"metrics": {}}, profile=profile)
+
+        assert with_exemption == without, profile
+        assert "medication" in with_exemption[1], profile
+
+
+def test_an_escalation_still_reaches_a_user_mid_quote():
+    """Never gated on the profile. A dangerous reading is an emergency whatever
+    else the reply is doing, exactly as in the other two."""
+    reply = f'Your clinician signed this off: "{SIGNED_BODY}"'
+
+    cleaned, flags = apply_guardrails(
+        reply, analysis(spo2=80.0), profile=QUOTING_SIGNED, signed_bodies=[SIGNED_BODY]
+    )
+
+    assert "escalation" in flags
+    assert cleaned.endswith(ESCALATION_LINE)
+    assert SIGNED_BODY in cleaned
+
+
+def test_the_quoting_profile_is_enumerated():
+    assert QUOTING_SIGNED in PROFILES
