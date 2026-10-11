@@ -381,3 +381,23 @@ def test_a_therapy_is_not_a_confounder_of_itself():
 
     assert result["reported"][0]["sessions"] == 8
     assert result["reported"][0]["sessions_confounded"] == 0
+
+
+def test_the_app_has_a_label_for_every_signal_the_engine_tracks():
+    """Cross-language drift check. A metric the engine reports and the app
+    has no label for renders as `heartRate` on a card -- F4 shipped "Rdw" and
+    "Hs crp" to a real screen with every test on both sides green."""
+    import re
+    from pathlib import Path
+
+    from app.analytics.event_analysis import TRACKED
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "mobile" / "lib" / "features" / "therapies" / "models"
+        / "therapy_effect.dart"
+    ).read_text()
+    block = source.split("const metricLabels = <String, String>{", 1)[1].split("};", 1)[0]
+    labelled = set(re.findall(r"'(\w+)':", block))
+
+    assert set(TRACKED) <= labelled
