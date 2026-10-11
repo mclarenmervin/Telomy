@@ -333,12 +333,28 @@ class _Composer extends StatelessWidget {
   final bool busy;
   final VoidCallback onSend;
 
+  /// How far the shell's floating action button reaches into this row.
+  ///
+  /// `AppShell` docks a 56px FAB into the notch of its bottom bar on a phone,
+  /// so it stands ~28px proud of the bar and lands on the bottom centre of the
+  /// composer — on a device, directly over the text field. On a wide layout
+  /// the same button floats at the bottom right instead, which is where the
+  /// send button is. Both are the host's geometry rather than this widget's,
+  /// and the composer simply keeps out of the way.
+  ///
+  /// Found on the emulator. Every widget test passed with the two overlapping,
+  /// because nothing in a test renders the shell around this screen.
+  static const _fabClearance = 36.0;
+  static const _wideBreakpoint = 760.0;
+
   @override
   Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        padding: EdgeInsets.fromLTRB(16, 4, wide ? _fabClearance + 56 : 16,
+            wide ? 12 : _fabClearance),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [

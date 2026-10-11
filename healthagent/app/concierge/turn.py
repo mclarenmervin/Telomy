@@ -58,6 +58,7 @@ from typing import Callable
 
 from app.agent.guardrails import (
     ESCALATION_LINE,
+    MIXED_REVIEW_FALLBACK,
     QUOTING_SIGNED,
     SAFE_FALLBACK,
     UNKEEPABLE_PROMISE_FALLBACK,
@@ -68,7 +69,11 @@ from app.agent.guardrails import (
 from app.agent.numbers import check_numbers, collect_tool_numbers
 from app.analytics.safety import screen_for_emergency
 from app.common.logging_config import get_logger, log_context
-from app.concierge.grounding import quotable_bodies, quoted_insight_ids
+from app.concierge.grounding import (
+    quotable_bodies,
+    quoted_insight_ids,
+    repeated_unreviewed,
+)
 from app.concierge.persist import save_turn
 from app.concierge.state import ConciergeContext
 
@@ -339,14 +344,28 @@ class Concierge:
         if promised:
             flags.append("unkeepable_promise")
 
+        # Repeating a finding nobody reviewed, word for word. The harm is not
+        # unreviewed advice -- there is none in a sentence about ferritin
+        # falling 34% -- but a signature attributed to words nobody read,
+        # which is the distinction the whole product rests on. Judged on the
+        # full reply rather than on `mine`, because the question is whether
+        # these bytes went out at all.
+        misattributed = repeated_unreviewed(reply, insights)
+        if misattributed:
+            flags.append("repeated_unreviewed")
+            logger.warning(f"a chat reply repeated unreviewed findings {misattributed}")
+
         # Priority is the order of harm. Medical content the model was not
-        # entitled to write outranks a promise it cannot keep, and both outrank
-        # letting the text through.
+        # entitled to write outranks a signature attributed to the wrong text,
+        # which outranks a promise it cannot keep, and all three outrank
+        # letting the reply through.
         medical = bool({"diagnosis", "medication"} & set(guardrail_flags)) or bool(
             figures.measurements
         )
         if medical:
             answered, route = SAFE_FALLBACK, GUARDRAIL_REPLACED
+        elif misattributed:
+            answered, route = MIXED_REVIEW_FALLBACK, GUARDRAIL_REPLACED
         elif promised:
             answered, route = UNKEEPABLE_PROMISE_FALLBACK, GUARDRAIL_REPLACED
         else:

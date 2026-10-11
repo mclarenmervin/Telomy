@@ -149,3 +149,81 @@ def test_only_quotable_insights_can_be_cited():
     )
 
     assert quoted_insight_ids(f"The finding reads: {SUPPLEMENT_BODY}", [row]) == []
+
+
+# ── Repeating what nobody reviewed ───────────────────────────────────────────
+#
+# Found by asking the real model, against live data, "what has a clinician
+# signed off for me? Quote it exactly." It quoted the signed HbA1c finding and
+# then quoted the *SLA-released* ferritin finding directly underneath, under
+# one heading: "Dr Meera Raghavan signed these off:".
+#
+# Nothing refused it. There is no medication language in a sentence about
+# ferritin falling 34%, the figures all came from the tool's own evidence, and
+# the guardrail has no notion of who said what. The harm is not unreviewed
+# advice — it is a signature attributed to text nobody read, which is the one
+# distinction this entire product rests on.
+#
+# The rule is a bright line rather than a cleverer attribution check: repeating
+# a finding word for word is a privilege that comes from a signature. An
+# unreviewed finding can still be described, and its numbers are grounded by
+# the tool's evidence like any others.
+
+from app.concierge.grounding import repeated_unreviewed
+
+FERRITIN_BODY = (
+    "Ferritin has fallen 34.0% across 3 results, from 94 ng/mL on 12 February "
+    "2026 to 62 ng/mL on 30 September 2026."
+)
+
+
+def unreviewed(**overrides) -> dict:
+    return signed(
+        id="22222222-2222-2222-2222-222222222222",
+        body=FERRITIN_BODY,
+        delivery_route="sla_expired",
+        reviewer_name=None,
+        reviewer_registration=None,
+        reviewed_at=None,
+        **overrides,
+    )
+
+
+def test_repeating_an_unreviewed_finding_is_caught():
+    reply = f'Dr A. Rao signed these off:\n\n"{FERRITIN_BODY}"'
+
+    assert repeated_unreviewed(reply, [unreviewed()]) == [
+        "22222222-2222-2222-2222-222222222222"
+    ]
+
+
+def test_describing_an_unreviewed_finding_is_not_repeating_it():
+    """The model keeps the ability to talk about it. Only the verbatim form is
+    reserved, because the only reason to use somebody's exact words is to
+    present them as authoritative — and for this one there is no authority."""
+    reply = (
+        "One finding about ferritin was released without a clinician reading "
+        "it. It says your ferritin fell about 34% across three results."
+    )
+
+    assert repeated_unreviewed(reply, [unreviewed()]) == []
+
+
+def test_a_signed_finding_is_not_an_unreviewed_one():
+    reply = f'The finding reads: "{SUPPLEMENT_BODY}"'
+
+    assert repeated_unreviewed(reply, [signed(), unreviewed()]) == []
+
+
+def test_the_real_reply_that_found_this_is_caught():
+    """Verbatim, from the live run. Both findings quoted under one attribution,
+    only one of them signed."""
+    reply = (
+        "Dr Meera Raghavan signed these off:\n\n"
+        f'"{SUPPLEMENT_BODY}"\n\n'
+        f'"{FERRITIN_BODY}"'
+    )
+
+    assert repeated_unreviewed(reply, [signed(), unreviewed()]) == [
+        "22222222-2222-2222-2222-222222222222"
+    ]

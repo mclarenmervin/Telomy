@@ -47,11 +47,16 @@ def test_a_unit_carrying_figure_is_a_measurement_claim():
 def test_a_year_is_not_a_measurement_claim():
     """A conversation is full of dates. If a year counted as an invented
     measurement, the check would fire on almost every honest reply and stop
-    meaning anything — which is how a check gets switched off."""
+    meaning anything — which is how a check gets switched off.
+
+    It is not counted as an unsupported figure either, which is a correction
+    made after running the concierge against live data: see the section at the
+    bottom of this file.
+    """
     check = check_numbers("Your panel from 3 October 2026 is the latest one.", set())
 
     assert check.measurements == frozenset()
-    assert "2026" in check.unverified
+    assert check.unverified == frozenset()
 
 
 def test_small_bare_counts_are_forgiven():
@@ -80,3 +85,59 @@ def test_tool_numbers_come_from_structured_values_not_prose():
 
     assert "93" not in allowed
     assert "1.4" not in allowed
+
+
+# ── Tokens that are not figures at all ───────────────────────────────────────
+#
+# Found by running the concierge against live data: two honest answers came
+# back flagged. One mentioned a date, the other named the clinician who signed
+# a finding — "Dr Meera Raghavan, KMC-2019-44871" — and the check read 2019 and
+# 44871 as claims about somebody's body.
+#
+# That is the failure the report's own comment warns about: a check that fires
+# on nearly every honest sentence stops carrying information, and then somebody
+# switches it off. A conversation names dates and people constantly where a
+# report never did.
+#
+# A unit still overrides all of this, because a unit is what makes a figure a
+# measurement. "1.7-2.2 mg/dL" must stay catchable even though the 2.2 sits
+# inside a compound token.
+
+def test_a_registration_number_is_not_a_measurement():
+    check = check_numbers("Dr Meera Raghavan, KMC-2019-44871, signed this.", set())
+
+    assert check.unverified == frozenset()
+
+
+def test_an_iso_date_is_not_a_measurement():
+    check = check_numbers("The stored result is for 2026-10-10.", set())
+
+    assert check.unverified == frozenset()
+
+
+def test_a_written_year_is_not_a_measurement():
+    check = check_numbers("Your panel was taken in October 2026.", set())
+
+    assert check.unverified == frozenset()
+
+
+def test_a_bare_figure_with_no_unit_is_still_flagged():
+    """The forgiveness is for compound tokens and years, not for free-standing
+    numbers the model produced out of nowhere."""
+    check = check_numbers("Your score came out at 91 overall.", set())
+
+    assert check.unverified == frozenset({"91"})
+
+
+def test_a_unit_overrides_every_forgiveness():
+    """A fabricated range is a compound token, and it is exactly the kind of
+    claim that must not slip through on a technicality."""
+    check = check_numbers("The standard range is 1.7-2.2 mg/dL.", set())
+
+    assert "2.2" in check.measurements
+
+
+def test_a_year_with_a_unit_is_still_a_claim():
+    check = check_numbers("Your ferritin was 2026 ng/mL.", set())
+
+    assert "2026" in check.measurements

@@ -13,6 +13,7 @@ import pytest
 
 from app.agent.guardrails import (
     ESCALATION_LINE,
+    MIXED_REVIEW_FALLBACK,
     SAFE_FALLBACK,
     UNKEEPABLE_PROMISE_FALLBACK,
 )
@@ -249,17 +250,32 @@ def test_an_invented_measurement_is_not_shown_to_the_user():
     assert "unsupported_measurement" in turn.flags
 
 
-def test_an_ungrounded_date_is_flagged_but_not_refused():
-    """A conversation is full of dates and ordinals. Replacing a whole reply
-    over "2026" would make the concierge useless, and a flag an operator can
-    count is the proportionate answer."""
-    narrator = FakeNarrator(reply="Your last panel was in 2026.")
+def test_an_ungrounded_figure_with_no_unit_is_flagged_but_not_refused():
+    """Not every unsupported number is an invented measurement. A bare one is
+    worth counting and not worth replacing a whole reply over — a check that
+    fires on every honest sentence is a check somebody switches off."""
+    narrator = FakeNarrator(reply="Your score came out at 91 overall.")
+    concierge, _ = build(narrator=narrator)
+
+    turn = concierge.answer(user_id=USER, message="how did I score?")
+
+    assert turn.answered == "Your score came out at 91 overall."
+    assert "unverified_number" in turn.flags
+    assert turn.route == ANSWERED
+
+
+def test_a_date_is_not_flagged_at_all():
+    """Found on live data: naming a date, or the clinician who signed a
+    finding, was enough to flag an honest answer. A conversation about lab
+    history cannot avoid either."""
+    narrator = FakeNarrator(
+        reply="Your last panel was taken on 2026-10-10, signed by Dr A. Rao, KMC/12345."
+    )
     concierge, _ = build(narrator=narrator)
 
     turn = concierge.answer(user_id=USER, message="when was my last panel?")
 
-    assert turn.answered == "Your last panel was in 2026."
-    assert "unverified_number" in turn.flags
+    assert turn.flags == []
     assert turn.route == ANSWERED
 
 
@@ -430,3 +446,87 @@ def test_the_turn_records_which_model_answered():
     concierge.answer(user_id=USER, message="how am I doing?")
 
     assert saved(db)[0]["model"] == "gpt-test-1"
+
+
+# ── Repeating what nobody reviewed ───────────────────────────────────────────
+#
+# The defect the device run found, and the one the whole product rests on: a
+# named clinician's signature attributed to words nobody read. See
+# `grounding.repeated_unreviewed` for the reply that found it.
+
+FERRITIN_BODY = (
+    "Ferritin has fallen 34.0% across 3 results, from 94 ng/mL on 12 February "
+    "2026 to 62 ng/mL on 30 September 2026."
+)
+
+
+def unreviewed_row(**overrides):
+    return insight_row(
+        id="22222222-2222-2222-2222-222222222222",
+        kind="lab_finding",
+        body=FERRITIN_BODY,
+        delivery_route="sla_expired",
+        reviewer_name=None,
+        reviewer_registration=None,
+        reviewed_at=None,
+        **overrides,
+    )
+
+
+def test_quoting_an_unreviewed_finding_under_a_signature_is_refused():
+    """The live reply, which nothing else in the system would have caught:
+    no medication language, and every figure grounded by the tool's own
+    evidence."""
+    narrator = FakeNarrator(
+        reply=f'Dr A. Rao signed these off:\n\n"{SIGNED_BODY}"\n\n"{FERRITIN_BODY}"',
+        # The ferritin figures as the tool returned them, in `evidence`. Live,
+        # this is what made the reply pass the figure check -- the numbers were
+        # all real. Nothing else in the system would have stopped it.
+        tool_json='{"status": "ok", "items": [{"evidence": ['
+        '{"value_canonical": 94}, {"value_canonical": 62}, {"value_canonical": 34.0}]}]}',
+    )
+    concierge, _ = build(
+        {"insights": [insight_row(), unreviewed_row()]}, narrator=narrator
+    )
+
+    turn = concierge.answer(user_id=USER, message="what has a clinician signed off?")
+
+    assert turn.answered == MIXED_REVIEW_FALLBACK
+    assert "repeated_unreviewed" in turn.flags
+    assert turn.route == GUARDRAIL_REPLACED
+
+
+def test_a_refused_reply_claims_no_quotes():
+    """The trail must not record a clinician's words as having gone out in a
+    reply the user never saw."""
+    narrator = FakeNarrator(
+        reply=f'"{SIGNED_BODY}"\n\n"{FERRITIN_BODY}"',
+        tool_json='{"status": "ok", "items": [{"evidence": ['
+        '{"value_canonical": 94}, {"value_canonical": 62}, {"value_canonical": 34.0}]}]}',
+    )
+    concierge, db = build(
+        {"insights": [insight_row(), unreviewed_row()]}, narrator=narrator
+    )
+
+    turn = concierge.answer(user_id=USER, message="what has a clinician signed off?")
+
+    assert turn.quoted_insight_ids == []
+    assert saved(db)[0]["quoted_insight_ids"] == []
+
+
+def test_describing_an_unreviewed_finding_still_works():
+    """The capability is not withdrawn, only the verbatim form. Everything the
+    model says here is its own, and the numbers come from the tool."""
+    narrator = FakeNarrator(
+        reply=(
+            "One finding about ferritin was released without a clinician "
+            "reading it, so nobody has checked it."
+        ),
+        tool_json='{"status": "ok", "items": []}',
+    )
+    concierge, _ = build({"insights": [unreviewed_row()]}, narrator=narrator)
+
+    turn = concierge.answer(user_id=USER, message="what about ferritin?")
+
+    assert turn.route == ANSWERED
+    assert turn.flags == []

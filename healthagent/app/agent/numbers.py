@@ -109,6 +109,26 @@ def collect_tool_numbers(messages) -> set[str]:
     return found
 
 
+# A figure that is part of a longer alphanumeric token: a registration number
+# ("KMC-2019-44871"), an ISO date ("2026-10-10"), an id. Found by running the
+# concierge against live data, where naming the clinician who signed a finding
+# was enough to flag an honest answer. A conversation names dates and people
+# constantly, where a report never did.
+_INSIDE_A_TOKEN = re.compile(r"[A-Za-z0-9]-|/|\d-$")
+
+# Years, which a conversation about lab history cannot avoid. Bounded rather
+# than "any four digits", so a four-digit measurement is still a measurement.
+_YEAR_RANGE = (1900, 2100)
+
+
+def _is_year(token: str) -> bool:
+    return (
+        len(token) == 4
+        and token.isdigit()
+        and _YEAR_RANGE[0] <= int(token) <= _YEAR_RANGE[1]
+    )
+
+
 @dataclass(frozen=True)
 class NumberCheck:
     """What a piece of prose claims that nothing backs up.
@@ -138,10 +158,17 @@ def check_numbers(text: str, allowed) -> NumberCheck:
         token = match.group()
         if token in allowed:
             continue
-        carries_unit = bool(_UNIT_AFTER.match(text, match.end()))
-        if carries_unit:
+        # A unit beside the number is checked first and forgives nothing
+        # below, because a unit is what makes a figure a claim about a body.
+        # "1.7-2.2 mg/dL" sits inside a compound token and a fabricated range
+        # is exactly the claim that must not pass on a technicality.
+        if _UNIT_AFTER.match(text, match.end()):
             unverified.add(token)
             measurements.add(token)
+            continue
+        if _is_year(token):
+            continue
+        if _INSIDE_A_TOKEN.search(text[max(0, match.start() - 2) : match.start()]):
             continue
         if float(token).is_integer() and float(token) <= SMALL_NUMBER_LIMIT:
             continue

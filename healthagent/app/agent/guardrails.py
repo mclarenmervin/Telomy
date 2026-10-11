@@ -32,6 +32,24 @@ UNKEEPABLE_PROMISE_FALLBACK = (
     "already have — ask me about any of them."
 )
 
+# ── A signature attributed to words nobody read ──────────────────────────────
+#
+# Found by asking the real model, against live data, "what has a clinician
+# signed off for me?" It quoted the signed finding and the SLA-released one
+# under a single heading naming the clinician who signed only the first.
+#
+# Nothing else in this file would have caught it: there is no medication
+# language in a sentence about ferritin, and the rules above have no notion of
+# who said what. The gate lives in `turn.py` with the insight rows it needs;
+# the wording lives here with the other replacements, and it answers the
+# question honestly rather than refusing to speak.
+MIXED_REVIEW_FALLBACK = (
+    "I can't reliably tell you which of your findings a clinician has signed "
+    "and which were released without anybody reading them, so I would rather "
+    "not guess. Both kinds are on your Lab results screen and each one says "
+    "which it is."
+)
+
 _PROMISES = [
     # A named human, and a future tense. The past tense is the whole product --
     # "a clinician reviewed and signed this on 5 October" is the most valuable

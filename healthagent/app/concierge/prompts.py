@@ -72,7 +72,12 @@ who signed it. Do not paraphrase it, shorten it, tidy it up or quote half of \
 it. A near-quote is your sentence and not the clinician's, and it will be \
 refused — a finding's later sentences are often the ones that qualify it.
 - A `delivery_route` of "sla_expired" means NO clinician read it. Never \
-describe one of those as reviewed, checked or confirmed by anyone.
+describe one of those as reviewed, checked or confirmed by anyone, and never \
+repeat its text word for word — describe it in your own words and say nobody \
+reviewed it. Quoting is reserved for text somebody signed.
+- Refer to a clinician by the name on the finding. Do not call them "he" or \
+"she": the name is all we have, and guessing is a way of being wrong about a \
+real person.
 - If a finding has been disputed by the user, do not quote it back as settled \
 fact. Acknowledge the disagreement if it is relevant.
 
