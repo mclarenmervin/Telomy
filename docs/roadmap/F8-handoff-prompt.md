@@ -118,7 +118,7 @@ test that repoints a YAML path has to clear them; migrations are numbered only,
 Commands:
 
 Backend tests: cd healthagent && PYTHONPATH=. .venv/bin/python -m pytest -q (1299 passing)
-Mobile tests: cd mobile && flutter test (341 passing)
+Mobile tests: cd mobile && flutter test (342 passing)
 Mobile lint: cd mobile && flutter analyze
 DB: set -a && . ./healthagent/.env && set +a then psql "$SUPABASE_DB_URL"
 SQL tests: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f healthagent/db/tests/<name>.sql (139 assertions, they roll back)
@@ -132,6 +132,35 @@ Working style: TDD throughout — write the failing test, watch it fail for the
 right reason, then implement. Mutate the implementation to check a safety test
 actually fails when the gate is removed. Small commits with messages that
 explain why. Run both suites before each commit. Push to staging.
+
+Inherited from F7, and the first thing to clear: **four paths exist only in
+tests and have never been seen on a screen.** F7's device session ran out of
+disk before they were reached, and all four are cheap now that the plumbing
+works — the chat endpoint, the emulator and `scripts/ask_concierge.py` are all
+proven. Do these before starting new work, because each one is a rendering
+path, and a rendering bug is exactly what every phase's tests have passed
+through: F4 shipped "Rdw" and "Hs crp" to a real screen with everything green.
+
+  1. **The emergency card.** `screen_for_emergency` fires correctly through the
+     real pipeline — verified, `route=emergency`, no model call — but the red
+     `_Emergency` widget has only ever rendered in a widget test. Type "I think
+     I'm having a heart attack" into the app and look at it.
+  2. **The escalation line on a chat turn.** Thoroughly unit-tested, never
+     exercised on a device, because the test account had no open row. Insert
+     one into `lab_escalations` with `acknowledged_at` null, ask any question,
+     and confirm the line is appended AND that nothing acknowledged the
+     escalation afterwards.
+  3. **The misattribution refusal.** The gate has never fired against a real
+     model: the defect appeared in the first live run and the model stopped
+     reproducing it after the fix. Reproduce it deliberately — ask the model to
+     quote everything, with `dev_clinical_demo.sql` seeded so an `sla_expired`
+     finding is present — or accept that it is unit and mutation tested only
+     and say so.
+  4. **The daily cap, the `unavailable` route and the wide layout.** Set
+     `MAX_CHAT_TURNS_PER_DAY=1` and confirm the app shows the 429's message
+     rather than a crash; unset the model key and confirm the honest fallback;
+     open the app on a tablet-sized window and confirm the composer still
+     clears the shell's floating button, which moves to the other corner there.
 
 Blocked, and F7 could not close it either: **two files need a clinician's
 signature.** `biomarkers.v1.yaml` (nine markers unblock biological age: albumin,
