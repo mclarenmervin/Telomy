@@ -607,3 +607,41 @@ def test_an_ordinary_question_still_reaches_the_model():
     concierge.answer(user_id=USER, message="what was my vitamin D last time?")
 
     assert narrator.calls
+
+
+# ── The routes the database will accept ──────────────────────────────────────
+
+def test_every_route_the_turn_can_produce_is_one_the_database_accepts():
+    """Found on the emulator, and invisible to every test on both sides.
+
+    `genetic_risk` was added here and not to the check constraint on
+    `chat_turns.route`. The insert failed with 23514, `save_turn` logged it
+    and swallowed it -- correctly, because the answer was already guarded and
+    losing an audit row must not swallow a reply somebody is waiting for --
+    and the endpoint returned 200. The user got a perfectly good answer that
+    was never recorded.
+
+    The quiet half is worse than the missing row. `turns_since` counts
+    `chat_turns`, so a route the constraint rejects does not count towards
+    the daily cap: add a route, forget the migration, and the budget stops
+    applying to it with nothing in the response to say so.
+
+    The fakes have no constraints, so only the file can be asked.
+    """
+    import re
+    from pathlib import Path
+
+    produced = {ANSWERED, GUARDRAIL_REPLACED, EMERGENCY, UNAVAILABLE, GENETIC_RISK}
+
+    sql = ""
+    for path in sorted((Path(__file__).resolve().parents[1] / "db").glob("*.sql")):
+        sql += path.read_text()
+
+    # The last declaration wins: a later migration may replace the constraint.
+    declarations = re.findall(
+        r"check\s*\(\s*route\s+in\s*\(([^)]*)\)", sql, re.I | re.S
+    )
+    assert declarations, "no check constraint on chat_turns.route was found"
+    accepted = set(re.findall(r"'([a-z_]+)'", declarations[-1]))
+
+    assert produced <= accepted, f"the database would reject {produced - accepted}"
