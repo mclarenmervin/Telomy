@@ -460,3 +460,26 @@ def test_a_series_with_no_data_is_absent_rather_than_empty():
     }))
 
     assert correlations.build_series(loader, "u") == {}
+
+
+def test_the_app_has_a_label_for_every_series_the_server_can_report():
+    """Cross-language drift check, and the cheapest kind there is.
+
+    A series the server reports and the app has no label for renders as its
+    raw id — `resting_heart_rate` on a card. F4 shipped "Rdw" and "Hs crp" to
+    a real screen with every test on both sides green, because no test on
+    either side knew about the other.
+    """
+    import re
+    from pathlib import Path
+
+    from app.analytics.correlation_mechanisms import SERIES
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "mobile" / "lib" / "features" / "correlations" / "models" / "correlation.dart"
+    ).read_text()
+    block = source.split("const seriesLabels = <String, String>{", 1)[1].split("};", 1)[0]
+    labelled = set(re.findall(r"'([a-z_]+)':", block))
+
+    assert labelled == SERIES
