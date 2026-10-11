@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.common.logging_config import configure_logging
 from app.gateway.activity_webhooks import router as activity_router
+from app.gateway.api.chat import router as chat_router
 from app.gateway.api.labs import router as labs_router
 from app.gateway.api.scores import router as scores_router
 from app.gateway.lab_webhooks import router as lab_router
@@ -13,6 +14,7 @@ app.include_router(activity_router)
 app.include_router(lab_router)
 app.include_router(labs_router)
 app.include_router(scores_router)
+app.include_router(chat_router)
 
 
 @app.get("/health")
