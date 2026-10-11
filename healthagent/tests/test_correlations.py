@@ -409,7 +409,11 @@ def test_every_declared_series_can_actually_be_built():
     quiet month from a typo."""
     from app.analytics.correlation_mechanisms import SERIES
 
-    buildable = set(correlations.MEASUREMENT_SERIES) | set(correlations.ENTRY_SERIES)
+    buildable = (
+        {correlations.SLEEP_SERIES}
+        | set(correlations.MEASUREMENT_SERIES)
+        | set(correlations.ENTRY_SERIES)
+    )
     assert buildable == SERIES
 
 
@@ -483,3 +487,42 @@ def test_the_app_has_a_label_for_every_series_the_server_can_report():
     labelled = set(re.findall(r"'([a-z_]+)':", block))
 
     assert labelled == SERIES
+
+
+# ── Sleep is not a measurement type ──────────────────────────────────────────
+
+def test_sleep_duration_uses_the_one_sleep_implementation():
+    """A night is `sleep`, `sleepLight`, `sleepDeep` and `sleepRem` records
+    that may overlap, attributed to the day they END on. Reading a single
+    `sleep` measurement type would be a second implementation of something
+    `analytics/sleep.py` already does, and it would be wrong in three ways at
+    once: it misses a device that writes only stages, it double-counts two
+    devices recording the same night, and it puts a night that crossed
+    midnight on the wrong day.
+    """
+    rows = [
+        # One night, recorded as two overlapping stage records by two devices.
+        {"measurement_type": "sleepDeep", "value": 2.0,
+         "recorded_at": "2026-06-30T23:00:00+00:00"},
+        {"measurement_type": "sleepLight", "value": 3.0,
+         "recorded_at": "2026-07-01T00:30:00+00:00"},
+    ]
+    built = correlations.daily_sleep_series(rows)
+
+    # 23:00 -> 03:30 is 4.5 hours of union, not the 5.0 the two values sum to,
+    # and it lands on 1 July because that is when it ended.
+    assert built == {date(2026, 7, 1): pytest.approx(4.5)}
+
+
+def test_time_awake_in_the_night_is_not_counted_as_sleep():
+    rows = [
+        {"measurement_type": "sleep", "value": 3.0,
+         "recorded_at": "2026-07-01T01:00:00+00:00"},
+        {"measurement_type": "sleepAwake", "value": 1.0,
+         "recorded_at": "2026-07-01T04:00:00+00:00"},
+    ]
+    assert correlations.daily_sleep_series(rows) == {date(2026, 7, 1): pytest.approx(3.0)}
+
+
+def test_a_night_with_no_sleep_records_is_absent_rather_than_zero():
+    assert correlations.daily_sleep_series([]) == {}

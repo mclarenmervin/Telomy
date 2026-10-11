@@ -55,10 +55,11 @@ verdict; an explanation of why two things move together is a clinical claim
 and waits for a name and a registration number.
 """
 
-from datetime import date
+from datetime import date, datetime, time, timezone
 from statistics import fmean
 
 from app.analytics import correlation_mechanisms as mechanisms
+from app.analytics import sleep as sleep_model
 from app.analytics.correlation_mechanisms import NEGATIVE, POSITIVE
 from app.analytics.statistics import (
     benjamini_hochberg,
@@ -152,6 +153,50 @@ def daily_entry_series(rows, field: str) -> dict[date, float]:
             continue
         buckets[day] = buckets.get(day, 0.0) + value
     return buckets
+
+
+def daily_sleep_series(rows) -> dict[date, float]:
+    """Hours asleep per night, through the one sleep implementation.
+
+    Deliberately not `daily_measurement_series(rows, "sleep")`. A night is
+    not a measurement type: it is `sleep`, `sleepLight`, `sleepDeep` and
+    `sleepRem` records that frequently overlap, and `analytics/sleep.py`
+    already knows that. Summing a `measurement_type` of "sleep" would be a
+    second implementation and wrong three ways at once -- it misses a device
+    that writes only stages, it double-counts two devices recording the same
+    night, and a night that crossed midnight lands on the day it started
+    rather than the day it ended.
+
+    A night with no records is absent rather than zero. Nobody slept zero
+    hours; the ring was on the charger.
+    """
+    readings = []
+    for row in rows:
+        if row.get("measurement_type") not in sleep_model.SLEEP_TYPES:
+            continue
+        stamp = parse_ts(row.get("recorded_at"))
+        if stamp is None:
+            continue
+        try:
+            value = float(row["value"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        readings.append(sleep_model.Reading(row["measurement_type"], value, stamp))
+
+    if not readings:
+        return {}
+
+    # Every day a record could be attributed to, which is the day it ends on.
+    nights = sorted({reading.end.date() for reading in readings})
+    out: dict[date, float] = {}
+    for night in nights:
+        summary = sleep_model.summarize(
+            readings, datetime.combine(night, time.min, tzinfo=timezone.utc)
+        )
+        if summary.total_hours > 0:
+            out[night] = summary.total_hours
+    return out
+
 
 
 # ── The engine ───────────────────────────────────────────────────────────────
@@ -273,13 +318,16 @@ def _row(pair, coefficient, paired_days, effective, p_value, withheld_reason, pa
 #: a preference: steps are a count of something that happened, a resting heart
 #: rate is a state. Summing two heart rates gives 120 bpm.
 MEASUREMENT_SERIES = {
-    "sleep_duration": ("sleep", True),
     "steps": ("steps", True),
     "active_minutes": ("activity", True),
     "resting_heart_rate": ("restingHeartRate", False),
     "hrv": ("hrv", False),
     "stress": ("stress", False),
 }
+
+#: Sleep is absent above on purpose: it has its own builder, because a night
+#: is a union of overlapping stage records and not a measurement type.
+SLEEP_SERIES = "sleep_duration"
 
 #: The most journal rows one table may contribute to a window. A person
 #: logging five meals a day for ninety days reaches 450.
@@ -302,11 +350,14 @@ def build_series(loader, user_id: str, days: int = WINDOW_DAYS) -> dict[str, dic
     hypothesis we had no data for must not make the threshold harsher for the
     ones we did.
     """
-    measurements = loader.daily_measurements(
-        user_id, [name for name, _ in MEASUREMENT_SERIES.values()], days=days
-    )["items"]
+    wanted = [name for name, _ in MEASUREMENT_SERIES.values()]
+    wanted += sorted(sleep_model.SLEEP_TYPES)
+    measurements = loader.daily_measurements(user_id, wanted, days=days)["items"]
 
     series: dict[str, dict[date, float]] = {}
+    nights = daily_sleep_series(measurements)
+    if nights:
+        series[SLEEP_SERIES] = nights
     for series_id, (measurement_type, total) in MEASUREMENT_SERIES.items():
         built = daily_measurement_series(measurements, measurement_type, total=total)
         if built:
