@@ -28,15 +28,8 @@ quotable without this module knowing anything about it.
 SIGNED = "clinician_signed"
 
 
-def quotable_bodies(insights) -> tuple[str, ...]:
-    """The bodies of this user's signed insights, longest first.
-
-    Order is load-bearing rather than cosmetic. Removal is sequential, so if a
-    short body is a substring of a longer one and goes first, it is cut out of
-    the middle of the longer quote and that quote no longer matches itself —
-    the longer, better-qualified finding would be the one that failed the gate.
-    """
-    bodies = []
+def _quotable(insights):
+    """The insights a quote may lean on, as (id, body) pairs."""
     for insight in insights or []:
         if insight.get("delivery_route") != SIGNED:
             continue
@@ -45,5 +38,31 @@ def quotable_bodies(insights) -> tuple[str, ...]:
         body = insight.get("body")
         if not body or not body.strip():
             continue
-        bodies.append(body)
+        yield insight.get("id"), body
+
+
+def quoted_insight_ids(text: str, insights) -> list[str]:
+    """Which of these insights the text repeats word for word.
+
+    The provenance half of the exemption: the gate decides whether a quote may
+    go out, and this records which clinician's words went out. Same standard as
+    the gate -- a verbatim appearance, nothing normalised -- so a paraphrase is
+    recorded as nobody's but the model's, which is exactly what it is.
+    """
+    return [
+        insight_id
+        for insight_id, body in _quotable(insights)
+        if insight_id and body in (text or "")
+    ]
+
+
+def quotable_bodies(insights) -> tuple[str, ...]:
+    """The bodies of this user's signed insights, longest first.
+
+    Order is load-bearing rather than cosmetic. Removal is sequential, so if a
+    short body is a substring of a longer one and goes first, it is cut out of
+    the middle of the longer quote and that quote no longer matches itself —
+    the longer, better-qualified finding would be the one that failed the gate.
+    """
+    bodies = [body for _, body in _quotable(insights)]
     return tuple(sorted(bodies, key=len, reverse=True))

@@ -44,6 +44,16 @@ class Settings:
     # reports fail with a reason rather than being read by an engine nobody has
     # measured against real lab printouts yet.
     ocr_engine: str = ""
+    # A rolling 24 hours per person, and deliberately not a calendar day: a
+    # midnight reset invites a burst and needs a timezone the gateway does not
+    # have. `max_llm_calls`, `max_tool_calls` and `wall_clock_seconds` cap one
+    # turn; this caps the number of turns, which is the part an agent that
+    # loops cannot reach.
+    max_chat_turns_per_day: int = 40
+    # How much of the conversation the next turn is answered against. Each one
+    # costs context on every subsequent turn, and a concierge that remembers
+    # the last few exchanges is most of what makes it a conversation.
+    chat_history_turns: int = 6
 
 
 def _llm_overrides() -> dict[str, dict[str, str]]:
@@ -91,4 +101,6 @@ def get_settings() -> Settings:
         ),
         lab_queue_name=os.environ.get("LAB_QUEUE_NAME", "labs:batch"),
         ocr_engine=os.environ.get("OCR_ENGINE", ""),
+        max_chat_turns_per_day=int(os.environ.get("MAX_CHAT_TURNS_PER_DAY", "40")),
+        chat_history_turns=int(os.environ.get("CHAT_HISTORY_TURNS", "6")),
     )

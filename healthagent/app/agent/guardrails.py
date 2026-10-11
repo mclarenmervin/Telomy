@@ -12,6 +12,66 @@ ESCALATION_LINE = (
     "right away."
 )
 
+# ── A promise nobody can keep ────────────────────────────────────────────────
+#
+# The clinician console does not exist yet. F5 built the schema, the policies
+# and `clinician_may_sign` for it; until that repo ships, nothing claims a
+# draft, so every flagged draft is eventually flagged, expired and stranded.
+# `sweep_queue` reports the standing total.
+#
+# A conversation is where that becomes a lie rather than a backlog. "I've
+# flagged this and a clinician will get back to you" is a sentence a person
+# acts on by waiting, and it is the easiest sentence in the world for a model
+# to write, because it is what a helpful assistant says.
+#
+# So it is a deterministic rule rather than a line in a prompt, and the
+# replacement answers the question honestly instead of refusing to speak.
+UNKEEPABLE_PROMISE_FALLBACK = (
+    "I can't promise that a clinician will look at this, and I don't know when "
+    "one would. What I can do is go through the readings and the findings you "
+    "already have — ask me about any of them."
+)
+
+_PROMISES = [
+    # A named human, and a future tense. The past tense is the whole product --
+    # "a clinician reviewed and signed this on 5 October" is the most valuable
+    # sentence the concierge can say -- so only the future is refused.
+    re.compile(
+        r"\b(?:clinician|doctor|physician|specialist|reviewer|practitioner|"
+        r"medical team|care team)s?\b[^.]{0,40}"
+        r"\b(?:will|'ll|is going to|are going to|shall)\b",
+        re.I,
+    ),
+    # The passive form, which drops the human and keeps the promise.
+    re.compile(
+        r"\b(?:will|'ll)\s+(?:soon\s+|shortly\s+)?(?:be\s+)?"
+        r"(?:reviewed|looked at|checked|seen|signed|assessed|triaged)\b",
+        re.I,
+    ),
+    # Claiming an action we did not take. Chat creates no drafts and sends
+    # nothing to anybody: a draft a human has not asked for is exactly what the
+    # clinician spine exists to prevent.
+    re.compile(
+        r"\b(?:I|we)\b[^.]{0,20}(?:have |has |'ve )?"
+        r"\b(?:flagged|escalated|sent|forwarded|passed|referred|submitted)\b"
+        r"[^.]{0,30}\b(?:clinician|doctor|review|queue|team|physician)\b",
+        re.I,
+    ),
+    re.compile(r"\bget back to you\b", re.I),
+]
+
+
+def promises_human_action(text: str) -> bool:
+    """Does this text commit a human to doing something?
+
+    Kept out of `apply_guardrails` and its profiles on purpose. The other rules
+    are about medical content and apply to every surface; this one is about a
+    promise, which only a conversation is in a position to make — a report
+    narrates what already happened and a draft is addressed to the clinician
+    themselves.
+    """
+    return any(pattern.search(text) for pattern in _PROMISES)
+
 _DIAGNOSIS = [
     re.compile(r"\bdiagnos\w*", re.I),
     re.compile(
@@ -167,7 +227,7 @@ def _matches(patterns, text: str) -> bool:
     return any(p.search(text) for p in patterns)
 
 
-def _without_signed_quotes(text: str, signed_bodies) -> str:
+def own_words(text: str, signed_bodies) -> str:
     """`text` with every verbatim delivered body removed, leaving the model's
     own words to be judged on their own.
 
@@ -230,15 +290,15 @@ def apply_guardrails(
 
     # What the model is answerable for. The same text in every profile but
     # `quoting_signed`, where a verbatim delivered body belongs to whoever
-    # signed it.
-    own_words = text
+    # signed it rather than to the model that repeated it.
+    answerable_for = text
     if profile == QUOTING_SIGNED:
-        own_words = _without_signed_quotes(text, signed_bodies)
+        answerable_for = own_words(text, signed_bodies)
 
     flags: list[str] = []
-    if _matches(_DIAGNOSIS, own_words):
+    if _matches(_DIAGNOSIS, answerable_for):
         flags.append("diagnosis")
-    if _matches(_MEDICATION, own_words):
+    if _matches(_MEDICATION, answerable_for):
         flags.append("medication")
     # Every profile except the clinician queue is text on its way to a user, so
     # the replacement is the default and a new profile has to opt out of it

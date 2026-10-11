@@ -438,6 +438,73 @@ class ContextLoader:
         )
         return _ok(rows)
 
+    def chat_turns(self, user_id: str, limit: int = 6) -> dict:
+        """This user's recent concierge turns, newest first.
+
+        Fed back into the next turn's prompt, which is why it is read here and
+        not accepted from the client: a history the caller could supply would
+        be a way to put words in the product's mouth and then have it reason
+        over them, from the one party whose text the prompt is told to treat as
+        data. `016_chat_turns.sql` has no insert policy for the same reason.
+
+        `answered` is the text after the guardrails ran -- the version the
+        person actually saw. Replaying raw model output would have the next
+        turn build on sentences that were replaced.
+        """
+        rows = (
+            self._db.table("chat_turns")
+            .select("asked,answered,route,guardrail_flags,created_at")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
+    def turns_since(self, user_id: str, since: str) -> int:
+        """How many turns this person has had since `since`.
+
+        The budget cap's input. Per user, because counting everybody's turns
+        would let one busy account mute the product for everyone. Bounded by
+        the cap itself: a turn beyond it is never written, so this can never
+        return much more than the cap.
+        """
+        rows = (
+            self._db.table("chat_turns")
+            .select("id")
+            .eq("user_id", user_id)
+            .gte("created_at", since)
+            .execute()
+            .data
+        )
+        return len(rows)
+
+    def open_lab_escalations(self, user_id: str) -> dict:
+        """Critical lab values this person has not acknowledged yet.
+
+        A critical value cannot wait for a conversation, and a conversation
+        must not be where it is quietly dropped either -- so a turn appends the
+        escalation line whenever one of these is open, whatever the model said
+        and whatever the guardrail did to it.
+
+        Acknowledged ones are excluded. Repeating a value the person has
+        already seen in every reply forever is how a warning stops being read.
+        Nothing here ever *writes* `acknowledged_at`: chat is not allowed to be
+        the thing that marks an emergency as handled.
+        """
+        rows = (
+            self._db.table("lab_escalations")
+            .select("biomarker_id,value_canonical,operator,unit,message,created_at")
+            .eq("user_id", user_id)
+            .is_("acknowledged_at", "null")
+            .order("created_at", desc=True)
+            .limit(5)
+            .execute()
+            .data
+        )
+        return _ok(rows)
+
     def documents(self, user_id: str, kind: str | None = None, limit: int = 5) -> dict:
         """The user's uploaded documents.
 

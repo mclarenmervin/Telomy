@@ -110,3 +110,42 @@ def test_longest_first_so_a_shorter_body_cannot_shadow_a_longer_one():
         text, {"metrics": {}}, profile=QUOTING_SIGNED, signed_bodies=bodies
     )
     assert cleaned == text and flags == [], cleaned
+
+
+# ── Which finding a reply repeated ───────────────────────────────────────────
+#
+# The other half of the exemption. If a user ever asks why the app said
+# something about a supplement, the answer has to name the finding, and
+# therefore the clinician whose registration number stands behind the words.
+
+from app.concierge.grounding import quoted_insight_ids
+
+
+def test_a_verbatim_quote_names_its_insight():
+    reply = f'Your clinician signed this off: "{SUPPLEMENT_BODY}"'
+
+    assert quoted_insight_ids(reply, [signed()]) == [
+        "11111111-1111-1111-1111-111111111111"
+    ]
+
+
+def test_a_reply_that_quotes_nothing_names_nothing():
+    assert quoted_insight_ids("Your readiness was 68 yesterday.", [signed()]) == []
+
+
+def test_a_paraphrase_is_not_a_quote():
+    """The same standard the gate uses. A paraphrase is the model's sentence,
+    so it must not be recorded as a clinician's."""
+    reply = "Your clinician said magnesium supplementation is usually the answer."
+
+    assert quoted_insight_ids(reply, [signed()]) == []
+
+
+def test_only_quotable_insights_can_be_cited():
+    """An `sla_expired` body nobody signed must not be recorded as a quote of
+    something a clinician said, even when the reply does repeat it."""
+    row = signed(
+        delivery_route="sla_expired", reviewer_name=None, reviewer_registration=None
+    )
+
+    assert quoted_insight_ids(f"The finding reads: {SUPPLEMENT_BODY}", [row]) == []
