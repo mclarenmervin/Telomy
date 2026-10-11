@@ -143,13 +143,31 @@ def build_data_tools(loader) -> list:
         you must do the same. `operator` of '<' or '>' means the lab could not
         measure past that bound -- report it as written and never as the number
         alone.
+
+        `genetic_context` may carry a wellness gene variant for some of these
+        markers. It is CONTEXT and never a finding: it describes a tendency
+        across groups of people, it says nothing about whether this person is
+        deficient -- their result says that -- and it must never be offered as
+        the reason their value is what it is. Mention it only if they ask
+        about that marker, and never lead with it. Its `note` is null until a
+        clinician has signed the explanation off, which is the case for every
+        variant today: when it is null you may say which genotype they have
+        and you may NOT say what it means.
+
+        There is no way to ask for somebody's variants on their own, and that
+        is deliberate. A genotype with no measured marker beside it is not
+        something this product discusses.
         """
-        return loader.biomarker_results(
+        results = loader.biomarker_results(
             runtime.context.user_id,
             biomarker_id,
             days=clamp(days, 1, 3650),
             limit=clamp(limit, 1, MAX_LIMIT),
         )
+        context = loader.variant_context(runtime.context.user_id, results["items"])
+        if context:
+            results = {**results, "genetic_context": context}
+        return results
 
     @tool
     def get_biological_age(runtime: ToolRuntime[UserScope]) -> dict:

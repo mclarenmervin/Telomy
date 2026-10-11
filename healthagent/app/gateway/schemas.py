@@ -49,3 +49,20 @@ class LabUploadWebhookPayload(BaseModel):
     type: Literal["INSERT", "UPDATE", "DELETE"]
     table: str
     record: LabUploadRecord
+
+
+class GeneticUploadRecord(BaseModel):
+    """Only what decides whether to enqueue, as for a lab upload. The path and
+    the digest are deliberately not modelled: the worker re-reads the
+    authoritative row, so a replayed webhook cannot pin an import to a stale
+    location and a forged payload has nothing useful to forge."""
+
+    id: str
+    user_id: str
+    status: str
+
+
+class GeneticUploadWebhookPayload(BaseModel):
+    type: Literal["INSERT", "UPDATE", "DELETE"]
+    table: str
+    record: GeneticUploadRecord

@@ -35,3 +35,17 @@ def get_score_queue() -> JobQueue:
     settings = get_settings()
     redis_client = redis.Redis.from_url(settings.redis_url)
     return JobQueue(redis_client, settings.score_queue_name)
+
+
+@lru_cache
+def get_genetics_queue() -> JobQueue:
+    """The same lane the lab extractions use.
+
+    One worker reads documents and turns them into structured rows, which is
+    what `extraction-worker` is for in CLAUDE.md's service table; a genetics
+    export is a document. A second lane would be a second deployment for a
+    job that runs a few times per user, ever.
+    """
+    settings = get_settings()
+    redis_client = redis.Redis.from_url(settings.redis_url)
+    return JobQueue(redis_client, settings.lab_queue_name)

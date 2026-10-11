@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from app.analytics import genetics
 from app.analytics.check_in import CHECK_IN_PREFIX
 from app.analytics.event_analysis import BASELINE_DAYS, TRACKED, WINDOW, Reading, to_readings
 
@@ -414,6 +415,32 @@ class ContextLoader:
             .data
         )
         return _ok(rows)
+
+    def variant_context(self, user_id: str, biomarker_results) -> dict:
+        """Allowlisted genotypes, attached to markers this user has results for.
+
+        **Deliberately not a method that returns a person's variants.** It
+        takes the lab results first and returns nothing when there are none,
+        so there is no call shape that answers "what variants does this
+        person have" -- which is how the plan's rule that a variant may never
+        ORIGINATE an insight is held structurally rather than by a line in a
+        prompt. `genetic_variants` is the only table this loader reads that
+        has no method of its own, and that absence is the point, exactly as
+        the missing `clinical_drafts` method is.
+
+        The read is skipped entirely when there are no results, so a user
+        with a genome and no blood test costs nothing and reveals nothing.
+        """
+        if not biomarker_results:
+            return {}
+        rows = (
+            self._db.table("genetic_variants")
+            .select("rsid,genotype")
+            .eq("user_id", user_id)
+            .execute()
+            .data
+        )
+        return genetics.context_for_results(rows, biomarker_results)
 
     def score_snapshot(self, user_id: str, kind: str, limit: int = 1) -> dict:
         """Server-computed scores, newest first. The row the app renders.

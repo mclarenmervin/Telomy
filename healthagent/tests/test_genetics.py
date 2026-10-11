@@ -353,15 +353,124 @@ def test_no_agent_tool_can_list_a_users_variants():
     )
 
 
-def test_the_scoped_loader_has_no_method_that_returns_variants_alone():
-    """The other half: a tool cannot reach what the loader cannot read. The
-    only way a genotype leaves the database is attached to a lab result."""
+def test_the_scoped_loader_cannot_be_asked_for_variants_alone():
+    """The other half: a tool cannot reach what the loader cannot read.
+
+    Asserted on the call shape rather than on method names. `variant_context`
+    exists and has "variant" in it; what matters is that it takes the lab
+    results first and returns nothing without them, so there is no way to
+    phrase the question "what variants does this person have".
+    """
+    import inspect
+
     from app.common.context_loader import ContextLoader
 
-    offenders = [
+    readers = [
         name
         for name in dir(ContextLoader)
-        if not name.startswith("_")
-        and ("variant" in name or name == "genetics")
+        if not name.startswith("_") and "variant" in name
     ]
-    assert offenders == []
+    assert readers == ["variant_context"]
+
+    signature = inspect.signature(ContextLoader.variant_context)
+    assert "biomarker_results" in signature.parameters
+    # No default: a caller cannot omit the results and get the genotypes.
+    assert signature.parameters["biomarker_results"].default is inspect.Parameter.empty
+
+
+# ── The only path a genotype takes out of the database ───────────────────────
+
+def _loader_with(variants, results):
+    from app.common.context_loader import ContextLoader
+    from tests.fakes import FakeSupabase
+
+    user = "00000000-0000-0000-0000-0000000000aa"
+    return user, ContextLoader(FakeSupabase({
+        "genetic_variants": [{"user_id": user, **v} for v in variants],
+        "biomarker_results": [
+            {"user_id": user, "status": "confirmed", **r} for r in results
+        ],
+    }))
+
+
+def _result(biomarker_id, value):
+    from datetime import datetime, timedelta, timezone
+
+    return {
+        "biomarker_id": biomarker_id, "value_canonical": value,
+        "unit_canonical": "umol/L", "status": "confirmed", "operator": "=",
+        "result_type": "quantitative", "context": "standard",
+        "raw_value": str(value), "raw_unit": "umol/L", "value_text": None,
+        "lab_name": "A Lab",
+        "collected_at": (datetime.now(timezone.utc) - timedelta(days=5)).isoformat(),
+    }
+
+
+def test_the_lab_results_tool_carries_the_variant_beside_the_marker():
+    from app.agent.data_tools import build_data_tools
+    from types import SimpleNamespace
+    from app.agent.data_tools import UserScope
+
+    user, loader = _loader_with(
+        [{"rsid": "rs1801133", "genotype": "TT"}],
+        [_result("homocysteine", 14.0)],
+    )
+    tool = {t.name: t for t in build_data_tools(loader)}["get_lab_results"]
+
+    out = tool.func(SimpleNamespace(context=UserScope(user_id=user)))
+
+    assert out["genetic_context"]["homocysteine"][0]["rsid"] == "rs1801133"
+
+
+def test_a_user_with_a_genome_and_no_blood_test_gets_no_genetic_context():
+    """The structural rule, exercised through the real tool: with nothing
+    measured there is nothing for a variant to be context for, so the tool
+    carries no genetic field at all."""
+    from app.agent.data_tools import build_data_tools, UserScope
+    from types import SimpleNamespace
+
+    user, loader = _loader_with([{"rsid": "rs1801133", "genotype": "TT"}], [])
+    tool = {t.name: t for t in build_data_tools(loader)}["get_lab_results"]
+
+    out = tool.func(SimpleNamespace(context=UserScope(user_id=user)))
+
+    assert "genetic_context" not in out
+
+
+def test_the_variant_table_is_not_even_queried_with_no_results():
+    """Not merely filtered afterwards: the table is not read at all.
+
+    Asserted on whether the query happened, because asserting on the result
+    proves nothing -- with no measured markers the answer is {} either way,
+    so a version that fetched every genotype and then threw them away would
+    pass. The difference is a round trip on every lab-results call for a user
+    with no panel, and a read of the most sensitive table in the system for
+    a question that cannot use it.
+    """
+    from app.common.context_loader import ContextLoader
+
+    class CountingDb:
+        def __init__(self):
+            self.tables_read = []
+
+        def table(self, name):
+            self.tables_read.append(name)
+            raise AssertionError(f"{name} should not have been queried")
+
+    db = CountingDb()
+
+    assert ContextLoader(db).variant_context("u", []) == {}
+    assert db.tables_read == []
+
+
+def test_another_users_genotypes_are_not_reachable():
+    from app.common.context_loader import ContextLoader
+    from tests.fakes import FakeSupabase
+
+    alice = "00000000-0000-0000-0000-0000000000aa"
+    bob = "00000000-0000-0000-0000-0000000000bb"
+    loader = ContextLoader(FakeSupabase({
+        "genetic_variants": [{"user_id": bob, "rsid": "rs1801133", "genotype": "TT"}],
+    }))
+
+    assert loader.variant_context(alice, [_result("homocysteine", 14.0)]) == {}

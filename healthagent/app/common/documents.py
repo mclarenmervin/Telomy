@@ -25,6 +25,12 @@ from datetime import datetime, timezone
 
 LAB_REPORTS_BUCKET = "lab-reports"
 
+#: One bucket per sensitivity class, as the plan says. A lab report describes
+#: a person today; a genome describes them for life and partly describes
+#: relatives who never consented to anything. Separate buckets mean a policy
+#: mistake on one cannot reach the other.
+GENETICS_BUCKET = "genetics"
+
 # Long enough to open a report, short enough that a forwarded link is useless.
 SIGNED_URL_TTL_SECONDS = 300
 
