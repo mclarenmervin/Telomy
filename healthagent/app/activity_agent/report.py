@@ -1,11 +1,12 @@
 """The report envelope. The model supplies prose; every number here is ours."""
 
-import json
-import math
-import re
 
 from pydantic import BaseModel, Field
 
+# The figure check is shared with the concierge from F7: a fabricated number is
+# a fabricated number whichever surface it appears on. `collect_tool_numbers` is
+# re-exported because the graph imports it from here.
+from app.agent.numbers import _NUMBER, check_numbers, collect_tool_numbers
 from app.analytics.severity import ATTENTION, NORMAL, URGENT, annotate
 from app.common.thresholds import get_thresholds
 
@@ -18,16 +19,6 @@ SECTION_TITLES = {
     "watch_outs": "Worth watching",
     "improve": "What to try next time",
 }
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
-SMALL_NUMBER_LIMIT = 10  # bare counts like "3 sessions" are unremarkable
-# A small number carrying a unit is a measurement claim, not a count, and must reconcile:
-# an invented delta ("3 bpm lower") is the likeliest fabrication in this domain.
-_UNIT_AFTER = re.compile(
-    r"\s*(?:%|bpm|beats|percent|hours?|hrs?|minutes?|mins?|seconds?|secs?|kg|lbs?|ms|°)\b",
-    re.I,
-)
-
-
 class NarrativeSection(BaseModel):
     id: str = Field(description="One of: " + ", ".join(SECTION_IDS))
     title: str
@@ -133,95 +124,13 @@ def _allowed_numbers(analysis) -> set[str]:
     return allowed
 
 
-# Fields that identify or timestamp a row rather than measure the user. A tool
-# returning {"id": 93} must not legitimise the model writing "your blood oxygen was 93".
-_NON_MEASUREMENT_KEY = re.compile(
-    r"(?:^|_)(?:id|ids|uuid|pk|index|idx)$|_at$|^(?:created|updated|recorded|taken)|"
-    r"date|time|timestamp|version",
-    re.I,
-)
-_MAX_PLAUSIBLE = 1e9  # beyond this it is not a health measurement
-
-
-def _admit(value, into: set[str]) -> None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return
-    # Magnitude first: math.isfinite() casts to float, which itself overflows on a
-    # very long digit run, and the exception would be swallowed as a failed narration.
-    if abs(value) > _MAX_PLAUSIBLE or not math.isfinite(value):
-        return
-    magnitude = abs(value)
-    for form in (int(magnitude), round(magnitude), magnitude):
-        into.add(f"{form:.0f}")
-        into.add(f"{form:.1f}")
-        into.add(f"{form:.1f}".rstrip("0").rstrip("."))
-
-
-def _walk(node, into: set[str]) -> None:
-    """Harvest numeric VALUES, skipping identifier and timestamp fields."""
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if isinstance(key, str) and _NON_MEASUREMENT_KEY.search(key):
-                continue
-            _walk(value, into)
-    elif isinstance(node, list):
-        for item in node:
-            _walk(item, into)
-    else:
-        _admit(node, into)
-
-
-def collect_tool_numbers(messages) -> set[str]:
-    """Numbers a tool actually returned during this run.
-
-    Once the agent fetches labs or measurements, it legitimately cites figures that
-    are not in `analysis`. Without admitting them, `unverified_number` fires on
-    nearly every richer report, stops carrying information, and creates pressure to
-    switch the check off — which is how a fabricated health number reaches a user.
-
-    Values are read from the tool's structured return rather than by regexing its
-    serialised text, so row ids and ISO timestamps cannot launder a fabricated
-    measurement past the check.
-    """
-    found: set[str] = set()
-    for message in messages or []:
-        if getattr(message, "type", None) != "tool":
-            continue
-        content = getattr(message, "content", None)
-        if not isinstance(content, str):
-            continue
-        try:
-            _walk(json.loads(content), found)
-        except (ValueError, TypeError):
-            # Not JSON: admit nothing rather than regexing arbitrary prose, which is
-            # how ids and timestamps got in.
-            continue
-    return found
-
-
 def verify_numbers(report_dict, analysis, extra_allowed=None) -> tuple[dict, list[str]]:
     """Cheap deterministic fidelity check: prose figures must trace to computed values."""
     flags: list[str] = []
     allowed = _allowed_numbers(analysis) | set(extra_allowed or ())
     texts = [report_dict["headline"]] + [s["body"] for s in report_dict["sections"]]
 
-    def unverified_in(text: str) -> set[str]:
-        out = set()
-        for match in _NUMBER.finditer(text):
-            token = match.group()
-            if token in allowed:
-                continue
-            carries_unit = bool(_UNIT_AFTER.match(text, match.end()))
-            small_bare_count = (
-                not carries_unit
-                and float(token).is_integer()
-                and float(token) <= SMALL_NUMBER_LIMIT
-            )
-            if not small_bare_count:
-                out.add(token)
-        return out
-
-    unverified = {n for text in texts for n in unverified_in(text)}
+    unverified = {n for text in texts for n in check_numbers(text, allowed).unverified}
 
     if analysis.get("data_quality") == "none" and unverified:
         # Strip only figures that do not trace to computed values; the duration does,
