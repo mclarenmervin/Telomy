@@ -187,4 +187,41 @@ void main() {
 
     expect(find.textContaining('not a'), findsWidgets);
   });
+  testWidgets('the composer keeps clear of the shell\'s floating button',
+      (tester) async {
+    /// `AppShell` docks a floating "+" into the notch of its bottom bar, and
+    /// floats it just above the keyboard when one is open. Both positions land
+    /// on the composer, which is the bottom-most thing on this screen — on a
+    /// device it sat across the text field and covered what was being typed.
+    ///
+    /// Every other widget test passed with them overlapping, because nothing
+    /// in a test renders the shell around this screen. Found on the emulator,
+    /// twice: the first fix read `MediaQuery.viewInsets`, which the resizing
+    /// Scaffold strips out, and changed nothing on the device.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.reset);
+
+    double composerBottomPadding() => tester
+        .widget<Padding>(
+          find
+              .ancestor(
+                of: find.byKey(const Key('chat-send')),
+                matching: find.byType(Padding),
+              )
+              .first,
+        )
+        .padding
+        .resolve(TextDirection.ltr)
+        .bottom;
+
+    await pump(tester);
+    expect(composerBottomPadding(), greaterThanOrEqualTo(28));
+
+    // Focusing the composer is what raises a keyboard, and what the widget
+    // uses to know one is there.
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    expect(composerBottomPadding(), greaterThanOrEqualTo(72));
+  });
 }

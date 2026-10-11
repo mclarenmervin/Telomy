@@ -47,13 +47,25 @@ const _suggestions = [
 
 class _ChatViewState extends State<ChatView> {
   final _input = TextEditingController();
+  // Whether the composer has focus is the one reliable signal that a keyboard
+  // is up. `MediaQuery.of(context).viewInsets` is stripped by the Scaffold
+  // that resizes for the keyboard, and reading the view directly came back
+  // zero on a device even with the keyboard plainly open.
+  final _focus = FocusNode();
   final _scroll = ScrollController();
   final _sent = <ChatTurn>[];
   ChatTurn? _pending;
   String? _failure;
 
   @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
+    _focus.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -141,6 +153,8 @@ class _ChatViewState extends State<ChatView> {
         ),
         _Composer(
           controller: _input,
+          focusNode: _focus,
+          focused: _focus.hasFocus,
           busy: _busy,
           onSend: () => _ask(_input.text),
         ),
@@ -325,26 +339,43 @@ class _Failure extends StatelessWidget {
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
+    required this.focusNode,
+    required this.focused,
     required this.busy,
     required this.onSend,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
+
+  /// A focused composer means a keyboard, which moves the shell's floating
+  /// button up into this row.
+  final bool focused;
   final bool busy;
   final VoidCallback onSend;
 
   /// How far the shell's floating action button reaches into this row.
   ///
-  /// `AppShell` docks a 56px FAB into the notch of its bottom bar on a phone,
-  /// so it stands ~28px proud of the bar and lands on the bottom centre of the
-  /// composer — on a device, directly over the text field. On a wide layout
-  /// the same button floats at the bottom right instead, which is where the
-  /// send button is. Both are the host's geometry rather than this widget's,
-  /// and the composer simply keeps out of the way.
+  /// `AppShell` docks a 56px FAB into the notch of its bottom bar, so it
+  /// stands ~28px proud of the bar and lands on the bottom centre of the
+  /// composer. When a keyboard is open the bar goes with it and the same
+  /// button floats just above the keyboard, which is further into the
+  /// composer — on a device it sat across the text field and covered what was
+  /// being typed. On a wide layout it floats at the bottom right instead,
+  /// which is where the send button is.
   ///
-  /// Found on the emulator. Every widget test passed with the two overlapping,
-  /// because nothing in a test renders the shell around this screen.
-  static const _fabClearance = 36.0;
+  /// The keyboard is detected by the composer having focus. Two other ways
+  /// were tried on a device and both read zero with the keyboard plainly
+  /// open: `MediaQuery.of(context).viewInsets`, which the resizing Scaffold
+  /// strips out of what it hands its body, and the view's own insets.
+  ///
+  /// All three are the host's geometry rather than this widget's, and the
+  /// composer simply keeps out of the way. Found on the emulator: every widget
+  /// test passed with the two overlapping, because nothing in a test renders
+  /// the shell around this screen.
+  static const _fabSize = 56.0;
+  static const _dockedClearance = 36.0;
+  static const _floatingClearance = 72.0;
   static const _wideBreakpoint = 760.0;
 
   @override
@@ -353,8 +384,16 @@ class _Composer extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 4, wide ? _fabClearance + 56 : 16,
-            wide ? 12 : _fabClearance),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          4,
+          wide ? _dockedClearance + _fabSize : 16,
+          wide
+              ? 12
+              : focused
+                  ? _floatingClearance
+                  : _dockedClearance,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -362,6 +401,7 @@ class _Composer extends StatelessWidget {
               child: TextField(
                 key: const Key('chat-input'),
                 controller: controller,
+                focusNode: focusNode,
                 minLines: 1,
                 maxLines: 4,
                 // Matches the server's limit and the column's check
