@@ -5,8 +5,21 @@ import '../../../core/widgets/async_action.dart';
 import '../models/journal_entry.dart';
 import '../models/entry_definition.dart';
 import '../providers/wellness_provider.dart';
+import '../../genetics/widgets/genetics_import_section.dart';
 import '../../therapies/widgets/therapy_effects_section.dart';
 import 'entry_editor.dart';
+
+/// What the page says its records are, which depends on whether the server
+/// is in the picture for this kind.
+String _blurbFor(EntryKind? kind) => switch (kind) {
+      EntryKind.therapy =>
+        'Your records, saved on this device. What they add up to is worked '
+            'out on the server.',
+      EntryKind.genetics =>
+        'Your records, saved on this device. An uploaded genetics file is '
+            'read on the server, and almost all of it is discarded.',
+      _ => 'Your records, saved on this device.',
+    };
 
 class JournalScreen extends ConsumerStatefulWidget {
   const JournalScreen({super.key, this.kind});
@@ -28,20 +41,16 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
       children: [
         Text(title, style: Theme.of(context).textTheme.headlineLarge),
         const SizedBox(height: 12),
-        // Therapies are the one kind of record the server reads back and
-        // says something about, so the blurb cannot claim everything on this
-        // screen is local. It stopped being true the moment the effects
-        // section went in, and a page that says "saved on this device" above
-        // a number computed on a server is the kind of small lie that
-        // becomes a support ticket.
-        Text(
-          widget.kind == EntryKind.therapy
-              ? 'Your records, saved on this device. What they add up to is '
-                  'worked out on the server.'
-              : 'Your records, saved on this device.',
-        ),
+        // Two kinds of record the server reads back and says something
+        // about, so the blurb cannot claim everything on this screen is
+        // local. It stopped being true the moment those sections went in,
+        // and a page that says "saved on this device" above a number
+        // computed on a server is the kind of small lie that becomes a
+        // support ticket.
+        Text(_blurbFor(widget.kind)),
         const SizedBox(height: 20),
         if (widget.kind == EntryKind.therapy) const TherapyEffectsSection(),
+        if (widget.kind == EntryKind.genetics) const GeneticsImportSection(),
         FilledButton.icon(
           onPressed: () =>
               openEntryEditor(context, widget.kind ?? EntryKind.event),
