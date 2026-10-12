@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_colors.dart';
+import '../../../core/vocabulary/vocabulary.dart';
 import '../data/therapy_repository.dart';
 import '../models/therapy_effect.dart';
 import '../providers/therapy_provider.dart';
@@ -17,159 +19,203 @@ import '../providers/therapy_provider.dart';
 /// so the screen states the limit rather than leaving the reader to assume.
 /// And it never explains a change unless a clinician has signed the
 /// explanation off, which today is never.
+///
+/// F9 moved its hand-written provenance — "Across 8 sessions — 2 more were
+/// left out because something else you logged overlapped them" — into [Prov].
+/// Both halves survived the move: the count is the basis, and the confounded
+/// sessions are still accounted for, because that is why the number is lower
+/// than the number of sessions somebody remembers doing.
 class TherapyEffectsSection extends ConsumerWidget {
   const TherapyEffectsSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final report = ref.watch(therapyEffectsProvider);
 
     return Column(
       key: const Key('therapy-effects'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('What your sessions do', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 4),
-        Text(
-          'Measured in the hour after each session against the hour before, '
-          'across all the sessions you have logged.',
-          style: theme.textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        ...report.when(
-          loading: () => [const LinearProgressIndicator()],
-          error: (error, _) => [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Text(
-                  error is TherapyEffectsUnavailable
+        Section(
+          title: 'What your sessions do',
+          blurb: 'Measured in the hour after each session against the hour '
+              'before, across all the sessions you have logged.',
+          children: [
+            ...report.when(
+              loading: () =>
+                  [const Loading('Measuring your sessions…')],
+              error: (error, _) => [
+                ErrorState(
+                  message: error is TherapyEffectsUnavailable
                       ? error.message
                       : 'This could not be worked out just now.',
+                  onRetry: () => ref.invalidate(therapyEffectsProvider),
                 ),
-              ),
+              ],
+              data: (data) => _results(data),
             ),
           ],
-          data: (data) => _results(context, data),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.md),
         const Divider(),
-        const SizedBox(height: 12),
       ],
     );
   }
 
-  List<Widget> _results(BuildContext context, TherapyEffectReport report) {
-    final theme = Theme.of(context);
+  List<Widget> _results(TherapyEffectReport report) {
     return [
       if (report.tested == 0 && report.withheld.isEmpty)
-        Card(
+        Empty(
           key: const Key('therapy-effects-none'),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Text(
-              'Once you have logged a few sauna or cold plunge sessions with '
-              'your ring on, we will measure what they do to you. It takes '
-              '${report.minSessions} before a run means anything.',
-            ),
-          ),
+          title: 'Not enough sessions yet',
+          body: 'Once you have logged a few sauna or cold plunge sessions '
+              'with your ring on, we will measure what they do to you. It '
+              'takes ${report.minSessions} before a run means anything.',
+          tone: EmptyTone.waiting,
+        )
+      // Measured, and nothing qualified. Found by a test: with `tested` above
+      // zero and nothing in either list, this section rendered as a title and
+      // a blank space. Three phases from now "no reliable signal" is the
+      // commonest state on this tab, and a blank space is how it comes to
+      // read as a broken feature.
+      else if (report.reported.isEmpty && report.withheld.isEmpty)
+        Empty(
+          key: const Key('therapy-effects-nothing-qualified'),
+          tone: EmptyTone.result,
+          title: 'No reliable signal yet',
+          body: 'We measured ${report.tested} '
+              '${report.tested == 1 ? 'effect' : 'effects'} and none of them '
+              'reached the bar. It takes ${report.minSessions} sessions '
+              'before a run means anything, and a clear result needs more '
+              'than that. That is a result, not a gap.',
         ),
-      for (final effect in report.reported)
-        Card(
-          key: Key('therapy-effect-${effect.modality}-${effect.metric}'),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${metricLabel(effect.metric)} after ${effect.label}',
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Icon(
-                      effect.rose ? Icons.north_rounded : Icons.south_rounded,
-                      size: 18,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${effect.meanDelta!.abs().toStringAsFixed(1)} '
-                      '${metricUnit(effect.metric)} '
-                      '${effect.rose ? 'higher' : 'lower'}',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Across ${effect.sessions} '
-                  '${effect.sessions == 1 ? 'session' : 'sessions'}'
-                  '${effect.sessionsConfounded > 0 ? ' — ${effect.sessionsConfounded} more were left out because something else you logged overlapped them' : ''}.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  effect.mechanism ??
-                      'Nobody has reviewed why this happens, so we are not '
-                          'going to guess at it.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: effect.mechanism == null
-                        ? theme.colorScheme.outline
-                        : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      if (report.withheld.isNotEmpty)
-        Card(
-          child: ExpansionTile(
-            key: const Key('therapy-effects-withheld'),
-            title: Text(
-              'Also measured, not shown (${report.withheld.length})',
-              style: theme.textTheme.titleSmall,
-            ),
-            childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-            children: [
-              for (final effect in report.withheld)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${metricLabel(effect.metric)} after ${effect.label}',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      Text(
-                        therapyWithheldReason(
-                            effect.withheld ?? '', report.minSessions),
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.outline),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
+      for (final effect in report.reported) _EffectCard(effect: effect),
+      if (report.withheld.isNotEmpty) _WithheldSection(report: report),
       if (report.reported.isNotEmpty) ...[
-        const SizedBox(height: 10),
-        Text(
+        const SizedBox(height: AppSpacing.xs),
+        const T(
           'This is what happens in the hour afterwards. It does not say '
           'whether the therapy is doing you good over months — for several of '
           'these signals the long-term effect runs the other way, and we '
           'cannot measure that yet.',
-          style: theme.textTheme.bodySmall,
+          v: TextVariant.small,
+          muted: true,
         ),
       ],
     ];
   }
+}
+
+class _EffectCard extends StatelessWidget {
+  const _EffectCard({required this.effect});
+
+  final TherapyEffect effect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // The confounded count rides along with the session count rather than
+    // sitting in its own sentence. It is the reason the figure is lower than
+    // the number of sessions the person remembers doing, so it belongs
+    // beside the number and not under it.
+    final basis = effect.sessionsConfounded > 0
+        ? 'across ${effect.sessions} '
+            '${effect.sessions == 1 ? 'session' : 'sessions'}, '
+            '${effect.sessionsConfounded} more left out'
+        : 'across ${effect.sessions} '
+            '${effect.sessions == 1 ? 'session' : 'sessions'}';
+
+    return AppCard(
+      key: Key('therapy-effect-${effect.modality}-${effect.metric}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          T('${metricLabel(effect.metric)} after ${effect.label}',
+              v: TextVariant.h3),
+          const SizedBox(height: AppSpacing.xxs),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Icon(
+                effect.rose ? Icons.north_rounded : Icons.south_rounded,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: AppSpacing.xxs),
+              T(
+                '${effect.meanDelta!.abs().toStringAsFixed(1)} '
+                '${metricUnit(effect.metric)} '
+                '${effect.rose ? 'higher' : 'lower'}',
+                v: TextVariant.h3,
+              ),
+            ],
+          ),
+          Prov(
+            source: 'your own sessions',
+            whenLabel: 'the hour after each, against the hour before',
+            confidence: effect.mechanismReviewed
+                ? Confidence.measured
+                : Confidence.unreviewed,
+            basis: basis,
+          ),
+          if (effect.sessionsConfounded > 0) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            T(
+              '${effect.sessionsConfounded} '
+              '${effect.sessionsConfounded == 1 ? 'session was' : 'sessions were'} '
+              'left out because something else you logged overlapped them.',
+              v: TextVariant.small,
+              muted: true,
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xs),
+          T(
+            effect.mechanism ??
+                'Nobody has reviewed why this happens, so we are not going '
+                    'to guess at it.',
+            v: TextVariant.small,
+            muted: effect.mechanism == null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WithheldSection extends StatelessWidget {
+  const _WithheldSection({required this.report});
+
+  final TherapyEffectReport report;
+
+  @override
+  Widget build(BuildContext context) => AppCard(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: ExpansionTile(
+          key: const Key('therapy-effects-withheld'),
+          tilePadding: EdgeInsets.zero,
+          title: T('Also measured, not shown (${report.withheld.length})',
+              v: TextVariant.h3),
+          childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          children: [
+            for (final effect in report.withheld)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    T('${metricLabel(effect.metric)} after ${effect.label}'),
+                    T(
+                      therapyWithheldReason(
+                          effect.withheld ?? '', report.minSessions),
+                      v: TextVariant.small,
+                      muted: true,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
 }

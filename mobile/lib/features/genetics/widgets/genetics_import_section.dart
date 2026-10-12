@@ -2,6 +2,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/app_colors.dart';
+import '../../../core/vocabulary/vocabulary.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/genetic_upload_paths.dart';
 import '../models/genetic_upload.dart';
@@ -191,21 +193,28 @@ class _GeneticsImportSectionState extends ConsumerState<GeneticsImportSection> {
                 const SizedBox(height: 8),
                 for (final variant in view.variants)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${variant.label} — ${variant.genotype}'),
-                        Text(
-                          variant.rsid,
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: theme.colorScheme.outline),
+                        T('${variant.label} — ${variant.genotype}'),
+                        // The rsid used to be a bare grey line under the
+                        // label, which on a real device read as a reference
+                        // number nobody could act on. It is a provenance
+                        // fact, so it is one: this genotype came from a file
+                        // the person uploaded, and what it means about them
+                        // is unreviewed.
+                        Prov(
+                          source: 'your own import',
+                          confidence: variant.note == null
+                              ? Confidence.unreviewed
+                              : Confidence.measured,
+                          basis: variant.rsid,
                         ),
                         if (variant.note != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
-                            child: Text(variant.note!,
-                                style: theme.textTheme.bodySmall),
+                            child: T(variant.note!, v: TextVariant.small),
                           ),
                       ],
                     ),

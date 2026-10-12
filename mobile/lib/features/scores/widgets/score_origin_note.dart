@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/vocabulary/vocabulary.dart';
 import '../data/score_source.dart';
 
-/// Says plainly where a number came from.
+/// Says plainly where a score came from.
 ///
 /// During the shadow period the app still shows its own estimate while the
 /// server's is computed and compared, and a user is entitled to know which one
 /// they are looking at. Stating it in words rather than a colour or an icon is
 /// the same discipline the activity report already follows for severity.
+///
+/// **This was `Prov` before `Prov` existed.** It is the component F9 found
+/// already here — source, and a confidence, under a number — and it is now
+/// built on the real one rather than beside it. The alternative was two
+/// provenance components with two renderings, and the one on the readiness
+/// screen would have drifted from the one on the other eleven.
 class ScoreOriginNote extends StatelessWidget {
   const ScoreOriginNote({super.key, required this.resolved, this.divergence});
 
@@ -19,39 +26,60 @@ class ScoreOriginNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final (icon, text) = switch (resolved.origin) {
+    final snapshot = resolved.snapshot;
+
+    final (source, confidence, basis) = switch (resolved.origin) {
       ScoreOrigin.server => (
-          Icons.cloud_done_outlined,
-          'Calculated from your full history.',
+          'your full history',
+          // A server score computed from a partial day is still an estimate,
+          // and `data_quality` is the column that already knows.
+          snapshot?.dataQuality == 'partial'
+              ? Confidence.estimated
+              : Confidence.measured,
+          snapshot == null
+              ? 'computed by the Telomy service'
+              : _serverBasis(snapshot),
         ),
       ScoreOrigin.offline => (
-          Icons.phone_iphone_outlined,
-          'Estimated on this phone from the data it holds.',
+          'this phone',
+          Confidence.estimated,
+          'the data this phone holds, not your full history',
         ),
       ScoreOrigin.none => (
-          Icons.help_outline,
-          'Not enough data yet to estimate this.',
+          'nothing yet',
+          Confidence.insufficient,
+          'Not enough data to estimate this',
         ),
     };
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 15, color: theme.colorScheme.outline),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            // The divergence rides along only where engineers see it.
-            divergence != null && _showDivergence
-                ? '$text  (server ${divergence! >= 0 ? '+' : ''}$divergence)'
-                : text,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline),
-          ),
+        Prov(
+          source: source,
+          when: snapshot?.asOf,
+          confidence: confidence,
+          basis: basis,
         ),
+        // The divergence rides along only where engineers see it.
+        if (divergence != null && _showDivergence)
+          T(
+            'server ${divergence! >= 0 ? '+' : ''}$divergence',
+            v: TextVariant.label,
+            muted: true,
+          ),
       ],
     );
+  }
+
+  /// What the server's number actually rests on.
+  ///
+  /// The missing inputs are named rather than counted. "Computed without your
+  /// sleep" is a thing somebody can act on; "data quality: partial" is not.
+  String _serverBasis(dynamic snapshot) {
+    final missing = (snapshot.missingInputs as List).cast<String>();
+    if (missing.isEmpty) return 'every input this model takes';
+    return 'computed without ${missing.join(', ')}';
   }
 }
 

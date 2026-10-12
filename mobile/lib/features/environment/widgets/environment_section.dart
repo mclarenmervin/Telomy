@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/theme/app_colors.dart';
+import '../../../core/vocabulary/vocabulary.dart';
 import '../data/coarse_places.dart';
 import '../data/environment_repository.dart';
 import '../models/environment_snapshot.dart';
@@ -104,39 +106,30 @@ class _Conditions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final days = ref.watch(environmentProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...days.when(
-          loading: () => [const LinearProgressIndicator()],
+          loading: () => [const Loading('Looking up the air and the sun…')],
           error: (error, _) => [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Text(
-                  error is EnvironmentUnavailable
-                      ? error.message
-                      : 'This could not be looked up just now.',
-                ),
-              ),
+            ErrorState(
+              message: error is EnvironmentUnavailable
+                  ? error.message
+                  : 'This could not be looked up just now.',
+              onRetry: () => ref.invalidate(environmentProvider),
             ),
           ],
           data: (items) => items.isEmpty
               ? [
-                  Card(
-                    key: const Key('environment-waiting'),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Text(
-                        'Nothing yet. The first day arrives overnight — we '
-                        'look up a whole day once it has finished, because '
-                        'half a day of air quality is not a day.',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
+                  const Empty(
+                    key: Key('environment-waiting'),
+                    title: 'Nothing yet',
+                    body: 'The first day arrives overnight — we look up a '
+                        'whole day once it has finished, because half a day '
+                        'of air quality is not a day.',
+                    tone: EmptyTone.waiting,
                   ),
                 ]
               : [for (final day in items.take(7)) _DayCard(day: day)],
@@ -168,84 +161,84 @@ class _DayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final when = day.observedOn == null
         ? ''
         : DateFormat('EEE d MMM').format(day.observedOn!);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(when, style: theme.textTheme.titleSmall),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                if (day.usAqiMax != null)
-                  Expanded(
-                    child: _Reading(
-                      label: 'Air quality',
-                      // The peak, because three hours at 180 is the thing
-                      // worth saying about the day.
-                      value: day.usAqiMax!.round().toString(),
-                      band: day.usAqiBand,
-                    ),
+    // A day built from eighteen of twenty-four hours is not a day, and
+    // whoever reads it should know. That was its own sentence before F9 and
+    // is now the basis of the confidence: a part-day is `estimated`, a whole
+    // one is `measured`.
+    final partial = day.isPartialDay;
+    final prov = Prov(
+      // Named every time. "The AQI was 181" is a claim somebody else made,
+      // and the user is entitled to know who made it.
+      source: day.provider,
+      when: day.observedOn,
+      confidence: partial ? Confidence.estimated : Confidence.measured,
+      basis: '${day.hoursObserved} of 24 hours observed',
+    );
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          T(when, v: TextVariant.h3),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (day.usAqiMax != null)
+                Expanded(
+                  child: Stat(
+                    label: 'Air quality',
+                    // The peak, because three hours at 180 is the thing
+                    // worth saying about the day.
+                    value: day.usAqiMax!.round().toString(),
+                    // The published definition of the scale, not a verdict
+                    // about this person. The US AQI IS its breakpoints.
+                    status: day.usAqiBand == null
+                        ? null
+                        : StatusChip(_band(day.usAqiBand!),
+                            label: day.usAqiBand!),
                   ),
-                if (day.uvIndexMax != null)
-                  Expanded(
-                    child: _Reading(
-                      label: 'UV peak',
-                      value: day.uvIndexMax!.toStringAsFixed(1),
-                      band: day.uvBand,
-                    ),
+                ),
+              if (day.uvIndexMax != null)
+                Expanded(
+                  child: Stat(
+                    label: 'UV peak',
+                    value: day.uvIndexMax!.toStringAsFixed(1),
+                    status: day.uvBand == null
+                        ? null
+                        : StatusChip(_band(day.uvBand!), label: day.uvBand!),
                   ),
-              ],
-            ),
-            if (day.isPartialDay) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Only ${day.hoursObserved} hours of this day were available.',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
-              ),
+                ),
             ],
-            const SizedBox(height: 6),
-            Text(
-              // Named every time. "The AQI was 180" is a claim somebody else
-              // made, and the user is entitled to know who made it.
-              'From ${day.provider}.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
-            ),
-          ],
-        ),
+          ),
+          // One Prov for the card rather than one per reading: both figures
+          // come from the same provider for the same day with the same hours
+          // behind them, and repeating it twice would be noise.
+          prov,
+        ],
       ),
     );
   }
-}
 
-class _Reading extends StatelessWidget {
-  const _Reading({required this.label, required this.value, this.band});
-
-  final String label;
-  final String value;
-  final String? band;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: theme.textTheme.bodySmall),
-        Text(value, style: theme.textTheme.headlineSmall),
-        if (band != null)
-          // The published definition of the scale, not a verdict about this
-          // person. The US AQI IS its breakpoints.
-          Text(band!, style: theme.textTheme.bodySmall),
-      ],
-    );
-  }
+  /// Which status token a published band maps onto.
+  ///
+  /// The bands are the scale's own words and are rendered verbatim — this
+  /// only picks a colour for them. Anything unrecognised is `typical`, which
+  /// is the quiet one: a new breakpoint label should not arrive on screen in
+  /// the colour of "out of range" because nobody updated this.
+  AppStatus _band(String band) => switch (band) {
+        'good' || 'low' => AppStatus.optimal,
+        'moderate' => AppStatus.inRange,
+        'high' => AppStatus.riskVariant,
+        'unhealthy for sensitive groups' ||
+        'unhealthy' ||
+        'very high' =>
+          AppStatus.outOfRange,
+        'very unhealthy' || 'hazardous' || 'extreme' => AppStatus.rejected,
+        _ => AppStatus.typical,
+      };
 }

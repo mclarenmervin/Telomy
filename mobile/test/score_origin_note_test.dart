@@ -22,7 +22,8 @@ void main() {
         origin: ScoreOrigin.offline, value: 68, modelVersion: offlineModelVersion),
     )));
 
-    expect(find.textContaining('Estimated on this phone'), findsOneWidget);
+    expect(find.text('Estimated'), findsOneWidget);
+    expect(find.textContaining('From this phone'), findsOneWidget);
   });
 
   testWidgets('no score at all says there is not enough data, not zero',
