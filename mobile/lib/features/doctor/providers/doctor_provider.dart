@@ -35,6 +35,9 @@ final doctorWorkQueueProvider = FutureProvider.autoDispose
     .family<DoctorWorkQueue, String>(
       (ref, c) => ref.read(doctorRepositoryProvider).workQueue(c),
     );
+final doctorProfileProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+  (ref) => ref.read(doctorRepositoryProvider).profile(),
+);
 void invalidateDoctorCentre(Ref ref, String centreId) {
   ref.invalidate(doctorTodayProvider(centreId));
   ref.invalidate(doctorPatientsProvider(centreId));

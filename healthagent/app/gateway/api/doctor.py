@@ -21,6 +21,22 @@ from app.gateway.roles import DOCTOR, require_app_role
 router = APIRouter(prefix="/api/v1/doctor", tags=["doctor"])
 
 
+@router.get("/profile")
+def doctor_profile(
+    doctor_id: Annotated[str, Depends(current_user_id)],
+    _: Annotated[str, Depends(require_app_role(DOCTOR))],
+    supabase: Annotated[Any, Depends(get_supabase_client)],
+) -> dict:
+    clinicians = supabase.table("clinicians").select("registration_number,status,licence_expires_at,full_name").eq("user_id", doctor_id).limit(1).execute().data or []
+    verification = supabase.table("clinician_verifications").select("status,registration_body,specialties,created_at").eq("doctor_id", doctor_id).order("created_at", desc=True).limit(1).execute().data or []
+    return {
+        **(clinicians[0] if clinicians else {}),
+        "verification_status": verification[0].get("status") if verification else "pending",
+        "registration_body": verification[0].get("registration_body") if verification else None,
+        "specialties": verification[0].get("specialties") if verification else [],
+    }
+
+
 class NonEmptyNote(BaseModel):
     note: str = Field(min_length=1, max_length=4000)
 

@@ -31,6 +31,9 @@ class DoctorRepository {
     (await _request('GET', '/api/v1/doctor/$c/work-queue') as Map)
         .cast<String, dynamic>(),
   );
+  Future<Map<String, dynamic>> profile() async =>
+      (await _request('GET', '/api/v1/doctor/profile') as Map)
+          .cast<String, dynamic>();
   Future<void> addNote({
     required String centreId,
     required String patientId,
@@ -71,6 +74,36 @@ class DoctorRepository {
       return Future.error(ArgumentError('note is required'));
     }
     return _write('/api/v1/doctor/$centreId/work/$draftId/reject', {
+      'note': note.trim(),
+      'version': version,
+    });
+  }
+
+  Future<void> signReport({
+    required String centreId,
+    required String reportId,
+    required String note,
+    required String version,
+  }) {
+    if (note.trim().isEmpty) {
+      return Future.error(ArgumentError('note is required'));
+    }
+    return _write('/api/v1/doctor/$centreId/reports/$reportId/sign', {
+      'note': note.trim(),
+      'version': version,
+    });
+  }
+
+  Future<void> rejectReport({
+    required String centreId,
+    required String reportId,
+    required String note,
+    required String version,
+  }) {
+    if (note.trim().isEmpty) {
+      return Future.error(ArgumentError('note is required'));
+    }
+    return _write('/api/v1/doctor/$centreId/reports/$reportId/reject', {
       'note': note.trim(),
       'version': version,
     });

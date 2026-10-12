@@ -45,7 +45,6 @@ import '../features/admin/screens/platform_health_screen.dart';
 import '../features/admin/screens/roles_screen.dart';
 import '../features/roles/models/app_role.dart';
 import '../features/roles/providers/role_provider.dart';
-import '../features/roles/screens/coming_in_phase_screen.dart';
 import '../features/accounts/screens/pending_invitation_screen.dart';
 import '../features/admin/screens/centres_screen.dart';
 import '../features/admin/screens/licence_verification_screen.dart';
@@ -58,6 +57,8 @@ import '../features/centre/screens/centre_profile_screen.dart';
 import '../features/doctor/screens/doctor_today_screen.dart';
 import '../features/doctor/screens/doctor_patients_screen.dart';
 import '../features/doctor/screens/doctor_patient_detail_screen.dart';
+import '../features/doctor/screens/doctor_work_queue_screen.dart';
+import '../features/doctor/screens/doctor_profile_screen.dart';
 import 'role_routes.dart';
 
 /// One role's shell, its tabs taken from [roleTabs] so the branch order and
@@ -160,30 +161,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ]),
       _shell(AppRole.doctor, const [
         DoctorTodayScreen(),
-        ComingInPhaseScreen(
-          title: 'Work',
-          phase: 'F10',
-          what:
-              'The work queue in five segments — reports, Sinc drafts, '
-              'consults, therapy plans, Rx. Nothing will be signable without '
-              'a note.',
-          alreadyBuilt:
-              'The queue is swept every scheduler tick. Drafts are '
-              'offered, stale claims returned, signatures delivered and '
-              'deadlines expired, and the number of drafts nobody will ever '
-              'hear about is on the platform dashboard.',
-        ),
+        DoctorWorkQueueScreen(),
         DoctorPatientsScreen(),
-        ComingInPhaseScreen(
-          title: 'You',
-          phase: 'F10',
-          what: 'Your registration, your licence and what you have signed.',
-          alreadyBuilt:
-              'Your registration already exists in `clinicians` and '
-              'already decides whether you may sign. The platform dashboard '
-              'warns on a licence sixty days before it lapses, so a refused '
-              'signature mid-review should never be the first you hear of it.',
-        ),
+        DoctorProfileScreen(),
       ]),
       _shell(AppRole.centre, const [
         CentreDashboardScreen(),
