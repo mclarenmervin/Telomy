@@ -5,7 +5,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telomy/features/environment/data/coarse_places.dart';
 import 'package:telomy/features/environment/data/environment_repository.dart';
-import 'package:telomy/features/environment/models/environment_snapshot.dart';
 import 'package:telomy/features/environment/providers/environment_provider.dart';
 
 /// Where somebody says they are, and what we look up for them.
