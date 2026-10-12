@@ -34,9 +34,9 @@ enum AppRole {
 
   /// What this role calls itself on screen.
   String get label => switch (this) {
-        AppRole.member => 'Member',
-        AppRole.doctor => 'Clinician',
-        AppRole.centre => 'Centre',
-        AppRole.admin => 'Platform',
-      };
+    AppRole.member => 'Patient',
+    AppRole.doctor => 'Doctor',
+    AppRole.centre => 'Centre Owner',
+    AppRole.admin => 'Super Admin',
+  };
 }

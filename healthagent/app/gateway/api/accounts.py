@@ -57,6 +57,11 @@ def accept_invitation(
     return service.result_dict(service.accept(body.invitation_id, user_id))
 
 
+@router.post("/{invitation_id}/accept")
+def accept_invitation_by_id(invitation_id: str, user_id: Annotated[str, Depends(current_user_id)], service: Annotated[InvitationService, Depends(get_invitation_service)]):
+    return service.result_dict(service.accept(invitation_id, user_id))
+
+
 @router.post("/decline")
 def decline_invitation(
     body: InvitationDecision,
@@ -64,3 +69,8 @@ def decline_invitation(
     service: Annotated[InvitationService, Depends(get_invitation_service)],
 ):
     return service.result_dict(service.decline(body.invitation_id, user_id))
+
+
+@router.post("/{invitation_id}/decline")
+def decline_invitation_by_id(invitation_id: str, user_id: Annotated[str, Depends(current_user_id)], service: Annotated[InvitationService, Depends(get_invitation_service)]):
+    return service.result_dict(service.decline(invitation_id, user_id))

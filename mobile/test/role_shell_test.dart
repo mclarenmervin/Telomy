@@ -77,8 +77,16 @@ Future<void> alreadySignedIn(WidgetTester tester, AppRole role) async {
 }
 
 void main() {
-  testWidgets('a member lands in the member app with a log button',
-      (tester) async {
+  test('role labels match the four account types', () {
+    expect(AppRole.admin.label, 'Super Admin');
+    expect(AppRole.centre.label, 'Centre Owner');
+    expect(AppRole.doctor.label, 'Doctor');
+    expect(AppRole.member.label, 'Patient');
+  });
+
+  testWidgets('a member lands in the member app with a log button', (
+    tester,
+  ) async {
     await signIn(tester, AppRole.member);
 
     expect(find.text('Today'), findsWidgets);
@@ -86,8 +94,9 @@ void main() {
     expect(find.byTooltip('Log something'), findsOneWidget);
   });
 
-  testWidgets('an admin lands on platform health, and does not log meals',
-      (tester) async {
+  testWidgets('an admin lands on platform health, and does not log meals', (
+    tester,
+  ) async {
     await signIn(tester, AppRole.admin);
 
     expect(find.text('Health'), findsWidgets);
@@ -100,8 +109,9 @@ void main() {
     expect(find.text('Sinc'), findsNothing);
   });
 
-  testWidgets('a doctor lands on their own shell with F10 named',
-      (tester) async {
+  testWidgets('a doctor lands on their own shell with F10 named', (
+    tester,
+  ) async {
     await signIn(tester, AppRole.doctor);
 
     expect(find.text('Work'), findsWidgets);
@@ -121,8 +131,9 @@ void main() {
     expect(find.byTooltip('Log something'), findsNothing);
   });
 
-  testWidgets('a member who deep-links to an admin route is sent home',
-      (tester) async {
+  testWidgets('a member who deep-links to an admin route is sent home', (
+    tester,
+  ) async {
     await signIn(tester, AppRole.member);
     final container = ProviderScope.containerOf(
       tester.element(find.byType(Navigator).first),
@@ -139,8 +150,9 @@ void main() {
     expect(find.text('Catalogue'), findsNothing);
   });
 
-  testWidgets('an admin who deep-links to a doctor route is sent back',
-      (tester) async {
+  testWidgets('an admin who deep-links to a doctor route is sent back', (
+    tester,
+  ) async {
     // An admin is not a superuser of the other roles' screens. Treating them
     // as one is how a support tool becomes the God account.
     await signIn(tester, AppRole.admin);
@@ -154,8 +166,9 @@ void main() {
     expect(container.read(routerProvider).state.uri.path, '/admin');
   });
 
-  testWidgets('the rail replaces the bar at 760 px for every role',
-      (tester) async {
+  testWidgets('the rail replaces the bar at 760 px for every role', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1024, 768);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
