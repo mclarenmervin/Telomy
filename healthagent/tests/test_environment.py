@@ -598,3 +598,40 @@ def test_every_city_the_app_offers_is_one_the_gate_accepts():
         # And already coarse: the app must not be shipping a precision the
         # server would have to round away.
         assert resolved == (float(latitude), float(longitude))
+
+
+# ── The bands are read off the published scale, which is integer ────────────
+
+def test_a_uv_index_is_banded_as_a_rounded_whole_number():
+    """Found on a real screen: a UV peak of 10.2 was labelled "extreme".
+
+    The WMO/WHO scale is defined on the UV index ROUNDED TO THE NEAREST
+    WHOLE NUMBER -- 8 to 10 is very high and 11 upwards is extreme. 10.2
+    rounds to 10, so it is very high. Calling it extreme overstates a
+    health warning by a band, which is the wrong direction to be wrong in
+    for a number somebody uses to decide whether to go outside.
+    """
+    assert describe({"uv_index_max": 10.2})["uv_band"] == "very high"
+    assert describe({"uv_index_max": 10.0})["uv_band"] == "very high"
+    assert describe({"uv_index_max": 10.4})["uv_band"] == "very high"
+
+
+def test_eleven_is_where_extreme_starts():
+    assert describe({"uv_index_max": 10.5})["uv_band"] == "extreme"
+    assert describe({"uv_index_max": 11.0})["uv_band"] == "extreme"
+
+
+def test_the_other_uv_boundaries_round_the_same_way():
+    assert describe({"uv_index_max": 2.4})["uv_band"] == "low"
+    assert describe({"uv_index_max": 2.5})["uv_band"] == "moderate"
+    assert describe({"uv_index_max": 5.4})["uv_band"] == "moderate"
+    assert describe({"uv_index_max": 5.5})["uv_band"] == "high"
+    assert describe({"uv_index_max": 7.4})["uv_band"] == "high"
+    assert describe({"uv_index_max": 7.5})["uv_band"] == "very high"
+
+
+def test_an_aqi_is_banded_as_a_rounded_whole_number_too():
+    """The US AQI is an integer by definition -- it is computed from
+    breakpoints and reported whole."""
+    assert describe({"us_aqi_max": 100.4})["us_aqi_band"] == "moderate"
+    assert describe({"us_aqi_max": 100.5})["us_aqi_band"] == "unhealthy for sensitive groups"

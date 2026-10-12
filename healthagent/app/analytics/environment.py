@@ -54,6 +54,7 @@ published definition rather than a judgement about this person — the index is
 defined by its breakpoints — and the tool description forbids going further.
 """
 
+import math
 from dataclasses import dataclass
 from datetime import date
 from statistics import fmean
@@ -272,10 +273,27 @@ UV_BANDS = (
 
 
 def _band(bands, value) -> str | None:
+    """The published band for a reading.
+
+    **Rounded to a whole number first**, because both scales are defined
+    that way: the WMO/WHO UV index is reported to the nearest integer, and
+    the US AQI is an integer by construction. Found on a real screen, where
+    a UV peak of 10.2 was labelled "extreme" -- the WHO calls 8 to 10 very
+    high and 11 upwards extreme, so 10.2 is a very high day. Overstating a
+    sun-exposure warning by a band is the wrong direction to be wrong in for
+    a number somebody uses to decide whether to go outside.
+
+    Half-up, written out rather than using `round`: Python rounds halves to
+    even, so `round(10.5)` is 10 and `round(11.5)` is 12, which is not what
+    "nearest whole number" means to anybody reading a UV forecast and gives
+    two different answers at two adjacent boundaries. At an exact half on a
+    warning scale, up is also the safer of the two.
+    """
     if value is None:
         return None
+    whole = math.floor(value + 0.5)
     for upper, label in bands:
-        if value <= upper:
+        if whole <= upper:
             return label
     return bands[-1][1]
 
