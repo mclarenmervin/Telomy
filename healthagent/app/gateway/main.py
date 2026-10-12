@@ -5,6 +5,7 @@ from app.gateway.api.admin import router as admin_router
 from app.gateway.api.accounts import router as accounts_router
 from app.gateway.api.admin_people import router as admin_people_router
 from app.gateway.api.centre import router as centre_router
+from app.gateway.api.doctor import router as doctor_router
 from app.gateway.api.chat import router as chat_router
 from app.gateway.api.correlations import router as correlations_router
 from app.gateway.api.environment import router as environment_router
@@ -33,6 +34,7 @@ app.include_router(admin_router)
 app.include_router(accounts_router)
 app.include_router(admin_people_router)
 app.include_router(centre_router)
+app.include_router(doctor_router)
 
 
 @app.get("/health")
