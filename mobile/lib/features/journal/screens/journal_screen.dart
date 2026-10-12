@@ -5,6 +5,7 @@ import '../../../core/widgets/async_action.dart';
 import '../models/journal_entry.dart';
 import '../models/entry_definition.dart';
 import '../providers/wellness_provider.dart';
+import '../../environment/widgets/environment_section.dart';
 import '../../genetics/widgets/genetics_import_section.dart';
 import '../../therapies/widgets/therapy_effects_section.dart';
 import 'entry_editor.dart';
@@ -18,6 +19,9 @@ String _blurbFor(EntryKind? kind) => switch (kind) {
       EntryKind.genetics =>
         'Your records, saved on this device. An uploaded genetics file is '
             'read on the server, and almost all of it is discarded.',
+      EntryKind.environment =>
+        'Your records, saved on this device. The daily air and UV below them '
+            'are looked up for the city you chose.',
       _ => 'Your records, saved on this device.',
     };
 
@@ -51,6 +55,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
         const SizedBox(height: 20),
         if (widget.kind == EntryKind.therapy) const TherapyEffectsSection(),
         if (widget.kind == EntryKind.genetics) const GeneticsImportSection(),
+        if (widget.kind == EntryKind.environment) const EnvironmentSection(),
         FilledButton.icon(
           onPressed: () =>
               openEntryEditor(context, widget.kind ?? EntryKind.event),

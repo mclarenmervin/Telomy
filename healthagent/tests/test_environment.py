@@ -547,3 +547,54 @@ def test_the_app_and_the_server_agree_on_what_a_consent_looks_like():
     # Everything the app can ever mean by yes has to be something this gate
     # accepts.
     assert written <= set(str(v).lower() for v in CONSENT_VALUES) | {"false"}
+
+
+def test_the_app_writes_the_profile_keys_the_server_reads():
+    """The other half of the drift that already bit once.
+
+    The app writes `coarseLatitude`; the server reads `coarseLatitude`. A
+    typo in either is a feature that silently never runs — the sweep finds
+    nobody, the screen stays empty, and nothing anywhere says why.
+    """
+    import re
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "mobile" / "lib" / "features" / "environment" / "providers"
+        / "environment_provider.dart"
+    ).read_text()
+
+    declared = dict(
+        re.findall(r"const (\w+Key) = '([^']+)';", source)
+    )
+
+    assert declared["consentLocationKey"] == CONSENT_KEY
+    assert declared["coarseLatitudeKey"] == LATITUDE_KEY
+    assert declared["coarseLongitudeKey"] == LONGITUDE_KEY
+
+
+def test_every_city_the_app_offers_is_one_the_gate_accepts():
+    """A list entry the server would refuse is a city somebody can pick and
+    then get nothing from, with no error anywhere."""
+    import re
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "mobile" / "lib" / "features" / "environment" / "data"
+        / "coarse_places.dart"
+    ).read_text()
+
+    places = re.findall(
+        r"CoarsePlace\('[^']+', '[^']+', (-?[\d.]+), (-?[\d.]+)\)", source
+    )
+    assert len(places) > 20, "the city list did not parse"
+
+    for latitude, longitude in places:
+        stored = profile(**{LATITUDE_KEY: latitude, LONGITUDE_KEY: longitude})
+        resolved = location_for(stored)
+        assert resolved is not None, f"{latitude},{longitude} is refused"
+        # And already coarse: the app must not be shipping a precision the
+        # server would have to round away.
+        assert resolved == (float(latitude), float(longitude))
