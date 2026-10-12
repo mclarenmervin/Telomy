@@ -55,6 +55,9 @@ import '../features/centre/screens/doctors_screen.dart';
 import '../features/centre/screens/patients_screen.dart';
 import '../features/centre/screens/assignments_screen.dart';
 import '../features/centre/screens/centre_profile_screen.dart';
+import '../features/doctor/screens/doctor_today_screen.dart';
+import '../features/doctor/screens/doctor_patients_screen.dart';
+import '../features/doctor/screens/doctor_patient_detail_screen.dart';
 import 'role_routes.dart';
 
 /// One role's shell, its tabs taken from [roleTabs] so the branch order and
@@ -156,20 +159,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ProfileScreen(),
       ]),
       _shell(AppRole.doctor, const [
-        ComingInPhaseScreen(
-          title: 'Today',
-          phase: 'F10',
-          what:
-              'Who needs attention, and the clinic consultations coming up. '
-              'The queue behind it is already running — this is the first '
-              'interface it will ever have had.',
-          alreadyBuilt:
-              'The clinician spine from F5 and F6: the draft state '
-              'machine, the signing trigger that checks a licence at signing '
-              'time, the append-only review trail, and the delivery gate that '
-              'binds a signature to the exact body that was signed. All of it '
-              'is enforced in Postgres and tested; none of it has a screen.',
-        ),
+        DoctorTodayScreen(),
         ComingInPhaseScreen(
           title: 'Work',
           phase: 'F10',
@@ -183,17 +173,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               'deadlines expired, and the number of drafts nobody will ever '
               'hear about is on the platform dashboard.',
         ),
-        ComingInPhaseScreen(
-          title: 'Patients',
-          phase: 'F10',
-          what:
-              'The panel, in deterministic priority order, and each '
-              'patient\'s detail.',
-          alreadyBuilt:
-              'The scoped context loader, with one method per table '
-              'and every query scoped by user id. A clinician reading another '
-              'person\'s rows is a new loader rather than a widened one.',
-        ),
+        DoctorPatientsScreen(),
         ComingInPhaseScreen(
           title: 'You',
           phase: 'F10',
@@ -231,6 +211,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/patients/:patientId',
         builder: (_, state) =>
             PatientViewerScreen(patientId: state.pathParameters['patientId']!),
+      ),
+      GoRoute(
+        path: '/doctor/:centreId/patients/:patientId',
+        builder: (_, state) => DoctorPatientDetailScreen(
+          centreId: state.pathParameters['centreId']!,
+          patientId: state.pathParameters['patientId']!,
+        ),
       ),
       GoRoute(
         path: '/activity-session',

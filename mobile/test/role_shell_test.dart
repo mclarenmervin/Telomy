@@ -117,10 +117,7 @@ void main() {
     expect(find.text('Work'), findsWidgets);
     expect(find.text('Patients'), findsWidgets);
     expect(find.byTooltip('Log something'), findsNothing);
-    // Not a stub. It says which phase, what will be here, and what is
-    // already built underneath — because a blank screen reads as a broken
-    // product to whoever signs in next.
-    expect(find.textContaining('F10 builds this'), findsOneWidget);
+    expect(find.textContaining('F10 builds this'), findsNothing);
   });
 
   testWidgets('a centre operator lands on their own shell', (tester) async {
