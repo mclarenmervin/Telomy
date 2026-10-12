@@ -300,6 +300,21 @@ def describe(snapshot: dict) -> dict:
 #: next to its own data is one somebody eventually reads from the wrong row.
 CONSENT_KEY = "consentLocation"
 
+#: The only two values that mean yes.
+#:
+#: An allowlist and NOT a truthiness check, for a reason that is easy to get
+#: backwards: `bool("false")` is True, and a JSON column full of
+#: client-written values is precisely where the string "false" turns up.
+#:
+#: The string is here because it is what the app actually writes.
+#: `user_preferences.profile` is a `Map<String, String>` on the phone, so
+#: every consent in this product is the string "true" -- `consentManual`,
+#: `consentWearable`, `consentHealthConnect`, all of them. The first version
+#: of this gate took the boolean only, which would have meant the nightly
+#: sweep found nobody for the entire life of the feature, with no symptom
+#: except an environment screen that stayed empty.
+CONSENT_VALUES = (True, "true")
+
 #: Where the coarse home location is kept, when the user has given one.
 LATITUDE_KEY = "coarseLatitude"
 LONGITUDE_KEY = "coarseLongitude"
@@ -314,10 +329,13 @@ def location_for(profile) -> tuple[float, float] | None:
     the caller is asking.
     """
     profile = profile or {}
-    if profile.get(CONSENT_KEY) is not True:
-        # Explicitly `is not True`. A missing key, a null, a string "false"
-        # and the number 0 are all absence of consent, and a truthiness check
-        # would make the string "false" into a yes.
+    given = profile.get(CONSENT_KEY)
+    # Compared by identity for the boolean and by value for the string, so
+    # that `1 == True` cannot sneak the number one through as a yes.
+    if not any(
+        given is accepted or (isinstance(given, str) and given == accepted)
+        for accepted in CONSENT_VALUES
+    ):
         return None
 
     latitude, longitude = profile.get(LATITUDE_KEY), profile.get(LONGITUDE_KEY)

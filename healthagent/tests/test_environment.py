@@ -214,6 +214,7 @@ def test_the_band_is_taken_from_the_peak_and_not_the_average():
 
 from app.analytics.environment import (  # noqa: E402
     CONSENT_KEY,
+    CONSENT_VALUES,
     LATITUDE_KEY,
     LONGITUDE_KEY,
     location_for,
@@ -221,7 +222,7 @@ from app.analytics.environment import (  # noqa: E402
 
 
 def profile(**overrides):
-    base = {CONSENT_KEY: True, LATITUDE_KEY: 12.971599, LONGITUDE_KEY: 77.594566}
+    base = {CONSENT_KEY: "true", LATITUDE_KEY: "12.971599", LONGITUDE_KEY: "77.594566"}
     base.update(overrides)
     return base
 
@@ -230,10 +231,25 @@ def test_a_consenting_user_with_a_location_is_fetchable():
     assert location_for(profile()) == (13.0, 77.6)
 
 
+def test_the_apps_actual_convention_is_the_string_true():
+    """`user_preferences.profile` is a `Map<String, String>` on the phone, so
+    every consent in this product is the STRING "true" -- `consentManual`,
+    `consentWearable`, `consentHealthConnect`, all of them.
+
+    The first version of this gate accepted only the boolean, which meant
+    the sweep would have found nobody for the whole life of the feature and
+    the only symptom would have been an environment screen that stayed
+    empty. Found by going to write the app half.
+    """
+    assert location_for(profile(**{CONSENT_KEY: "true"})) is not None
+    assert location_for(profile(**{CONSENT_KEY: True})) is not None
+
+
 def test_no_consent_means_no_location_however_well_known_it_is():
     """The gate is here and nowhere else, so there is no code path that
     fetches without passing through it."""
     assert location_for(profile(**{CONSENT_KEY: False})) is None
+    assert location_for(profile(**{CONSENT_KEY: "false"})) is None
 
 
 def test_a_missing_consent_key_is_not_consent():
@@ -243,11 +259,15 @@ def test_a_missing_consent_key_is_not_consent():
     assert location_for(stored) is None
 
 
-@pytest.mark.parametrize("value", ["true", "false", 1, 0, "yes", None, []])
-def test_only_the_boolean_true_is_consent(value):
-    """A truthiness check would make the string "false" into a yes, and the
-    string is exactly what a JSON column full of client-written values
-    eventually contains."""
+@pytest.mark.parametrize("value", ["false", "False", 1, 0, "yes", "1", None, [], ""])
+def test_nothing_but_an_explicit_yes_is_consent(value):
+    """Two accepted spellings and an allowlist, NOT a truthiness check.
+
+    `bool("false")` is True, and a JSON column full of client-written values
+    is exactly where the string "false" turns up. The non-empty string "1"
+    is refused for the same reason: it is a value nothing in this product
+    writes, so accepting it could only ever mean something went wrong.
+    """
     assert location_for(profile(**{CONSENT_KEY: value})) is None
 
 
@@ -501,3 +521,29 @@ def test_the_agent_tool_clamps_the_window_a_model_asks_for():
     # quality is a mistake to correct, not a turn to fail.
     assert tool.func(SimpleNamespace(context=UserScope(user_id=ALICE)), days=99999)
     assert tool.func(SimpleNamespace(context=UserScope(user_id=ALICE)), days=-1)
+
+
+def test_the_app_and_the_server_agree_on_what_a_consent_looks_like():
+    """Cross-language drift check, and the one that would have caught this.
+
+    The app's profile is a `Map<String, String>`, so every consent it writes
+    is the string "true" -- `profile['consentManual'] == 'true'` is the
+    idiom, repeated across the health, devices and settings screens. A
+    server gate that accepted only the boolean would find nobody, forever,
+    with no symptom but an empty screen.
+    """
+    import re
+    from pathlib import Path
+
+    mobile = Path(__file__).resolve().parents[2] / "mobile" / "lib"
+    written = set()
+    for source in mobile.rglob("*.dart"):
+        text = source.read_text()
+        # `'consentWearable': 'true'` and `profile['consentManual'] == 'true'`
+        written |= set(re.findall(r"'consent\w+':\s*'(\w+)'", text))
+        written |= set(re.findall(r"\['consent\w+'\]\s*==\s*'(\w+)'", text))
+
+    assert written, "no consent flag is written anywhere in the app"
+    # Everything the app can ever mean by yes has to be something this gate
+    # accepts.
+    assert written <= set(str(v).lower() for v in CONSENT_VALUES) | {"false"}
