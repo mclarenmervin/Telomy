@@ -262,3 +262,59 @@ def test_an_import_stamps_the_catalog_version_it_filtered_against():
     process_genetics_job({"upload_id": "u1", "user_id": ALICE}, db)
 
     assert db.tables["genetic_variants"][0]["variants_version"]
+
+
+# ── The sweep that makes the webhook optional ────────────────────────────────
+
+def test_the_sweep_imports_an_upload_no_webhook_reached():
+    """`genetic_uploads` has no webhook trigger. The lab one was created in
+    the Supabase dashboard because it embeds the shared secret and a
+    migration cannot make it, so this feature would otherwise have shipped
+    depending on somebody remembering to click something -- and the failure
+    mode is a person watching "Reading your file..." forever with nothing in
+    any log to say why."""
+    from app.scheduler.genetics_sweep import sweep_genetics
+
+    db = db_with_upload()
+
+    result = sweep_genetics(db)
+
+    assert result["imported"] == 1
+    assert stored(db) == {"rs1801133": "TT", "rs2282679": "GG"}
+    assert upload_row(db)["status"] == IMPORTED
+
+
+def test_the_sweep_leaves_an_upload_already_imported_alone():
+    """Safe to run beside a webhook, if one is ever configured: the handler
+    re-reads the row and skips anything not still `uploaded`, the same guard
+    that makes a webhook retry harmless."""
+    from app.scheduler.genetics_sweep import sweep_genetics
+
+    db = db_with_upload(status="imported")
+
+    assert sweep_genetics(db)["imported"] == 0
+    assert stored(db) == {}
+
+
+def test_the_sweep_survives_a_database_that_will_not_answer():
+    """A scheduler that dies on a transient error stops every scheduled
+    thing in the product."""
+    from app.scheduler.genetics_sweep import sweep_genetics
+
+    class Broken:
+        def table(self, name):
+            raise RuntimeError("no")
+
+    assert sweep_genetics(Broken()) == {"imported": 0}
+
+
+def test_the_scheduler_runs_the_genetics_sweep_every_tick():
+    """Not on the ten-minute lab cadence. With no webhook this IS the import
+    path, and a person is watching a spinner on the other side of it."""
+    import inspect
+
+    from app.scheduler import main
+
+    source = inspect.getsource(main.tick)
+    before_lab_gate = source.split("if _due_for_lab_sweep")[0]
+    assert "sweep_genetics(supabase)" in before_lab_gate

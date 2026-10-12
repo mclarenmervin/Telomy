@@ -21,6 +21,7 @@ from app.common.logging_config import configure_logging, get_logger
 from app.common.queue import DelayedQueue, JobQueue
 from app.common.supabase_client import get_supabase_client
 from app.scheduler.environment_sweep import sweep_environment
+from app.scheduler.genetics_sweep import sweep_genetics
 from app.scheduler.http_fetch import fetch_json
 from app.scheduler.lab_sweep import sweep_uploads
 from app.scheduler.plan import (
@@ -79,6 +80,15 @@ def tick(supabase, delayed, work_queue, now: datetime | None = None,
         # console that signed without telling us would leave the insight
         # undelivered forever with a valid signature sitting in the database.
         sweep_queue(supabase, now)
+
+        # Every tick, and for a stronger reason than the clinical queue's.
+        # `genetic_uploads` has no webhook trigger -- the lab one was made
+        # in the Supabase dashboard because it embeds the shared secret,
+        # and a migration cannot create it -- so this is the path that
+        # actually imports a genome rather than a safety net under one. A
+        # person is on the other side of it watching a spinner, which is
+        # the same argument the clinical sweep above makes for its cadence.
+        sweep_genetics(supabase)
 
         if _due_for_lab_sweep(now):
             sweep_uploads(supabase, now)
