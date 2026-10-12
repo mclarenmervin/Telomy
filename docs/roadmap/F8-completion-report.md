@@ -1,0 +1,234 @@
+# F8 completion report — correlations v2, genetics, environment, therapies
+
+**Date:** 2026-10-12
+**Status:** F8 is complete. All four items ship, each verified end to end on
+the emulator against a real database.
+
+## Why this is a report and not a handoff prompt
+
+It was written as one, twice, and that is worth recording because it
+destroyed something.
+
+The demo-parity programme
+([2026-10-11-demo-parity-programme.md](2026-10-11-demo-parity-programme.md))
+arrived in the working tree while F8 was still moving, bringing eleven phase
+prompts (F9–F19) with it. A `git add -A` swept them into an unrelated commit
+(`07c5d17`) without them being read. Two of them — F9 and F10 — were then
+overwritten by handoff documents written on the assumption that the plan
+stopped at F8 and the next phases were unchosen. They were not unchosen; they
+were sitting in the same directory, and the programme's own §1 says plainly
+that F8 finishes first and F9 does not start before it.
+
+Both prompts have been restored from git, byte-identical. What was genuinely
+useful in the two overwritten drafts — what F8 built, what the device found,
+and the state the test account is now in — is kept below, because the
+programme's F9 covers none of it and it is recorded nowhere else.
+
+**The lesson for whoever hits it next:** `git add -A` after a long session
+commits whatever else arrived in the tree meanwhile. Stage by path, or read
+`git status` before committing, or both.
+
+## What F8 shipped
+
+| # | Capability | State |
+|---|---|---|
+| 5 | Correlations v2 | Complete. Pre-registered hypothesis set, FDR, lag-1 autocorrelation correction, direction check. Screen + REST + agent tool |
+| 9 | Genetics | Complete. Upload, allowlist of 4 rsids, deterministic APOE refusal, variants as marker-attached context only |
+| 10 | Environment | Complete. City picker, consent gate, nightly sweep against Open-Meteo, bands from published scales |
+| 11 | Therapies | Complete. Per-session before/after, paired test, confounder exclusion, screen + REST + agent tool |
+
+Verified on the device, not only in tests: a 5,009-row 23andMe export and a
+VCF both containing APOE went through the real pipeline (`read=4306 kept=4`
+and `read=3 kept=2`); `genetic_variants` holds zero APOE rows; asking "what
+is my APOE status now?" afterwards still returns `route=genetic_risk` with no
+model call. A city was picked, the sweep hit the live provider, and one day
+stored with 24 hours observed and a UV peak of 10.2.
+
+Suites at completion: backend 1566, mobile 410, SQL 163 assertions, 0
+failures, lint clean, migrations 001–021 applied.
+
+---
+
+## Not deployed, which matters more than it looks
+
+Everything F8 and F9 built runs locally and on the device against a local
+gateway. Check each of these before assuming a user can reach any of it:
+
+* **the Railway gateway has none of the new code.** `/api/v1/correlations`,
+  `/api/v1/therapies`, `/api/v1/environment`, `/api/v1/genetics/variants` and
+  `/webhooks/genetic-uploads` exist only on this branch. Four screens will
+  show their offline state against production right now.
+* **the scheduler must be running** or the environment sweep never fires and
+  no genetics upload is ever imported. Confirm it is deployed and ticking.
+* **`genetic_uploads` has no webhook trigger** and cannot get one from a
+  migration — the `lab_uploads` one was made in the dashboard because it
+  embeds the shared secret. F9 made this survivable rather than fatal: the
+  scheduler sweeps `uploaded` rows every tick, so the import works without
+  the trigger. Adding the trigger is still worth doing (it drops the wait
+  from up to 60s to immediate) and is no longer load-bearing.
+* migrations 001–021 are applied to the live database.
+
+## Nine things that will bite you
+
+Still true, and none of them specific to F8.
+
+1. **A route the database rejects is an uncapped turn.** F8 added
+   `genetic_risk` to `turn.py` and not to the check constraint. The insert
+   failed with 23514, `save_turn` logged and swallowed it — correctly, the
+   reply was guarded and somebody was waiting — and the endpoint returned
+   200 with an answer that was never recorded. `turns_since` counts that
+   table, so the turn also escaped the daily cap. Covered now by a test that
+   parses the constraint out of db/*.sql. **Add a route, add a migration.**
+
+2. **`create or replace function` in a migration is not additive.** 019
+   redefined `delete_own_account` by copying from 007, silently reverting
+   009's change from deleting `storage.objects` rows to recording a purge —
+   which is the difference between deleting a file and hiding it. The SQL
+   test caught it. **Extend whichever migration last touched it.**
+
+3. **The app writes strings; the server read a boolean.** Every consent in
+   this product is `profile['consentX'] == 'true'`, because
+   `user_preferences.profile` is a `Map<String, String>`. F8's location gate
+   accepted only the boolean, so the nightly sweep would have found nobody
+   for the life of the feature with no symptom but an empty screen. Found
+   only by writing the app half. There are now drift tests in both
+   directions; add one whenever a key crosses that boundary.
+
+4. **A variant may still never originate an insight, and five things hold
+   that up.** No `get_variants` tool; no loader method that returns variants
+   without lab results first; an allowlist that keeps 4 rsids of ~600,000;
+   `screen_for_genetic_risk` answering before any model runs; and
+   `describe_stored` kept deliberately separate from `context_for_results`
+   so the screen's path cannot become the agent's. Each has a test named
+   after it. Widening any one undoes the others.
+
+5. **Only declared pairs are tested, and that is the feature.** Both
+   statistical engines build their hypothesis set from a catalog, so `m` for
+   the false discovery rate is the number of things we would ever report.
+   Adding a pair makes the correction harsher for every other pair, which is
+   the correct incentive. Do not add a "test everything and filter after"
+   mode.
+
+6. **Daily series are not independent samples.** Over 200 trials of two
+   independent 60-day random walks, 141 clear p < 0.05 with |r| >= 0.3 on
+   the raw day count and 7 do on the effective one. Anything new that
+   correlates daily series goes through `effective_sample_size`.
+
+7. **A critical value still cannot wait.** `ESCALATION_LINE` is appended
+   whenever `open_lab_escalations` returns anything, after every replacement
+   and gated on nothing — F8 watched it survive a `guardrail_replaced` turn
+   on a device. Nothing in the chat path writes `acknowledged_at`.
+
+8. **Published scales are banded on whole numbers.** A UV peak of 10.2 was
+   labelled "extreme" on a real screen; WHO rounds to the nearest integer, so
+   10.2 is 10 and "very high". Half-up is written out because Python's
+   `round` goes to even. If a third scale arrives, it rounds too.
+
+9. **Verify on the device, and give it the disk.** Every phase has found a
+   bug there that all tests passed through: F8 found four, F9 found four
+   more (a consent sheet whose buttons were off the bottom of the screen,
+   variants rendering as bare rsids, the UV band, and a page blurb that had
+   become false). Each `flutter build apk --debug` writes ~200MB.
+
+## How to drive the device
+
+One APK pointed at a local gateway gives control of every server variable
+without touching Railway:
+
+    cp mobile/.env.supabase mobile/.env.local-gateway.json   # then set
+    #   "API_BASE_URL": "http://10.0.2.2:8099"
+    cd healthagent && set -a && . ./.env && set +a
+    PYTHONPATH=. .venv/bin/python -m uvicorn app.gateway.main:app --port 8099
+    cd ../mobile && flutter build apk --debug \
+        --dart-define-from-file=.env.local-gateway.json
+    adb install -r build/app/outputs/flutter-apk/app-debug.apk
+
+`ApiConfig` permits http only because APP_ENV defaults to `development`.
+Supabase stays the real project, so the JWT verifies. Restart the gateway
+with `MAX_CHAT_TURNS_PER_DAY=1` or no model key to exercise the 429 and the
+`unavailable` route. Docker holds 8000. `adb` is at
+~/Library/Android/sdk/platform-tools and is not on PATH; the package is
+`com.telomy.telomy`; there is no deep link, so navigate by tapping.
+
+### The test account's state
+
+test-harness@example.com, 99f9d063-1d36-48fe-a1e1-609e4fcf269d. It now has:
+
+* 3 insights (signed trend, SLA-released trend, signed supplement) and one
+  deliberately stranded draft, from `dev_clinical_demo.sql`
+* 60 days of HRV / resting heart rate / sleep and 8 sauna sessions, from
+  `dev_correlations_demo.sql` — built so exactly one declared pair holds and
+  two are withheld, because a seed where everything correlates proves nothing
+  about a screen whose job is to refuse most things
+* 4 wellness genotypes from two real imports (a 23andMe export and a VCF),
+  and **no APOE**, which is the point
+* a coarse location of Bengaluru and one environment snapshot
+* one `lab_escalations` row, acknowledged. Setting `acknowledged_at` to null
+  is how you see the escalation line; put it back afterwards
+* `/sdcard/Download/genome.txt` on the emulator, a synthetic 5,009-row export
+  containing APOE, HFE and TCF7L2, for re-testing the refusal
+
+## Also true, and worth not rediscovering
+
+A model's behaviour varies between two identical runs, which is the argument
+for a deterministic gate over a line in a prompt; an unreadable journal field
+is absent and not zero, because the phone's reader returns 0 and that
+manufactures correlations out of missing data; a night of sleep is a union of
+overlapping stage records and not a measurement type; the baseline cancels
+out of a before/after difference, which is why therapy evidence needs two
+hours of readings per session and not a fortnight; a therapy must be excluded
+from its own confounders or every session is dropped silently forever;
+`FutureProvider` without `autoDispose` will keep telling a user "not enough
+data yet" for the life of the app after the data arrives — this has now cost
+two screens; a Flutter test asserting inside a callback that never fires is a
+test that passes having checked nothing; `lru_cache` is on every catalog
+loader and every test that repoints a YAML path has to clear it; migrations
+are numbered only and the runner refuses an edit to an applied file.
+
+## Commands
+
+Backend tests: cd healthagent && PYTHONPATH=. .venv/bin/python -m pytest -q (1566 passing)
+Mobile tests: cd mobile && flutter test (410 passing)
+Mobile lint: cd mobile && flutter analyze
+DB: set -a && . ./healthagent/.env && set +a then psql "$SUPABASE_DB_URL"
+SQL tests: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f healthagent/db/tests/<name>.sql (163 assertions, they roll back)
+  — check psql's EXIT CODE when scripting these. A dropped connection prints
+    "psql: error:" in lower case and a grep for ERROR counts it as a pass.
+Migrate: cd healthagent && PYTHONPATH=. .venv/bin/python -m app.migrate.main --dry-run
+Seed: psql "$SUPABASE_DB_URL" -f healthagent/db/dev_correlations_demo.sql
+Ask the concierge: PYTHONPATH=. .venv/bin/python scripts/ask_concierge.py --user-id <uuid> --suite --dry
+
+## Working style
+
+TDD throughout — failing test, watch it fail for the right reason, then
+implement. Mutate the implementation to check a safety test actually fails
+when the gate is removed; across F8 and F9 about thirty mutations found four
+tests that were passing for the wrong reason. Small commits explaining why.
+Both suites before each commit. Push to staging.
+
+## Known and deliberately not fixed
+
+- The clinician console does not exist. See the second section.
+- Open-Meteo is free for NON-COMMERCIAL use only. A paid plan is a launch
+  blocker, noted in the adapter where it will be found.
+- **A genetics export is never purged.** `genetic_uploads.purged_at` has
+  nobody to set it and `019`'s retention story is unimplemented, so a genome
+  sits in its bucket indefinitely — which contradicts what the consent sheet
+  tells people ("the file itself is deleted once the import has worked").
+  That is a promise the product is currently not keeping, and it is the
+  smallest high-value thing on this list.
+- **The app can time out while the server is still working.** Dio waits 90s;
+  a turn has no total bound and now has fourteen tools to choose from. The
+  fix is a server-side deadline below the client's timeout.
+- No way to clear a conversation without deleting the account.
+- No streaming; the guardrails work on finished text.
+- `insights.withdrawn_at` is written by nobody.
+- `trigger: below_optimal` is refused at load time on purpose.
+- Pregnancy is detected by screening free text; the fix is a structured field.
+- Cross-source wearable dedupe, and a real empty state for a user with no
+  wearable at all.
+- Correlations and therapy effects are same-day and acute only. Neither
+  answers "is this working for me over months", which is what people ask.
+  Read the "deliberately left out" notes in both catalogs before adding a
+  chronic model: sauna raises heart rate for the hour after and lowers
+  resting heart rate over months.

@@ -1,244 +1,135 @@
 Read first, in this order:
 
-~/.claude/plans/i-got-new-request-dynamic-emerson.md — the approved plan. Its
-sequence ran out at F8, so F9 and this one are chosen rather than given. The
-capability table is now touched on every row; what is left is the quality of
-each, and one thing that blocks a third of them at once.
+docs/roadmap/2026-10-11-demo-parity-programme.md — §2, §5 (F10) and decision 1.
+The decision has to have been answered before this phase starts; if nobody has
+answered it, stop and ask.
 healthagent/CLAUDE.md — the Five Principles and Non-Negotiable Rules are binding.
-healthagent/app/concierge/turn.py — read properly before adding anything the
-agent can see. Nine deterministic steps around one model call; the docstring
-lists them and says why each is where it is.
-docs/roadmap/F9-handoff-prompt.md — its "three features are dark" section is
-now obsolete, and the rest of it still holds. F9 closed two of the three.
+healthagent/app/clinical/ — drafts, supplement_drafts, queue_plan, sweep. Read
+all four. F5 and F6 built a complete clinician spine and it has never had an
+interface; F10 is that interface and should add no new clinical machinery.
+healthagent/app/agent/guardrails.py — `gate_delivery`, `body_sha256`, the three
+profiles. This is what makes a signature mean something, and F10 must not route
+around it.
 
-## Where this actually is
+What F10 is: the doctor's screen. A work queue in five segments — monthly
+reports, Sinc drafts, consults, therapy plans, Rx plans — a patient panel
+ordered by a deterministic priority, a patient detail view, clinician notes, the
+report summary and the patient summary, and monthly report generate → sign.
+Therapy plans and Rx plans are empty until F12 and F18; build their segments
+anyway, because the empty state is the contract those phases fill.
 
-Every capability in the plan now has a working vertical, and two of them were
-finished in F9:
+Already built (F0–F9), reuse it:
 
-| # | Capability | State |
-|---|---|---|
-| 5 | Correlations v2 | Complete, verified end to end |
-| 9 | Genetics | Complete, verified end to end with a real file |
-| 10 | Environment | Complete, verified against the live provider |
-| 11 | Therapies | Complete, verified through chat and a screen |
+app/clinical/drafts.py + supplement_drafts.py — a draft is produced with the
+  guardrail's flags, never the producer's. A draft the guardrail would not flag
+  is refused rather than written. Widen that and the SLA path eats the gate
+app/clinical/sweep.py — `sweep_queue`, the SLA release, `stranded` and
+  `stranded_total`. The queue already knows how to expire; F10 is what finally
+  claims
+db/013_clinical_review.sql — `clinical_drafts` has **no user-facing RLS select
+  policy at all**, which is the enforcement that a user cannot read an
+  unreviewed draft. The doctor's read path is a new policy for a new role, not
+  a loosening of that one
+db/dev_clinical_demo.sql — seeds a signed trend, an SLA-released trend, a signed
+  supplement recommendation and one deliberately stranded. It stands in for the
+  console that does not exist; after F10 it stands in for nothing
+app/analytics/ — readiness, biological age, trends, marker_trends, severity.
+  Deterministic, already exposed as both an endpoint and a tool. The patient
+  summary is a fourth caller, not a fourth implementation
+app/agent/numbers.py — `check_numbers`, `collect_tool_numbers`. A figure in
+  prose traces to a value a tool returned. The summaries in this phase are prose
+  full of figures
 
-"Complete" means a user can reach it and it tells them something true. It does
-NOT mean it tells them much, and the reason is the next section.
+Nine things that will bite you:
 
-## The one thing worth doing before anything else
+1. **The summaries are composed, not generated.** The prototype's
+   `summaries.py` is a deterministic composer: it assembles sentences from
+   values it already has. That is P2, and it is also the only way
+   `check_numbers` can pass. If an LLM writes the patient summary, every number
+   in it needs a tool receipt, and the honest version of that is the composer.
 
-**Five content files need a clinician's signature and nothing else will move
-until they get one.** `biomarkers.v1.yaml`, `supplements.v1.yaml`,
-`correlations.v1.yaml`, `therapies.v1.yaml`, `variants.v1.yaml`.
+2. **Nothing is signable without a note.** The prototype disables every sign
+   button until a free-text note is non-empty, on all five segments. Copy it,
+   and enforce it server-side too — a disabled button is a courtesy, not a rule.
 
-What that costs today, on real screens:
+3. **The signature binds to the body, and the body cannot change afterwards.**
+   `review.signed_body_sha256 == sha256(delivery_body)` already makes a
+   post-signature edit structurally undeliverable. The doctor's note is part of
+   what is delivered, so decide — and test — whether the note is inside the
+   hashed body. Recommendation: yes, because a note that can be edited after
+   signing is a signature on words nobody read, which is the exact defect commit
+   `cd6bc9e` fixed in the concierge.
 
-* biological age is withheld — "Not yet. Awaiting clinical review."
-* every lab value is `ungraded`, so the concierge says "I can describe it but
-  not grade it" constantly
-* `find_deficiencies` returns nothing, so the supplement queue stays empty
-* a correlation says "Nobody has reviewed why these two are related"
-* a therapy effect says "Nobody has reviewed why this happens"
-* a genotype says "Nobody has reviewed what they mean yet"
+4. **A doctor may edit an item and a dose before signing, and that is not an
+   edit to a signed thing.** The prototype's Rx segment lets the doctor drop
+   items and overwrite doses, then signs what is left. The order matters: the
+   decision payload carries `keep` and `doses`, the server recomputes the body,
+   *then* hashes. Build it in that order or bite 3 fires on your own feature.
 
-Four of those six sentences were added in the last two phases. Every phase
-now adds another thing that needs signing, and the rate is increasing.
+5. **Priority is a rule, not a model.** The prototype's `_priority` is
+   deterministic and that is the correct choice: a queue ordered by an LLM is a
+   queue no clinician can predict or audit. Rank on what is already computed —
+   escalations open, severity, staleness, SLA remaining — and put the reason on
+   the row, because a doctor who cannot see why someone is at the top will sort
+   by name instead.
 
-**The database knows of exactly one clinician and it is a fixture**: Dr Meera
-Raghavan, KMC-2019-44871, in "Bonphul Demo Clinic", seeded by
-`dev_clinical_demo.sql`. `clinical_reviews` has two rows, both demo. There is
-no real backlog yet because there are no real users, which is precisely why
-this is the moment to fix it rather than after there is one.
+6. **A critical value does not enter this queue.** `lab_escalations` fires
+   independently and `ESCALATION_LINE` bypasses the guardrail rewrite. The
+   queue is for recommendations; an emergency that waits for a work queue is the
+   worst failure this product can have. Test that an escalation is visible to
+   the doctor *and* that it did not wait for them.
 
-Two halves, and only one of them is code:
+7. **The agent still gets no path to `clinical_drafts`.** The *absence* of a
+   loader method is load-bearing (F7's prompt says so explicitly). Putting the
+   doctor's UI in the same app does not change it: the doctor's reads go through
+   a new, role-scoped loader called from the gateway, and no tool the concierge
+   can reach gains access. If a `get_clinical_drafts` tool appears in this
+   phase, the phase is wrong.
 
-1. the clinician console, a separate repo per the plan — CRUD over Postgres
-   with RLS on `clinic_members`, no agent access
-2. a real person with a registration number willing to sign
+8. **A doctor sees only patients who share with them.** `treating_clinic_id`
+   exists in the loader; it is a clinic, not a licence to browse. The panel is
+   derived from a consent or membership row, the test runs as a second doctor
+   and asserts zero rows, and "search all patients" is not a feature.
 
-Building (1) without (2) produces nothing. F10 should establish whether (2)
-is obtainable before committing to (1), and if it is not, should consider
-whether a sixth unsigned file is worth adding.
+9. **Verify on the device.** Every phase so far has found a bug there that all
+   the tests passed through — most recently a composer that sat under the
+   shell's floating button. A five-segment queue with free-text notes on a
+   phone keyboard is exactly the shape that breaks there.
 
-## Not deployed, which matters more than it looks
+Also true, and worth not rediscovering: a signed insight still cannot be
+withdrawn (`insights.withdrawn_at` is written by nobody, and the column, the
+loader filter and the repository's `isFilter` are all already there — F10 is the
+phase with a human who would want it); `convert_to` is STABLE so a sha256 of
+text cannot be a generated column; `rules_for`, `review_status` and
+`load_catalog` are lru_cached and every test that repoints a YAML path must
+clear them.
 
-Everything F8 and F9 built runs locally and on the device against a local
-gateway. Check each of these before assuming a user can reach any of it:
+Verification:
 
-* **the Railway gateway has none of the new code.** `/api/v1/correlations`,
-  `/api/v1/therapies`, `/api/v1/environment`, `/api/v1/genetics/variants` and
-  `/webhooks/genetic-uploads` exist only on this branch. Four screens will
-  show their offline state against production right now.
-* **the scheduler must be running** or the environment sweep never fires and
-  no genetics upload is ever imported. Confirm it is deployed and ticking.
-* **`genetic_uploads` has no webhook trigger** and cannot get one from a
-  migration — the `lab_uploads` one was made in the dashboard because it
-  embeds the shared secret. F9 made this survivable rather than fatal: the
-  scheduler sweeps `uploaded` rows every tick, so the import works without
-  the trigger. Adding the trigger is still worth doing (it drops the wait
-  from up to 60s to immediate) and is no longer load-bearing.
-* migrations 001–021 are applied to the live database.
+- Drive `stranded_total` to zero through the UI, from a seeded stranded draft.
+- Sign, then attempt a one-character edit; assert undeliverable.
+- Sign an Rx with an item removed and a dose changed; assert the delivered body
+  is what was signed, not what was proposed.
+- Run the panel as a second doctor: zero rows.
+- An escalation reaches the doctor and did not wait for them.
+- Monthly report: generate, sign, assert the member sees it with the trail —
+  `noticed_by`, `reviewed_by`, `reviewed_at`, evidence.
 
-## Nine things that will bite you
+Commands: as in F9-handoff-prompt.md. Seed the clinician demo with
+psql "$SUPABASE_DB_URL" -f healthagent/db/dev_clinical_demo.sql.
 
-1. **A route the database rejects is an uncapped turn.** F8 added
-   `genetic_risk` to `turn.py` and not to the check constraint. The insert
-   failed with 23514, `save_turn` logged and swallowed it — correctly, the
-   reply was guarded and somebody was waiting — and the endpoint returned
-   200 with an answer that was never recorded. `turns_since` counts that
-   table, so the turn also escaped the daily cap. Covered now by a test that
-   parses the constraint out of db/*.sql. **Add a route, add a migration.**
+Working style: TDD throughout. Mutate the gate and watch a safety test fail.
+Small commits that say why. Both suites green before each commit. Push to
+staging. Verify on `Pixel_8`.
 
-2. **`create or replace function` in a migration is not additive.** 019
-   redefined `delete_own_account` by copying from 007, silently reverting
-   009's change from deleting `storage.objects` rows to recording a purge —
-   which is the difference between deleting a file and hiding it. The SQL
-   test caught it. **Extend whichever migration last touched it.**
+Blocked: the clinical content still needs a signatory (F6's open question, now
+F9's admin surface can collect it). An empty queue in a demo is this phase
+working, not failing, but say so out loud before anyone demonstrates it.
 
-3. **The app writes strings; the server read a boolean.** Every consent in
-   this product is `profile['consentX'] == 'true'`, because
-   `user_preferences.profile` is a `Map<String, String>`. F8's location gate
-   accepted only the boolean, so the nightly sweep would have found nobody
-   for the life of the feature with no symptom but an empty screen. Found
-   only by writing the app half. There are now drift tests in both
-   directions; add one whenever a key crosses that boundary.
-
-4. **A variant may still never originate an insight, and five things hold
-   that up.** No `get_variants` tool; no loader method that returns variants
-   without lab results first; an allowlist that keeps 4 rsids of ~600,000;
-   `screen_for_genetic_risk` answering before any model runs; and
-   `describe_stored` kept deliberately separate from `context_for_results`
-   so the screen's path cannot become the agent's. Each has a test named
-   after it. Widening any one undoes the others.
-
-5. **Only declared pairs are tested, and that is the feature.** Both
-   statistical engines build their hypothesis set from a catalog, so `m` for
-   the false discovery rate is the number of things we would ever report.
-   Adding a pair makes the correction harsher for every other pair, which is
-   the correct incentive. Do not add a "test everything and filter after"
-   mode.
-
-6. **Daily series are not independent samples.** Over 200 trials of two
-   independent 60-day random walks, 141 clear p < 0.05 with |r| >= 0.3 on
-   the raw day count and 7 do on the effective one. Anything new that
-   correlates daily series goes through `effective_sample_size`.
-
-7. **A critical value still cannot wait.** `ESCALATION_LINE` is appended
-   whenever `open_lab_escalations` returns anything, after every replacement
-   and gated on nothing — F8 watched it survive a `guardrail_replaced` turn
-   on a device. Nothing in the chat path writes `acknowledged_at`.
-
-8. **Published scales are banded on whole numbers.** A UV peak of 10.2 was
-   labelled "extreme" on a real screen; WHO rounds to the nearest integer, so
-   10.2 is 10 and "very high". Half-up is written out because Python's
-   `round` goes to even. If a third scale arrives, it rounds too.
-
-9. **Verify on the device, and give it the disk.** Every phase has found a
-   bug there that all tests passed through: F8 found four, F9 found four
-   more (a consent sheet whose buttons were off the bottom of the screen,
-   variants rendering as bare rsids, the UV band, and a page blurb that had
-   become false). Each `flutter build apk --debug` writes ~200MB.
-
-## How to drive the device
-
-One APK pointed at a local gateway gives control of every server variable
-without touching Railway:
-
-    cp mobile/.env.supabase mobile/.env.local-gateway.json   # then set
-    #   "API_BASE_URL": "http://10.0.2.2:8099"
-    cd healthagent && set -a && . ./.env && set +a
-    PYTHONPATH=. .venv/bin/python -m uvicorn app.gateway.main:app --port 8099
-    cd ../mobile && flutter build apk --debug \
-        --dart-define-from-file=.env.local-gateway.json
-    adb install -r build/app/outputs/flutter-apk/app-debug.apk
-
-`ApiConfig` permits http only because APP_ENV defaults to `development`.
-Supabase stays the real project, so the JWT verifies. Restart the gateway
-with `MAX_CHAT_TURNS_PER_DAY=1` or no model key to exercise the 429 and the
-`unavailable` route. Docker holds 8000. `adb` is at
-~/Library/Android/sdk/platform-tools and is not on PATH; the package is
-`com.telomy.telomy`; there is no deep link, so navigate by tapping.
-
-### The test account's state
-
-test-harness@example.com, 99f9d063-1d36-48fe-a1e1-609e4fcf269d. It now has:
-
-* 3 insights (signed trend, SLA-released trend, signed supplement) and one
-  deliberately stranded draft, from `dev_clinical_demo.sql`
-* 60 days of HRV / resting heart rate / sleep and 8 sauna sessions, from
-  `dev_correlations_demo.sql` — built so exactly one declared pair holds and
-  two are withheld, because a seed where everything correlates proves nothing
-  about a screen whose job is to refuse most things
-* 4 wellness genotypes from two real imports (a 23andMe export and a VCF),
-  and **no APOE**, which is the point
-* a coarse location of Bengaluru and one environment snapshot
-* one `lab_escalations` row, acknowledged. Setting `acknowledged_at` to null
-  is how you see the escalation line; put it back afterwards
-* `/sdcard/Download/genome.txt` on the emulator, a synthetic 5,009-row export
-  containing APOE, HFE and TCF7L2, for re-testing the refusal
-
-## Also true, and worth not rediscovering
-
-A model's behaviour varies between two identical runs, which is the argument
-for a deterministic gate over a line in a prompt; an unreadable journal field
-is absent and not zero, because the phone's reader returns 0 and that
-manufactures correlations out of missing data; a night of sleep is a union of
-overlapping stage records and not a measurement type; the baseline cancels
-out of a before/after difference, which is why therapy evidence needs two
-hours of readings per session and not a fortnight; a therapy must be excluded
-from its own confounders or every session is dropped silently forever;
-`FutureProvider` without `autoDispose` will keep telling a user "not enough
-data yet" for the life of the app after the data arrives — this has now cost
-two screens; a Flutter test asserting inside a callback that never fires is a
-test that passes having checked nothing; `lru_cache` is on every catalog
-loader and every test that repoints a YAML path has to clear it; migrations
-are numbered only and the runner refuses an edit to an applied file.
-
-## Commands
-
-Backend tests: cd healthagent && PYTHONPATH=. .venv/bin/python -m pytest -q (1566 passing)
-Mobile tests: cd mobile && flutter test (410 passing)
-Mobile lint: cd mobile && flutter analyze
-DB: set -a && . ./healthagent/.env && set +a then psql "$SUPABASE_DB_URL"
-SQL tests: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f healthagent/db/tests/<name>.sql (163 assertions, they roll back)
-  — check psql's EXIT CODE when scripting these. A dropped connection prints
-    "psql: error:" in lower case and a grep for ERROR counts it as a pass.
-Migrate: cd healthagent && PYTHONPATH=. .venv/bin/python -m app.migrate.main --dry-run
-Seed: psql "$SUPABASE_DB_URL" -f healthagent/db/dev_correlations_demo.sql
-Ask the concierge: PYTHONPATH=. .venv/bin/python scripts/ask_concierge.py --user-id <uuid> --suite --dry
-
-## Working style
-
-TDD throughout — failing test, watch it fail for the right reason, then
-implement. Mutate the implementation to check a safety test actually fails
-when the gate is removed; across F8 and F9 about thirty mutations found four
-tests that were passing for the wrong reason. Small commits explaining why.
-Both suites before each commit. Push to staging.
-
-## Known and deliberately not fixed
-
-- The clinician console does not exist. See the second section.
-- Open-Meteo is free for NON-COMMERCIAL use only. A paid plan is a launch
-  blocker, noted in the adapter where it will be found.
-- **A genetics export is never purged.** `genetic_uploads.purged_at` has
-  nobody to set it and `019`'s retention story is unimplemented, so a genome
-  sits in its bucket indefinitely — which contradicts what the consent sheet
-  tells people ("the file itself is deleted once the import has worked").
-  That is a promise the product is currently not keeping, and it is the
-  smallest high-value thing on this list.
-- **The app can time out while the server is still working.** Dio waits 90s;
-  a turn has no total bound and now has fourteen tools to choose from. The
-  fix is a server-side deadline below the client's timeout.
-- No way to clear a conversation without deleting the account.
-- No streaming; the guardrails work on finished text.
-- `insights.withdrawn_at` is written by nobody.
-- `trigger: below_optimal` is refused at load time on purpose.
-- Pregnancy is detected by screening free text; the fix is a structured field.
-- Cross-source wearable dedupe, and a real empty state for a user with no
-  wearable at all.
-- Correlations and therapy effects are same-day and acute only. Neither
-  answers "is this working for me over months", which is what people ask.
-  Read the "deliberately left out" notes in both catalogs before adding a
-  chronic model: sauna raises heart rate for the hour after and lowers
-  resting heart rate over months.
+Deliberately left for later:
+- Therapy plan and Rx plan segments render their empty states; F12 and F18 fill
+  them.
+- The dispute path for a signed insight the member disagrees with. Still only a
+  dismiss button, still wrong, still not this phase.
+- Multi-doctor handover and claim transfer. The SLA sweep covers the lapse case;
+  deliberate handover is a workflow nobody has asked for yet.
