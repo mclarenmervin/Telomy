@@ -265,3 +265,53 @@ def sweep_queue(supabase: Any, now: datetime | None = None) -> dict:
                                "delivered", "stranded", "stranded_total")):
         logger.info(f"clinical queue swept {report}")
     return report
+
+
+def queue_health(supabase: Any) -> dict:
+    """The queue's numbers, read and not moved.
+
+    `sweep_queue` reports the same two figures and earns them by advancing the
+    state machine. The admin dashboard needs them on a GET, and a GET that
+    advanced the state machine would make reading the dashboard a side effect
+    — two admins refreshing would race each other through the queue.
+
+    So this reads the same page of open drafts and counts. One implementation
+    of `stranded_total` would have been better than two, which is why both go
+    through `_standing_stranded`: a dashboard that disagreed with the log
+    about how many people are not being told things would be worse than no
+    dashboard.
+
+    Counts only. Which members are behind the number is a question with a
+    consent row in front of it, and nothing in this schema can record one yet.
+    """
+    try:
+        drafts = _open_drafts(supabase)
+    except Exception:
+        logger.exception("could not read the clinician queue for the dashboard")
+        # Reported as unknown rather than as zero. A dashboard reading zero
+        # with forty-one drafts stranded is worse than no dashboard at all,
+        # and that is exactly what an error swallowed into a default gives.
+        return {"depth": None, "stranded_total": None, "claimed": None,
+                "oldest_waiting_hours": None}
+
+    waiting = [d for d in drafts if d.get("status") in _WAITING]
+    oldest = None
+    for draft in waiting:
+        due = draft.get("sla_due_at")
+        if not due:
+            continue
+        try:
+            when = datetime.fromisoformat(str(due).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        age = (datetime.now(timezone.utc) - when).total_seconds() / 3600
+        oldest = age if oldest is None else max(oldest, age)
+
+    return {
+        "depth": len(waiting),
+        "stranded_total": _standing_stranded(supabase, drafts),
+        "claimed": sum(1 for d in drafts if d.get("claimed_by")),
+        # Hours PAST the deadline, so a negative number is a queue that is
+        # keeping up. Named for what it measures rather than for the sign.
+        "oldest_waiting_hours": None if oldest is None else round(oldest, 1),
+    }

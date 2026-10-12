@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.common.logging_config import configure_logging
 from app.gateway.activity_webhooks import router as activity_router
+from app.gateway.api.admin import router as admin_router
 from app.gateway.api.chat import router as chat_router
 from app.gateway.api.correlations import router as correlations_router
 from app.gateway.api.environment import router as environment_router
@@ -25,6 +26,7 @@ app.include_router(correlations_router)
 app.include_router(therapies_router)
 app.include_router(environment_router)
 app.include_router(genetics_api_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")
