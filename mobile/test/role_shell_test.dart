@@ -126,8 +126,8 @@ void main() {
   testWidgets('a centre operator lands on their own shell', (tester) async {
     await signIn(tester, AppRole.centre);
 
-    expect(find.text('Floor'), findsWidgets);
-    expect(find.text('Bookings'), findsWidgets);
+    expect(find.text('Doctors'), findsWidgets);
+    expect(find.text('Assignments'), findsWidgets);
     expect(find.byTooltip('Log something'), findsNothing);
   });
 

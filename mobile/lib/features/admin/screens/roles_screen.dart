@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/app_colors.dart';
 import '../../../core/vocabulary/vocabulary.dart';
@@ -38,6 +39,20 @@ class AdminRolesScreen extends ConsumerWidget {
           ),
         ],
         data: (data) => [
+          Wrap(
+            spacing: AppSpacing.xs,
+            children: [
+              FilledButton(
+                onPressed: () => context.push('/admin/centres'),
+                child: const Text('Centres'),
+              ),
+              OutlinedButton(
+                onPressed: () => context.push('/admin/licences'),
+                child: const Text('Licence verification'),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
           for (final role in AppRole.values)
             AppCard(
               key: Key('roles-${role.name}'),

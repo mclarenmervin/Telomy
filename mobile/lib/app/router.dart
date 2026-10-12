@@ -47,6 +47,14 @@ import '../features/roles/models/app_role.dart';
 import '../features/roles/providers/role_provider.dart';
 import '../features/roles/screens/coming_in_phase_screen.dart';
 import '../features/accounts/screens/pending_invitation_screen.dart';
+import '../features/admin/screens/centres_screen.dart';
+import '../features/admin/screens/licence_verification_screen.dart';
+import '../features/admin/screens/patient_viewer_screen.dart';
+import '../features/centre/screens/centre_dashboard_screen.dart';
+import '../features/centre/screens/doctors_screen.dart';
+import '../features/centre/screens/patients_screen.dart';
+import '../features/centre/screens/assignments_screen.dart';
+import '../features/centre/screens/centre_profile_screen.dart';
 import 'role_routes.dart';
 
 /// One role's shell, its tabs taken from [roleTabs] so the branch order and
@@ -198,48 +206,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ]),
       _shell(AppRole.centre, const [
-        ComingInPhaseScreen(
-          title: 'Centre',
-          phase: 'F11',
-          what:
-              'Revenue against last month, sessions, members, no-shows, '
-              'utilisation per service, and the members at risk.',
-          alreadyBuilt:
-              'Nothing yet, and deliberately: a centre is a new '
-              'table, not a tenant of `clinics`. A clinic signs and a centre '
-              'sells, and overloading the one would put the signing function '
-              'in the booking path.',
-        ),
-        ComingInPhaseScreen(
-          title: 'Floor',
-          phase: 'F13',
-          what:
-              'Who is in session, which phase, their vitals, the safety '
-              'tier and the machines by room — refreshing every fifteen '
-              'seconds.',
-          alreadyBuilt:
-              'The honesty rule it will need: every simulated '
-              'number is labelled simulated, and the `simulated` status token '
-              'already exists so no phase has to invent one.',
-        ),
-        ComingInPhaseScreen(
-          title: 'Bookings',
-          phase: 'F11',
-          what: 'Bookings and their status transitions, and taking a new one.',
-          alreadyBuilt:
-              'Prices will render as indicative until a payments '
-              'decision exists. That is decision 7, and the hardcoded ₹1499 '
-              'in the marketplace catalogue is already a release blocker.',
-        ),
-        ComingInPhaseScreen(
-          title: 'You',
-          phase: 'F11',
-          what: 'Your centre, its staff and its services.',
-          alreadyBuilt:
-              'Two centres will have to prove they cannot see one '
-              'row of each other\'s, by a test that runs as each of them. '
-              'That is F11\'s definition of done.',
-        ),
+        CentreDashboardScreen(),
+        DoctorsScreen(),
+        PatientsScreen(),
+        AssignmentsScreen(),
+        CentreProfileScreen(),
       ]),
       _shell(AppRole.admin, const [
         PlatformHealthScreen(),
@@ -248,6 +219,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         AdminAuditScreen(),
       ]),
       GoRoute(path: '/add-ring', builder: (_, state) => const AddRingScreen()),
+      GoRoute(
+        path: '/admin/centres',
+        builder: (_, state) => const CentresScreen(),
+      ),
+      GoRoute(
+        path: '/admin/licences',
+        builder: (_, state) => const LicenceVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/admin/patients/:patientId',
+        builder: (_, state) =>
+            PatientViewerScreen(patientId: state.pathParameters['patientId']!),
+      ),
       GoRoute(
         path: '/activity-session',
         builder: (_, state) => const ActivitySessionScreen(),

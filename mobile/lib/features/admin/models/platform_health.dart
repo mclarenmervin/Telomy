@@ -23,11 +23,11 @@ class QueueHealth {
   bool get unreadable => depth == null && strandedTotal == null;
 
   static QueueHealth fromJson(Map<String, dynamic> json) => QueueHealth(
-        depth: (json['depth'] as num?)?.toInt(),
-        strandedTotal: (json['stranded_total'] as num?)?.toInt(),
-        claimed: (json['claimed'] as num?)?.toInt(),
-        oldestWaitingHours: (json['oldest_waiting_hours'] as num?)?.toDouble(),
-      );
+    depth: (json['depth'] as num?)?.toInt(),
+    strandedTotal: (json['stranded_total'] as num?)?.toInt(),
+    claimed: (json['claimed'] as num?)?.toInt(),
+    oldestWaitingHours: (json['oldest_waiting_hours'] as num?)?.toDouble(),
+  );
 }
 
 @immutable
@@ -74,11 +74,11 @@ class LapsingLicence {
   final bool expired;
 
   static LapsingLicence fromJson(Map<String, dynamic> json) => LapsingLicence(
-        fullName: json['full_name']?.toString() ?? '',
-        registrationNumber: json['registration_number']?.toString() ?? '',
-        daysLeft: (json['days_left'] as num?)?.toInt() ?? 0,
-        expired: json['expired'] == true,
-      );
+    fullName: json['full_name']?.toString() ?? '',
+    registrationNumber: json['registration_number']?.toString() ?? '',
+    daysLeft: (json['days_left'] as num?)?.toInt() ?? 0,
+    expired: json['expired'] == true,
+  );
 }
 
 @immutable
@@ -104,7 +104,8 @@ class PlatformHealth {
   final List<LapsingLicence> lapsing;
 
   static PlatformHealth fromJson(Map<String, dynamic> json) {
-    final catalogue = (json['catalogue'] as Map?)?.cast<String, dynamic>() ?? {};
+    final catalogue =
+        (json['catalogue'] as Map?)?.cast<String, dynamic>() ?? {};
     final perFile =
         (catalogue['catalogues'] as Map?)?.cast<String, dynamic>() ?? {};
     final clinicians =
@@ -112,11 +113,14 @@ class PlatformHealth {
 
     return PlatformHealth(
       queue: QueueHealth.fromJson(
-          (json['queue'] as Map?)?.cast<String, dynamic>() ?? {}),
+        (json['queue'] as Map?)?.cast<String, dynamic>() ?? {},
+      ),
       catalogues: [
         for (final entry in perFile.entries)
           CatalogueCount.fromJson(
-              entry.key, (entry.value as Map).cast<String, dynamic>()),
+            entry.key,
+            (entry.value as Map).cast<String, dynamic>(),
+          ),
       ],
       cataloguesUnsigned: (catalogue['unsigned'] as num?)?.toInt() ?? 0,
       roles: {

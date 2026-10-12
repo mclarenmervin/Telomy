@@ -27,13 +27,13 @@ class CatalogueEntry {
   final String? reviewedAt;
 
   static CatalogueEntry fromJson(Map<String, dynamic> json) => CatalogueEntry(
-        entryId: json['entry_id']?.toString() ?? '',
-        label: json['label']?.toString() ?? '',
-        fingerprint: json['fingerprint']?.toString() ?? '',
-        signed: json['signed'] == true,
-        reviewer: json['reviewer']?.toString(),
-        reviewedAt: json['reviewed_at']?.toString(),
-      );
+    entryId: json['entry_id']?.toString() ?? '',
+    label: json['label']?.toString() ?? '',
+    fingerprint: json['fingerprint']?.toString() ?? '',
+    signed: json['signed'] == true,
+    reviewer: json['reviewer']?.toString(),
+    reviewedAt: json['reviewed_at']?.toString(),
+  );
 }
 
 @immutable
@@ -87,31 +87,31 @@ class AdminAction {
 
   /// The action, in words a person reads rather than a column value.
   String get label => switch (action) {
-        'role_granted' => 'Granted a role',
-        'role_revoked' => 'Revoked a role',
-        'clinician_registered' => 'Registered a clinician',
-        'clinician_suspended' => 'Suspended a clinician',
-        'clinician_reinstated' => 'Reinstated a clinician',
-        'signoff_recorded' => 'Recorded a sign-off',
-        'signoff_withdrawn' => 'Withdrew a sign-off',
-        'draft_withdrawn' => 'Withdrew a draft',
-        'draft_requeued' => 'Returned a draft to the queue',
-        'erasure_requested' => 'Logged an erasure request',
-        'erasure_completed' => 'Completed an erasure',
-        'consent_viewed' => 'Read a consent record',
-        // Not "Unknown". A trail that cannot name an action it is holding
-        // should still show the action, because the raw value is what an
-        // auditor would ask about.
-        _ => action,
-      };
+    'role_granted' => 'Granted a role',
+    'role_revoked' => 'Revoked a role',
+    'clinician_registered' => 'Registered a clinician',
+    'clinician_suspended' => 'Suspended a clinician',
+    'clinician_reinstated' => 'Reinstated a clinician',
+    'signoff_recorded' => 'Recorded a sign-off',
+    'signoff_withdrawn' => 'Withdrew a sign-off',
+    'draft_withdrawn' => 'Withdrew a draft',
+    'draft_requeued' => 'Returned a draft to the queue',
+    'erasure_requested' => 'Logged an erasure request',
+    'erasure_completed' => 'Completed an erasure',
+    'consent_viewed' => 'Read a consent record',
+    // Not "Unknown". A trail that cannot name an action it is holding
+    // should still show the action, because the raw value is what an
+    // auditor would ask about.
+    _ => action,
+  };
 
   static AdminAction fromJson(Map<String, dynamic> json) => AdminAction(
-        id: json['id']?.toString() ?? '',
-        actorId: json['actor_id']?.toString() ?? '',
-        action: json['action']?.toString() ?? '',
-        createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
-        subjectKind: json['subject_kind']?.toString(),
-        subjectId: json['subject_id']?.toString(),
-        detail: (json['detail'] as Map?)?.cast<String, dynamic>() ?? const {},
-      );
+    id: json['id']?.toString() ?? '',
+    actorId: json['actor_id']?.toString() ?? '',
+    action: json['action']?.toString() ?? '',
+    createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
+    subjectKind: json['subject_kind']?.toString(),
+    subjectId: json['subject_id']?.toString(),
+    detail: (json['detail'] as Map?)?.cast<String, dynamic>() ?? const {},
+  );
 }

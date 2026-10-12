@@ -39,7 +39,8 @@ class AdminAuditScreen extends ConsumerWidget {
                 const Empty(
                   key: Key('audit-empty'),
                   title: 'Nothing has been done yet',
-                  body: 'Granting a role, recording a sign-off, withdrawing a '
+                  body:
+                      'Granting a role, recording a sign-off, withdrawing a '
                       'draft or honouring an erasure request all appear here, '
                       'including the ones you do yourself. Nothing on this '
                       'screen can be edited or deleted by anybody.',
@@ -64,8 +65,9 @@ class AdminAuditScreen extends ConsumerWidget {
                             Expanded(child: T(action.label, v: TextVariant.h3)),
                             if (action.createdAt != null)
                               T(
-                                DateFormat('d MMM, HH:mm')
-                                    .format(action.createdAt!.toLocal()),
+                                DateFormat(
+                                  'd MMM, HH:mm',
+                                ).format(action.createdAt!.toLocal()),
                                 v: TextVariant.small,
                                 muted: true,
                               ),
@@ -73,8 +75,11 @@ class AdminAuditScreen extends ConsumerWidget {
                         ),
                         if (action.subjectId != null) ...[
                           const SizedBox(height: AppSpacing.xxs),
-                          T('${action.subjectKind}: ${action.subjectId}',
-                              v: TextVariant.small, muted: true),
+                          T(
+                            '${action.subjectKind}: ${action.subjectId}',
+                            v: TextVariant.small,
+                            muted: true,
+                          ),
                         ],
                         if (action.detail.isNotEmpty) ...[
                           const SizedBox(height: AppSpacing.xxs),

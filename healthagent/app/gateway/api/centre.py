@@ -53,6 +53,25 @@ def _roster(supabase: Any, centre_id: str, kind: str, limit: int = 100) -> list[
     return [{**row, "profile": by_id.get(row["user_id"], {})} for row in memberships]
 
 
+@router.get("/mine")
+def my_centres(
+    actor_id: Annotated[str, Depends(current_user_id)],
+    supabase: Annotated[Any, Depends(get_supabase_client)],
+) -> dict:
+    memberships = (
+        supabase.table("centre_memberships").select("centre_id")
+        .eq("user_id", actor_id).eq("member_kind", "owner")
+        .eq("status", "active").is_("left_at", "null").execute().data or []
+    )
+    ids = [row["centre_id"] for row in memberships]
+    rows = (
+        supabase.table("centres").select("id,name,status")
+        .in_("id", ids).eq("status", "active").execute().data
+        if ids else []
+    )
+    return {"items": rows or []}
+
+
 @router.get("/{centre_id}/dashboard")
 def centre_dashboard(
     centre_id: str,

@@ -4,6 +4,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/admin_repository.dart';
 import '../models/catalogue_entry.dart';
 import '../models/platform_health.dart';
+import '../models/people.dart';
 
 final adminRepositoryProvider = Provider(
   (ref) => AdminRepository(http: ref.watch(apiClientProvider).dio),
@@ -17,11 +18,22 @@ final platformHealthProvider = FutureProvider.autoDispose<PlatformHealth>(
   (ref) => ref.read(adminRepositoryProvider).platform(),
 );
 
-final catalogueProvider =
-    FutureProvider.autoDispose<List<ReviewableCatalogue>>(
+final catalogueProvider = FutureProvider.autoDispose<List<ReviewableCatalogue>>(
   (ref) => ref.read(adminRepositoryProvider).catalogue(),
 );
 
 final auditProvider = FutureProvider.autoDispose<List<AdminAction>>(
   (ref) => ref.read(adminRepositoryProvider).audit(),
 );
+
+final centresProvider = FutureProvider.autoDispose<List<CentreSummary>>(
+  (ref) => ref.read(adminRepositoryProvider).centres(),
+);
+final adminPatientsProvider = FutureProvider.autoDispose<List<PatientSummary>>(
+  (ref) => ref.read(adminRepositoryProvider).patients(),
+);
+final adminPatientRecordProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>(
+      (ref, patientId) =>
+          ref.read(adminRepositoryProvider).clinicalRecord(patientId),
+    );

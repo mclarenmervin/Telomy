@@ -28,11 +28,11 @@ const _trees = {
 
 /// Where each role lands when it signs in, and where it is sent back to.
 String roleHome(AppRole role) => switch (role) {
-      AppRole.member => '/home',
-      AppRole.doctor => '/doctor',
-      AppRole.centre => '/centre',
-      AppRole.admin => '/admin',
-    };
+  AppRole.member => '/home',
+  AppRole.doctor => '/doctor',
+  AppRole.centre => '/centre',
+  AppRole.admin => '/admin',
+};
 
 /// Which role owns this path.
 ///
@@ -67,7 +67,6 @@ String? redirectFor(AppRole role, String path) {
   return roleHome(role);
 }
 
-
 /// One tab in a role's shell.
 class RoleTab {
   const RoleTab({required this.path, required this.label, required this.icon});
@@ -86,35 +85,72 @@ class RoleTab {
 /// The router builds its branches from this and the shell draws its
 /// destinations from this.
 List<RoleTab> roleTabs(AppRole role) => switch (role) {
-      AppRole.member => const [
-          RoleTab(path: '/home', label: 'Today', icon: Icons.home_outlined),
-          RoleTab(path: '/trends', label: 'Trends', icon: Icons.timeline_rounded),
-          RoleTab(path: '/sinc', label: 'Sinc', icon: Icons.auto_awesome_outlined),
-          RoleTab(path: '/profile', label: 'You', icon: Icons.person_outline_rounded),
-        ],
-      // F10's surface. The tabs are named here so the role spine can be
-      // verified for all four roles now, and so F10 fills screens rather
-      // than inventing navigation.
-      AppRole.doctor => const [
-          RoleTab(path: '/doctor', label: 'Today', icon: Icons.today_outlined),
-          RoleTab(path: '/doctor/work', label: 'Work', icon: Icons.inbox_outlined),
-          RoleTab(path: '/doctor/patients', label: 'Patients', icon: Icons.groups_outlined),
-          RoleTab(path: '/doctor/you', label: 'You', icon: Icons.person_outline_rounded),
-        ],
-      // F11's.
-      AppRole.centre => const [
-          RoleTab(path: '/centre', label: 'Centre', icon: Icons.storefront_outlined),
-          RoleTab(path: '/centre/floor', label: 'Floor', icon: Icons.sensors_outlined),
-          RoleTab(path: '/centre/bookings', label: 'Bookings', icon: Icons.event_outlined),
-          RoleTab(path: '/centre/you', label: 'You', icon: Icons.person_outline_rounded),
-        ],
-      AppRole.admin => const [
-          RoleTab(path: '/admin', label: 'Health', icon: Icons.monitor_heart_outlined),
-          RoleTab(path: '/admin/catalogue', label: 'Catalogue', icon: Icons.fact_check_outlined),
-          RoleTab(path: '/admin/roles', label: 'People', icon: Icons.badge_outlined),
-          RoleTab(path: '/admin/audit', label: 'Audit', icon: Icons.history_outlined),
-        ],
-    };
+  AppRole.member => const [
+    RoleTab(path: '/home', label: 'Today', icon: Icons.home_outlined),
+    RoleTab(path: '/trends', label: 'Trends', icon: Icons.timeline_rounded),
+    RoleTab(path: '/sinc', label: 'Sinc', icon: Icons.auto_awesome_outlined),
+    RoleTab(path: '/profile', label: 'You', icon: Icons.person_outline_rounded),
+  ],
+  // F10's surface. The tabs are named here so the role spine can be
+  // verified for all four roles now, and so F10 fills screens rather
+  // than inventing navigation.
+  AppRole.doctor => const [
+    RoleTab(path: '/doctor', label: 'Today', icon: Icons.today_outlined),
+    RoleTab(path: '/doctor/work', label: 'Work', icon: Icons.inbox_outlined),
+    RoleTab(
+      path: '/doctor/patients',
+      label: 'Patients',
+      icon: Icons.groups_outlined,
+    ),
+    RoleTab(
+      path: '/doctor/you',
+      label: 'You',
+      icon: Icons.person_outline_rounded,
+    ),
+  ],
+  // F11's.
+  AppRole.centre => const [
+    RoleTab(
+      path: '/centre',
+      label: 'Dashboard',
+      icon: Icons.dashboard_outlined,
+    ),
+    RoleTab(
+      path: '/centre/doctors',
+      label: 'Doctors',
+      icon: Icons.medical_services_outlined,
+    ),
+    RoleTab(
+      path: '/centre/patients',
+      label: 'Patients',
+      icon: Icons.groups_outlined,
+    ),
+    RoleTab(
+      path: '/centre/assignments',
+      label: 'Assignments',
+      icon: Icons.assignment_ind_outlined,
+    ),
+    RoleTab(
+      path: '/centre/profile',
+      label: 'Profile',
+      icon: Icons.storefront_outlined,
+    ),
+  ],
+  AppRole.admin => const [
+    RoleTab(
+      path: '/admin',
+      label: 'Health',
+      icon: Icons.monitor_heart_outlined,
+    ),
+    RoleTab(
+      path: '/admin/catalogue',
+      label: 'Catalogue',
+      icon: Icons.fact_check_outlined,
+    ),
+    RoleTab(path: '/admin/roles', label: 'People', icon: Icons.badge_outlined),
+    RoleTab(path: '/admin/audit', label: 'Audit', icon: Icons.history_outlined),
+  ],
+};
 
 /// Does this role log their own meals and workouts?
 ///

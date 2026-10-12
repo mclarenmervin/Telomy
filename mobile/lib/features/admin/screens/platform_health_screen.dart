@@ -47,14 +47,14 @@ class PlatformHealthScreen extends ConsumerWidget {
   }
 
   List<Widget> _sections(BuildContext context, PlatformHealth health) => [
-        _QueueSection(queue: health.queue),
-        const SizedBox(height: AppSpacing.xl),
-        _ClinicianSection(health: health),
-        const SizedBox(height: AppSpacing.xl),
-        _CatalogueSection(health: health),
-        const SizedBox(height: AppSpacing.xl),
-        _RolesSection(roles: health.roles),
-      ];
+    _QueueSection(queue: health.queue),
+    const SizedBox(height: AppSpacing.xl),
+    _ClinicianSection(health: health),
+    const SizedBox(height: AppSpacing.xl),
+    _CatalogueSection(health: health),
+    const SizedBox(height: AppSpacing.xl),
+    _RolesSection(roles: health.roles),
+  ];
 }
 
 class _QueueSection extends StatelessWidget {
@@ -72,7 +72,8 @@ class _QueueSection extends StatelessWidget {
         title: 'The clinician queue',
         children: const [
           ErrorState(
-            message: 'The queue could not be read, so these numbers are '
+            message:
+                'The queue could not be read, so these numbers are '
                 'unknown rather than zero.',
           ),
         ],
@@ -94,8 +95,10 @@ class _QueueSection extends StatelessWidget {
                 label: 'Stranded',
                 value: '$stranded',
                 status: stranded > 0
-                    ? const StatusChip(AppStatus.outOfRange,
-                        label: 'Nobody will hear')
+                    ? const StatusChip(
+                        AppStatus.outOfRange,
+                        label: 'Nobody will hear',
+                      )
                     : const StatusChip(AppStatus.optimal, label: 'None'),
                 prov: const Prov(
                   source: 'the clinician queue',
@@ -108,12 +111,12 @@ class _QueueSection extends StatelessWidget {
               T(
                 stranded > 0
                     ? 'These were flagged for a clinician, nobody reached '
-                        'them in time, and they carry flags so they can never '
-                        'be delivered without a signature. Each one is a '
-                        'person the product noticed something about and will '
-                        'not tell.'
+                          'them in time, and they carry flags so they can never '
+                          'be delivered without a signature. Each one is a '
+                          'person the product noticed something about and will '
+                          'not tell.'
                     : 'Nothing has expired undeliverable. Every draft either '
-                        'reached a clinician or took the unreviewed route.',
+                          'reached a clinician or took the unreviewed route.',
                 v: TextVariant.small,
                 muted: true,
               ),
@@ -125,7 +128,10 @@ class _QueueSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AppRow(label: 'Waiting on a human', value: '${queue.depth ?? 0}'),
-              AppRow(label: 'Claimed right now', value: '${queue.claimed ?? 0}'),
+              AppRow(
+                label: 'Claimed right now',
+                value: '${queue.claimed ?? 0}',
+              ),
               AppRow(
                 label: 'Longest past its deadline',
                 value: queue.oldestWaitingHours == null
@@ -150,19 +156,22 @@ class _ClinicianSection extends StatelessWidget {
     final active = health.activeClinicians;
     return Section(
       title: 'Who can sign',
-      blurb: 'Every draft strands until somebody can. This is the number the '
+      blurb:
+          'Every draft strands until somebody can. This is the number the '
           'rest of the queue depends on.',
       children: [
         if (active == null)
           const ErrorState(
-            message: 'The registrations could not be read, so this is unknown '
+            message:
+                'The registrations could not be read, so this is unknown '
                 'rather than none.',
           )
         else if (active == 0)
           const Empty(
             key: Key('admin-no-clinicians'),
             title: 'No clinician can sign anything',
-            body: 'Until a registered clinician with an unexpired licence '
+            body:
+                'Until a registered clinician with an unexpired licence '
                 'joins a clinic, every draft the agent writes will expire and '
                 'every reviewed-content file will stay unsigned. This is the '
                 'open question the whole queue waits on.',
@@ -224,48 +233,49 @@ class _CatalogueSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Section(
-        title: 'Reviewed content',
-        blurb: 'Five files whose entries are signed one at a time against a '
-            'content hash. Unsigned content stays invisible or ungraded by '
-            'design, which is why the app can be complete and still show an '
-            'empty biological age.',
-        action: SectionAction(
-          label: 'Open',
-          onPressed: () => Navigator.of(context).pushNamed('/admin/catalogue'),
-        ),
-        children: [
-          AppCard(
-            key: const Key('admin-catalogue-counts'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stat(
-                  label: 'Entries nobody has signed',
-                  value: '${health.cataloguesUnsigned}',
-                  status: health.cataloguesUnsigned > 0
-                      ? const StatusChip(AppStatus.notReviewed)
-                      : const StatusChip(AppStatus.signed),
-                  prov: const Prov(
-                    source: 'the five reviewed-content files',
-                    whenLabel: 'this build',
-                    confidence: Confidence.measured,
-                    basis: 'per entry, bound to a content hash',
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                for (final file in health.catalogues)
-                  AppRow(
-                    label: file.name,
-                    value: '${file.unsigned} of ${file.total}',
-                    trailing: file.unsigned == 0
-                        ? const StatusChip(AppStatus.signed)
-                        : null,
-                  ),
-              ],
+    title: 'Reviewed content',
+    blurb:
+        'Five files whose entries are signed one at a time against a '
+        'content hash. Unsigned content stays invisible or ungraded by '
+        'design, which is why the app can be complete and still show an '
+        'empty biological age.',
+    action: SectionAction(
+      label: 'Open',
+      onPressed: () => Navigator.of(context).pushNamed('/admin/catalogue'),
+    ),
+    children: [
+      AppCard(
+        key: const Key('admin-catalogue-counts'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stat(
+              label: 'Entries nobody has signed',
+              value: '${health.cataloguesUnsigned}',
+              status: health.cataloguesUnsigned > 0
+                  ? const StatusChip(AppStatus.notReviewed)
+                  : const StatusChip(AppStatus.signed),
+              prov: const Prov(
+                source: 'the five reviewed-content files',
+                whenLabel: 'this build',
+                confidence: Confidence.measured,
+                basis: 'per entry, bound to a content hash',
+              ),
             ),
-          ),
-        ],
-      );
+            const SizedBox(height: AppSpacing.xs),
+            for (final file in health.catalogues)
+              AppRow(
+                label: file.name,
+                value: '${file.unsigned} of ${file.total}',
+                trailing: file.unsigned == 0
+                    ? const StatusChip(AppStatus.signed)
+                    : null,
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _RolesSection extends StatelessWidget {
@@ -275,20 +285,20 @@ class _RolesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Section(
-        title: 'Accounts',
-        children: [
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Every role, including the ones at zero. A list that omitted
-                // `centre: 0` would read as a product that does not know
-                // about centres, which is a different and worse thing.
-                for (final role in roles.entries)
-                  AppRow(label: role.key, value: '${role.value}'),
-              ],
-            ),
-          ),
-        ],
-      );
+    title: 'Accounts',
+    children: [
+      AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Every role, including the ones at zero. A list that omitted
+            // `centre: 0` would read as a product that does not know
+            // about centres, which is a different and worse thing.
+            for (final role in roles.entries)
+              AppRow(label: role.key, value: '${role.value}'),
+          ],
+        ),
+      ),
+    ],
+  );
 }

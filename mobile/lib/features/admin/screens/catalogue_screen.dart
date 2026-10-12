@@ -90,7 +90,11 @@ class _CatalogueCard extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xxs),
           // The path, because the last step of collecting a signature is a
           // human committing a file and they have to be told which one.
-          T('${file.path} · ${file.version}', v: TextVariant.small, muted: true),
+          T(
+            '${file.path} · ${file.version}',
+            v: TextVariant.small,
+            muted: true,
+          ),
           const SizedBox(height: AppSpacing.xs),
           ExpansionTile(
             key: Key('catalogue-${file.name}-entries'),
@@ -117,33 +121,33 @@ class _EntryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(child: T(entry.label, v: TextVariant.small)),
-                if (entry.signed)
-                  const StatusChip(AppStatus.signed)
-                else
-                  const StatusChip(AppStatus.notReviewed),
-              ],
-            ),
-            T(
-              entry.signed
-                  ? '${entry.entryId} · signed by ${entry.reviewer} '
-                      'on ${entry.reviewedAt}'
-                  // The first twelve characters of the hash, which is enough
-                  // to tell two versions of an entry apart by eye and short
-                  // enough to sit in a list.
-                  : '${entry.entryId} · ${entry.fingerprint.substring(0, 12)}…',
-              v: TextVariant.label,
-              muted: true,
-            ),
+            Expanded(child: T(entry.label, v: TextVariant.small)),
+            if (entry.signed)
+              const StatusChip(AppStatus.signed)
+            else
+              const StatusChip(AppStatus.notReviewed),
           ],
         ),
-      );
+        T(
+          entry.signed
+              ? '${entry.entryId} · signed by ${entry.reviewer} '
+                    'on ${entry.reviewedAt}'
+              // The first twelve characters of the hash, which is enough
+              // to tell two versions of an entry apart by eye and short
+              // enough to sit in a list.
+              : '${entry.entryId} · ${entry.fingerprint.substring(0, 12)}…',
+          v: TextVariant.label,
+          muted: true,
+        ),
+      ],
+    ),
+  );
 }
 
 /// Hands over the block to commit.
@@ -172,11 +176,14 @@ class _BlockButtonState extends ConsumerState<_BlockButton> {
       _error = null;
     });
     try {
-      final result =
-          await ref.read(adminRepositoryProvider).block(widget.catalogue);
+      final result = await ref
+          .read(adminRepositoryProvider)
+          .block(widget.catalogue);
       if (result.block == null) {
-        setState(() => _error =
-            'Nothing is signed in this file, so there is no block to commit.');
+        setState(
+          () => _error =
+              'Nothing is signed in this file, so there is no block to commit.',
+        );
         return;
       }
       await Clipboard.setData(ClipboardData(text: result.block!));
@@ -192,18 +199,18 @@ class _BlockButtonState extends ConsumerState<_BlockButton> {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_busy)
-            const Loading('Assembling the block…')
-          else
-            TextButton.icon(
-              key: Key('catalogue-${widget.catalogue}-block'),
-              onPressed: _copy,
-              icon: const Icon(Icons.content_copy_outlined, size: 16),
-              label: const Text('Copy the block to commit'),
-            ),
-          if (_error != null) ErrorState(message: _error!),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (_busy)
+        const Loading('Assembling the block…')
+      else
+        TextButton.icon(
+          key: Key('catalogue-${widget.catalogue}-block'),
+          onPressed: _copy,
+          icon: const Icon(Icons.content_copy_outlined, size: 16),
+          label: const Text('Copy the block to commit'),
+        ),
+      if (_error != null) ErrorState(message: _error!),
+    ],
+  );
 }
