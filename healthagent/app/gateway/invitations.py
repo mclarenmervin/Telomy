@@ -8,6 +8,7 @@ provider tokens nor magic links.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fastapi import HTTPException
@@ -203,7 +204,7 @@ class SupabaseInvitationStore:
     def link_provider(self, invitation_id: str, provider_user_id: str) -> dict[str, Any]:
         rows = (
             self.db.table("account_invitations")
-            .update({"provider_user_id": provider_user_id, "sent_at": "now()"})
+            .update({"provider_user_id": provider_user_id, "sent_at": datetime.now(UTC).isoformat()})
             .eq("id", invitation_id)
             .eq("status", "pending")
             .execute()
@@ -246,7 +247,7 @@ class SupabaseInvitationStore:
         else:
             rows = (
                 self.db.table("account_invitations")
-                .update({"status": "revoked", "revoked_at": "now()"})
+                .update({"status": "revoked", "revoked_at": datetime.now(UTC).isoformat()})
                 .eq("id", invitation_id)
                 .eq("status", "pending")
                 .execute()
