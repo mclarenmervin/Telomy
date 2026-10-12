@@ -93,14 +93,41 @@ class GeneticUpload {
 /// the person's body, and the explanation is what waits for a signature.
 @immutable
 class StoredVariant {
-  const StoredVariant({required this.rsid, required this.genotype});
+  const StoredVariant({
+    required this.rsid,
+    required this.gene,
+    required this.trait,
+    required this.genotype,
+    required this.note,
+    required this.noteReviewed,
+  });
 
   final String rsid;
+
+  /// The gene's name and what it does. Labels, not claims -- "TMPRSS6" and
+  /// "iron regulation" are facts about the gene in the way "haemoglobin" is
+  /// a fact about what a lab measures. On the device these were rendered as
+  /// bare rsids at first, which is accurate and unreadable.
+  final String gene;
+  final String trait;
+
   final String genotype;
+
+  /// What it means for this person. Null until a clinician signs it off,
+  /// which is the case for every variant today.
+  final String? note;
+  final bool noteReviewed;
+
+  /// `TMPRSS6 · iron regulation`
+  String get label => trait.isEmpty ? gene : '$gene · $trait';
 
   static StoredVariant fromRow(Map<String, dynamic> row) => StoredVariant(
         rsid: row['rsid']?.toString() ?? '',
+        gene: row['gene']?.toString() ?? '',
+        trait: row['trait']?.toString() ?? '',
         genotype: row['genotype']?.toString() ?? '',
+        note: row['note']?.toString(),
+        noteReviewed: row['note_reviewed'] == true,
       );
 }
 

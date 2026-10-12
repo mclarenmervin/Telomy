@@ -161,17 +161,60 @@ void main() {
   });
 
   group('a stored variant', () {
-    test('is a genotype and nothing else', () {
-      // No interpretation field. What a genotype means is a clinical claim
-      // and waits for a signature; the genotype itself is a fact about the
-      // person's body.
+    test('is labelled well enough for a person to read', () {
+      // On the device these rendered as `rs855791 · AA`, which is accurate
+      // and tells somebody nothing. The gene and trait are labels, not
+      // claims.
       final variant = StoredVariant.fromRow({
-        'rsid': 'rs1801133',
-        'genotype': 'TT',
+        'rsid': 'rs855791',
+        'gene': 'TMPRSS6',
+        'trait': 'iron regulation',
+        'genotype': 'AA',
+        'note': null,
+        'note_reviewed': false,
       });
 
-      expect(variant.rsid, 'rs1801133');
-      expect(variant.genotype, 'TT');
+      expect(variant.label, 'TMPRSS6 · iron regulation');
+      expect(variant.genotype, 'AA');
+    });
+
+    test('says what it is and not what it means', () {
+      final variant = StoredVariant.fromRow({
+        'rsid': 'rs855791',
+        'gene': 'TMPRSS6',
+        'trait': 'iron regulation',
+        'genotype': 'AA',
+        'note': null,
+        'note_reviewed': false,
+      });
+
+      expect(variant.note, isNull);
+      expect(variant.noteReviewed, isFalse);
+    });
+
+    test('carries a signed note when there is one', () {
+      final variant = StoredVariant.fromRow({
+        'rsid': 'rs855791',
+        'gene': 'TMPRSS6',
+        'trait': 'iron regulation',
+        'genotype': 'AA',
+        'note': 'Associated with slightly lower average iron indices.',
+        'note_reviewed': true,
+      });
+
+      expect(variant.noteReviewed, isTrue);
+      expect(variant.note, contains('iron indices'));
+    });
+
+    test('a gene with no trait still labels as something', () {
+      final variant = StoredVariant.fromRow({
+        'rsid': 'rs1',
+        'gene': 'GENE',
+        'trait': '',
+        'genotype': 'AA',
+      });
+
+      expect(variant.label, 'GENE');
     });
   });
 }

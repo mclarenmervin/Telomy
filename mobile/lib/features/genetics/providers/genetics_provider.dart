@@ -4,7 +4,9 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/genetics_repository.dart';
 import '../models/genetic_upload.dart';
 
-final geneticsRepositoryProvider = Provider((ref) => GeneticsRepository());
+final geneticsRepositoryProvider = Provider(
+  (ref) => GeneticsRepository(http: ref.watch(apiClientProvider).dio),
+);
 
 /// This person's imports and the variants that survived them.
 ///

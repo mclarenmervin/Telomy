@@ -294,3 +294,43 @@ def screen_for_genetic_risk(text: str | None) -> GeneticRiskMatch | None:
         if pattern.search(text):
             return GeneticRiskMatch(matched_rule=name, response=GENETIC_RISK_RESPONSE)
     return None
+
+
+def describe_stored(stored_variants, path=None) -> list[dict]:
+    """A person's own stored genotypes, labelled well enough to read.
+
+    For the genetics screen and nowhere else. `rs855791 · AA` is accurate
+    and tells somebody nothing; the gene and the trait are what make it a
+    sentence they can hold on to, and both are labels rather than claims --
+    TMPRSS6 is the name of a gene and "iron regulation" is what it does, in
+    the same way "haemoglobin" is the name of a thing a lab measures.
+
+    **The `note` is still withheld unless signed.** That is the line: what a
+    variant IS may be labelled, what it MEANS for this person waits for a
+    clinician. So the screen can say "TMPRSS6, iron regulation, AA" and
+    cannot say what the AA implies.
+
+    Distinct from `context_for_results`, which is the agent's path and
+    requires a measured marker. This one is a person reading their own
+    record, which is a different act from a model being handed genotypes to
+    reason about -- and it is why this function exists here rather than the
+    screen being given the agent's one.
+    """
+    out = []
+    for row in stored_variants:
+        rsid = str(row.get("rsid") or "").strip().lower()
+        variant = variant_catalog.get(rsid, path)
+        if variant is None:
+            # No longer on the allowlist. Dropped rather than shown bare,
+            # the same defence in depth `context_for_results` applies.
+            continue
+        review = variant_catalog.review_status(rsid, path)
+        out.append({
+            "rsid": variant.rsid,
+            "gene": variant.gene,
+            "trait": variant.trait,
+            "genotype": str(row.get("genotype") or "").strip().upper(),
+            "note": variant.note if review.reviewed else None,
+            "note_reviewed": review.reviewed,
+        })
+    return sorted(out, key=lambda v: v["gene"])

@@ -474,3 +474,56 @@ def test_another_users_genotypes_are_not_reachable():
     }))
 
     assert loader.variant_context(alice, [_result("homocysteine", 14.0)]) == {}
+
+
+# ── A person reading their own record ────────────────────────────────────────
+
+def test_a_stored_variant_is_labelled_well_enough_to_read():
+    """`rs855791 · AA` is accurate and tells somebody nothing. The gene and
+    the trait are labels -- TMPRSS6 is the name of a gene and "iron
+    regulation" is what it does -- in the same way "haemoglobin" is the name
+    of a thing a lab measures."""
+    described = genetics.describe_stored([{"rsid": "rs855791", "genotype": "AA"}])
+
+    assert described[0]["gene"] == "TMPRSS6"
+    assert described[0]["trait"]
+    assert described[0]["genotype"] == "AA"
+
+
+def test_what_it_means_is_still_withheld_unless_signed():
+    """The line: what a variant IS may be labelled, what it MEANS for this
+    person waits for a clinician."""
+    described = genetics.describe_stored([{"rsid": "rs855791", "genotype": "AA"}])
+
+    assert described[0]["note"] is None
+    assert described[0]["note_reviewed"] is False
+
+
+def test_a_variant_no_longer_on_the_allowlist_is_not_described():
+    """Defence in depth, the same as `context_for_results`: removing an
+    entry from the catalog stops it being shown without waiting for a
+    migration to delete the rows."""
+    assert genetics.describe_stored([{"rsid": "rs429358", "genotype": "CT"}]) == []
+
+
+def test_describing_nothing_is_an_empty_list():
+    assert genetics.describe_stored([]) == []
+
+
+def test_the_screen_path_and_the_agent_path_are_different_functions():
+    """`describe_stored` needs no lab result and `context_for_results`
+    does, and that is the whole distinction: a person reading their own
+    record is a different act from a model being handed genotypes to reason
+    about. If one ever called the other, the agent would acquire a way to
+    list variants."""
+    import inspect
+
+    screen = inspect.signature(genetics.describe_stored)
+    agent = inspect.signature(genetics.context_for_results)
+
+    assert "biomarker_results" not in screen.parameters
+    assert "biomarker_results" in agent.parameters
+    # And the agent's one still refuses without them.
+    assert genetics.context_for_results(
+        [{"rsid": "rs855791", "genotype": "AA"}], []
+    ) == {}

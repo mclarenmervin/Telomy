@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -23,9 +24,12 @@ import 'genetic_upload_paths.dart';
 /// cannot change without a release — and it would mean trusting the client
 /// to have done it.
 class GeneticsRepository {
-  GeneticsRepository({SupabaseClient? client}) : _client = client;
+  GeneticsRepository({SupabaseClient? client, Dio? http})
+      : _client = client,
+        _http = http;
 
   final SupabaseClient? _client;
+  final Dio? _http;
 
   SupabaseClient? get _db {
     if (!SupabaseConfig.configured) return null;
@@ -52,25 +56,31 @@ class GeneticsRepository {
     }
   }
 
-  /// The wellness variants we kept.
+  /// The wellness variants we kept, labelled.
   ///
-  /// Shown on the genetics screen so somebody can see what we hold about
-  /// them, and nowhere else. There is no agent tool for this and no loader
-  /// method that returns it without a lab result beside it — a person
-  /// looking at their own record is a different thing from a model being
-  /// handed genotypes to reason about.
+  /// Over REST rather than straight from the table, which is the exception
+  /// in this app. The table holds an rsid and a genotype; the gene name and
+  /// the trait live in the server's catalog, and copying that catalog into
+  /// Dart would be a second copy of the one list that decides which
+  /// variants exist at all.
+  ///
+  /// Shown on the genetics screen and nowhere else. There is no agent tool
+  /// for this — a person looking at their own record is a different thing
+  /// from a model being handed genotypes to reason about.
   Future<List<StoredVariant>> variants({required String userId}) async {
-    final db = _db;
-    if (db == null) return const [];
+    final http = _http;
+    if (http == null) return const [];
     try {
-      final rows = await db
-          .from('genetic_variants')
-          .select('rsid,genotype')
-          .eq('user_id', userId)
-          .order('rsid');
+      final response = await http.get(
+        '/api/v1/genetics/variants',
+        options:
+            Options(validateStatus: (status) => status != null && status < 500),
+      );
+      if (response.statusCode != 200) return const [];
+      final body = Map<String, dynamic>.from(response.data as Map);
       return [
-        for (final row in rows)
-          StoredVariant.fromRow(Map<String, dynamic>.from(row)),
+        for (final row in (body['items'] as List? ?? const []))
+          StoredVariant.fromRow(Map<String, dynamic>.from(row as Map)),
       ];
     } catch (_) {
       return const [];

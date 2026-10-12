@@ -191,8 +191,24 @@ class _GeneticsImportSectionState extends ConsumerState<GeneticsImportSection> {
                 const SizedBox(height: 8),
                 for (final variant in view.variants)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text('${variant.rsid} · ${variant.genotype}'),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${variant.label} — ${variant.genotype}'),
+                        Text(
+                          variant.rsid,
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.colorScheme.outline),
+                        ),
+                        if (variant.note != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(variant.note!,
+                                style: theme.textTheme.bodySmall),
+                          ),
+                      ],
+                    ),
                   ),
                 const SizedBox(height: 8),
                 // Said here as well as in the consent sheet, because this is
