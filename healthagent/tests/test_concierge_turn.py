@@ -7,6 +7,7 @@ reach it (this user's own data, read through the scoped loader), and what is
 done to what it says (the figure check, the guardrails, the escalation line).
 """
 
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -103,6 +104,27 @@ def escalation_row(**overrides):
     return row
 
 
+def spent_turns(count: int, *, user_id: str = USER) -> list[dict]:
+    """`count` turns this person has already had, inside the cap's window.
+
+    Stamped relative to now rather than at a fixed date, which is what broke:
+    the cap is a rolling 24 hours and these rows were written as
+    2026-10-11T08:00, so on 2026-10-12 they fell out of the window, the cap
+    counted zero and the refusal stopped happening. The test went green by
+    not exercising the thing it is named after -- and the same fixture is
+    what `test_a_genetic_risk_question_is_refused_before_the_daily_cap`
+    stands on, which asserts a route it would have returned either way.
+    """
+    now = datetime.now(timezone.utc)
+    return [{
+        "id": f"t{n}", "user_id": user_id, "asked": "q", "answered": "a",
+        "route": ANSWERED, "guardrail_flags": [], "quoted_insight_ids": [],
+        # Minutes apart and all well inside the window, so ordering is still
+        # deterministic for the history tests.
+        "model": "m", "created_at": (now - timedelta(minutes=count - n)).isoformat(),
+    } for n in range(count)]
+
+
 def build(tables=None, narrator=None, **setting_overrides):
     db = FakeSupabase(tables or {})
     settings = make_settings(**setting_overrides)
@@ -158,11 +180,7 @@ def test_an_emergency_turn_is_recorded():
 def test_the_daily_cap_refuses_before_spending_anything():
     """Agents loop, and a chat turn is the easiest place in this product to
     spend hundreds of dollars unnoticed."""
-    history = [{
-        "id": f"t{n}", "user_id": USER, "asked": "q", "answered": "a",
-        "route": ANSWERED, "guardrail_flags": [], "quoted_insight_ids": [],
-        "model": "m", "created_at": "2026-10-11T08:00:00+00:00",
-    } for n in range(3)]
+    history = spent_turns(3)
     narrator = FakeNarrator()
     concierge, db = build({"chat_turns": history}, narrator=narrator, max_chat_turns_per_day=3)
 
@@ -587,11 +605,7 @@ def test_the_genetic_screen_does_not_outrank_an_emergency():
 def test_a_genetic_risk_question_is_refused_before_the_daily_cap():
     """It costs nothing to produce, so a person who has used their questions
     for the day still gets the honest answer rather than a rate limit."""
-    history = [{
-        "id": f"t{n}", "user_id": USER, "asked": "q", "answered": "a",
-        "route": ANSWERED, "guardrail_flags": [], "quoted_insight_ids": [],
-        "model": "m", "created_at": "2026-10-11T08:00:00+00:00",
-    } for n in range(3)]
+    history = spent_turns(3)
     concierge, _ = build({"chat_turns": history}, narrator=FakeNarrator(),
                          max_chat_turns_per_day=3)
 
