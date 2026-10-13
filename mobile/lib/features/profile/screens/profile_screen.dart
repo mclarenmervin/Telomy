@@ -6,6 +6,7 @@ import '../../journal/providers/wellness_provider.dart';
 import '../../health/models/health_measurement.dart';
 import '../../devices/providers/ring_provider.dart';
 import '../../../core/widgets/async_action.dart';
+import '../../patient_care/screens/patient_care_screen.dart';
 import 'profile_editor.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -80,6 +81,17 @@ class ProfileScreen extends ConsumerWidget {
                 ),
           icon: const Icon(Icons.edit_outlined),
           label: const Text('Edit profile & goals'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.local_hospital_outlined),
+          title: const Text('Centres & care team'),
+          subtitle: const Text('Doctors and centre clinical-access consent'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const PatientCareScreen()),
+          ),
         ),
         const SizedBox(height: 24),
         Text('Your vault', style: Theme.of(context).textTheme.titleLarge),

@@ -3,8 +3,14 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
+from app.common.supabase_client import get_supabase_client
+from app.gateway.api.accounts import care_router, router as accounts_router
+from app.gateway.auth import current_user_id
 from app.gateway.invitations import InvitationService
+from tests.fakes import FakeSupabase
 
 
 ACTOR = "10000000-0000-0000-0000-000000000001"
@@ -194,3 +200,104 @@ def test_recipient_cannot_decide_another_accounts_invitation(service):
     with pytest.raises(HTTPException) as error:
         service.accept(result.invitation_id, USER)
     assert error.value.status_code == 403
+
+
+class PatientCareSupabase(FakeSupabase):
+    def rpc(self, function, params=None):
+        params = params or {}
+        if function != "set_clinical_access_consent":
+            return super().rpc(function, params)
+        active = next(
+            (
+                row
+                for row in self.tables["clinical_access_consents"]
+                if row["patient_id"] == params["p_patient"]
+                and row["centre_id"] == params["p_centre"]
+                and row.get("revoked_at") is None
+            ),
+            None,
+        )
+        if params["p_granted"]:
+            if active is None:
+                active = {
+                    "id": f"consent-{len(self.tables['clinical_access_consents']) + 1}",
+                    "patient_id": params["p_patient"],
+                    "centre_id": params["p_centre"],
+                    "purpose": "clinical_care",
+                    "granted_at": datetime.now(UTC).isoformat(),
+                    "revoked_at": None,
+                }
+                self.tables["clinical_access_consents"].append(active)
+        else:
+            active["revoked_at"] = datetime.now(UTC).isoformat()
+        return SimpleNamespace(execute=lambda: SimpleNamespace(data=active["id"]))
+
+
+def patient_care_db(role="member"):
+    return PatientCareSupabase({
+        "profiles": [
+            {"id": USER, "app_role": role, "full_name": "Alex"},
+            {"id": DOCTOR, "app_role": "doctor", "full_name": "Dr Primary"},
+            {"id": ACTOR, "app_role": "doctor", "full_name": "Dr Additional"},
+        ],
+        "centres": [{"id": CENTRE, "name": "Telomy Bengaluru", "status": "active"}],
+        "centre_memberships": [{
+            "id": "membership-1", "user_id": USER, "centre_id": CENTRE,
+            "member_kind": "patient", "status": "active", "left_at": None,
+        }],
+        "patient_doctor_assignments": [
+            {"id": "assignment-1", "patient_id": USER, "centre_id": CENTRE,
+             "doctor_id": DOCTOR, "is_primary": True, "ended_at": None},
+            {"id": "assignment-2", "patient_id": USER, "centre_id": CENTRE,
+             "doctor_id": ACTOR, "is_primary": False, "ended_at": None},
+        ],
+        "clinical_access_consents": [],
+    })
+
+
+def patient_care_client(db, actor=USER):
+    app = FastAPI()
+    app.include_router(accounts_router)
+    app.include_router(care_router)
+    app.dependency_overrides[current_user_id] = lambda: actor
+    app.dependency_overrides[get_supabase_client] = lambda: db
+    return TestClient(app)
+
+
+def test_patient_care_is_self_scoped_and_shows_primary_and_additional_doctors():
+    response = patient_care_client(patient_care_db()).get("/api/v1/account/care")
+    assert response.status_code == 200
+    centre = response.json()["centres"][0]
+    assert centre["name"] == "Telomy Bengaluru"
+    assert [doctor["name"] for doctor in centre["doctors"]] == [
+        "Dr Primary", "Dr Additional"
+    ]
+    assert centre["doctors"][0]["is_primary"] is True
+    assert centre["consent"]["active"] is False
+
+
+def test_patient_care_rejects_a_non_patient_even_with_a_valid_session():
+    response = patient_care_client(patient_care_db(role="doctor")).get(
+        "/api/v1/account/care"
+    )
+    assert response.status_code == 403
+
+
+def test_patient_care_consent_grant_and_revoke_preserve_history():
+    db = patient_care_db()
+    client = patient_care_client(db)
+    granted = client.post(f"/api/v1/account/care/{CENTRE}/consent", json={"granted": True})
+    assert granted.status_code == 200
+    assert client.get("/api/v1/account/care").json()["centres"][0]["consent"]["active"] is True
+    revoked = client.post(f"/api/v1/account/care/{CENTRE}/consent", json={"granted": False})
+    assert revoked.status_code == 200
+    care = client.get("/api/v1/account/care").json()["centres"][0]
+    assert care["consent"]["active"] is False
+    assert len(care["consent"]["history"]) == 1
+
+
+def test_patient_care_exposes_no_assignment_mutation_route():
+    response = patient_care_client(patient_care_db()).post(
+        f"/api/v1/account/care/{CENTRE}/assignments", json={"doctor_id": DOCTOR}
+    )
+    assert response.status_code == 404
