@@ -72,6 +72,11 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> updatePassword(String password) => throw UnsupportedError(
+    'Password recovery requires the configured identity provider.',
+  );
+
+  @override
   Future<void> deleteAccount() async {
     await client.dio.delete<void>(ApiEndpoints.me);
     await tokens.clear();

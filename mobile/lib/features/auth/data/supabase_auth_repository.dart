@@ -2,6 +2,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/app_user.dart';
 import 'auth_repository.dart';
 
+const passwordRecoveryRedirectUrl = 'telomy://auth/reset-password';
+
 class SupabaseAuthRepository implements AuthRepository {
   SupabaseAuthRepository(this.client);
   final SupabaseClient client;
@@ -49,7 +51,16 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> forgotPassword(String email) =>
-      client.auth.resetPasswordForEmail(email.trim());
+      client.auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo: passwordRecoveryRedirectUrl,
+      );
+
+  @override
+  Future<void> updatePassword(String password) async {
+    await client.auth.updateUser(UserAttributes(password: password));
+    await client.auth.signOut(scope: SignOutScope.local);
+  }
 
   @override
   Future<void> deleteAccount() async {

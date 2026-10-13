@@ -16,6 +16,7 @@ import '../features/devices/screens/add_ring_screen.dart';
 import '../features/devices/screens/activity_session_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../features/auth/screens/auth_screen.dart';
+import '../features/auth/screens/update_password_screen.dart';
 import '../features/auth/screens/splash_screen.dart';
 import '../features/onboarding/screens/onboarding_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
@@ -96,13 +97,24 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = ref.read(authProvider);
       final path = state.uri.path;
-      const public = ['/onboarding', '/login', '/signup', '/forgot-password'];
+      const public = [
+        '/onboarding',
+        '/login',
+        '/signup',
+        '/forgot-password',
+        '/reset-password',
+      ];
       if (auth.isLoading) {
         return public.contains(path) || path == '/splash' ? null : '/splash';
       }
       if (auth.hasError && path == '/splash') return null;
       final signedIn = auth.asData?.value != null;
       if (!signedIn) return public.contains(path) ? null : '/onboarding';
+
+      // A recovery link establishes a short-lived Supabase session before
+      // the person has chosen their new password. Keep that session on the
+      // recovery form instead of redirecting it into a role shell.
+      if (path == '/reset-password') return null;
 
       // Signed in, and we do not yet know what they are. Held at the splash
       // rather than let through as a member: landing in the member app and
@@ -138,6 +150,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/forgot-password',
         builder: (_, state) => const AuthScreen(mode: AuthMode.forgot),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (_, state) => const UpdatePasswordScreen(),
       ),
       GoRoute(
         path: '/invitations',

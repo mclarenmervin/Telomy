@@ -32,6 +32,8 @@ class MockAuthRepository implements AuthRepository {
   Future<void> forgotPassword(String email) async =>
       Future<void>.delayed(const Duration(milliseconds: 350));
   @override
+  Future<void> updatePassword(String password) => tokens.clear();
+  @override
   Future<void> deleteAccount() => tokens.clear();
   @override
   Future<void> logout() => tokens.clear();

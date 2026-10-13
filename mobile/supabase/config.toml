@@ -14,6 +14,9 @@ major_version = 17
 [auth]
 enabled = true
 site_url = "io.supabase.telomy://login-callback"
-additional_redirect_urls = ["io.supabase.telomy://login-callback"]
+additional_redirect_urls = [
+  "io.supabase.telomy://login-callback",
+  "telomy://auth/reset-password",
+]
 jwt_expiry = 3600
 enable_signup = true
