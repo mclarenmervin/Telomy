@@ -62,6 +62,7 @@ The F12 Therapy Plans and F18 Rx/Supplements queue segments are deliberately pre
 | `dc0e9a5` | Five-segment queue review/sign flow |
 | `069ac33` | Patient care team and consent |
 | `c85340f` | Production-schema alignment for F10 reads |
+| `7df1490` | Mobile password recovery and native deep-link handling |
 
 ## Database verification
 
@@ -93,9 +94,9 @@ Operational reconciliation on 2026-10-13 returned:
 | Check | Result |
 |---|---|
 | Backend pytest suite | **1,680 passed**, 0 failed; 2 existing warnings |
-| Flutter test suite | **512 passed**, 0 failed |
+| Flutter test suite | **516 passed**, 0 failed |
 | Flutter analyzer | **No issues found** |
-| Android staging APK | Debug APK built successfully using the staging environment (`USE_MOCKS=false`) |
+| Android release APK | Release APK built successfully (66.0 MB) |
 | Credential scan | No service-role credential name/value or invitation secret found in Flutter source or APK strings |
 
 The backend suite includes fail-closed audit behavior: if the access-audit
@@ -110,13 +111,22 @@ next request.
   `com.telomy.telomy/.MainActivity` was foreground; crash-only log inspection
   was clean.
 - **Moto G60 physical device:** APK installed and launched on Android 12 /
-  API 31; the same activity was foreground with a live process; crash-only
-  log inspection was clean.
+  API 31; the same activity was foreground with a live process. The patient
+  account logged in successfully, `/api/v1/account/care` and
+  `/api/v1/invitations/pending` both returned `200`, the patient care screen
+  showed the expected no-centre state, ring characteristics streamed
+  continuously, and a smoking event entered its in-progress state without an
+  authentication, gateway, BLE, or crash error.
+- **Password recovery:** The final release APK cold-started from
+  `telomy://auth/reset-password` on the Pixel emulator and rendered the
+  pre-login new-password form. Four focused tests cover the redirect request,
+  Supabase password update plus local sign-out, form submission, and router
+  handling. The same URI is registered for Android and iOS and is present in
+  the staging Supabase Auth redirect allow list.
 
-The physical-device login and ring smoking-event regression require the user
-to enter private credentials and operate the ring. Final device event evidence
-will be recorded after that interaction; no credentials are captured in this
-report.
+The physical phone disconnected from ADB after the smoking event started, so
+the final Stop tap was not observed from the Mac. No credentials are captured
+in this report.
 
 ## Deployment state
 
@@ -127,7 +137,7 @@ because those manually applied migrations had not yet been entered in
 non-idempotent files again. The four exact migration checksums were recorded
 and a fresh runner reported the schema current.
 
-The repaired `83e2d9e` deployment is green for all six Railway services:
+The repaired `131cf08` deployment is green for all six Railway services:
 gateway, scheduler, worker, activity worker, extraction worker, and score
 worker. Live probes then returned `200` for `/health` and the expected `401`
 for unauthenticated `/api/v1/account/care`, proving that the F10 route is
@@ -142,7 +152,7 @@ PYTHONPATH=. .venv/bin/python -m pytest -q
 cd ../mobile
 flutter test
 flutter analyze
-flutter build apk --debug --dart-define-from-file=.env.supabase
+flutter build apk --release
 ```
 
 Database tests use `psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f` for every
