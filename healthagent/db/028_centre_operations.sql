@@ -138,7 +138,8 @@ create table if not exists centre_bookings (
     scheduled_start < scheduled_end
   ),
   constraint centre_booking_cancel_reason check (
-    cancelled_at is null
+    status <> 'cancelled'
+    or checked_in_at is null
     or length(trim(coalesce(cancellation_reason, ''))) > 0
   )
 );
@@ -539,6 +540,225 @@ begin
 end;
 $$;
 
+
+-- ── Booking commands ──────────────────────────────────────────────────────
+
+create or replace function create_centre_booking(
+  p_actor uuid,
+  p_centre uuid,
+  p_patient uuid,
+  p_service uuid,
+  p_room uuid,
+  p_scheduled_start timestamptz
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  centre_timezone text;
+  service_row centre_services%rowtype;
+  scheduled_finish timestamptz;
+  local_start timestamp;
+  local_finish timestamp;
+  local_day date;
+  local_weekday integer;
+  new_id uuid;
+begin
+  if not centre_operational_actor_may_manage(p_actor, p_centre) then
+    raise exception 'actor cannot manage this centre' using errcode = '42501';
+  end if;
+
+  select timezone_name into centre_timezone
+  from centres
+  where id = p_centre and status = 'active';
+  if centre_timezone is null then
+    raise exception 'active centre not found' using errcode = 'P0002';
+  end if;
+
+  if not active_centre_membership(p_patient, p_centre, 'patient') then
+    raise exception 'active patient membership not found' using errcode = '42501';
+  end if;
+
+  select * into service_row
+  from centre_services
+  where id = p_service and centre_id = p_centre and status = 'active';
+  if not found then
+    raise exception 'active service not found' using errcode = 'P0002';
+  end if;
+
+  if not exists (
+    select 1
+    from centre_rooms room
+    join centre_room_services link
+      on link.room_id = room.id
+     and link.service_id = p_service
+     and link.centre_id = p_centre
+     and link.unlinked_at is null
+    where room.id = p_room
+      and room.centre_id = p_centre
+      and room.status = 'active'
+  ) then
+    raise exception 'active compatible room not found' using errcode = '23P01';
+  end if;
+
+  if p_scheduled_start is null then
+    raise exception 'scheduled start is required' using errcode = '22023';
+  end if;
+  scheduled_finish := p_scheduled_start
+    + make_interval(mins => service_row.duration_minutes);
+  local_start := p_scheduled_start at time zone centre_timezone;
+  local_finish := scheduled_finish at time zone centre_timezone;
+  local_day := local_start::date;
+  local_weekday := extract(dow from local_start)::integer;
+
+  if local_finish::date <> local_day or not exists (
+    select 1
+    from centre_room_hours hours
+    where hours.centre_id = p_centre
+      and hours.room_id = p_room
+      and hours.weekday = local_weekday
+      and hours.valid_from <= local_day
+      and (hours.valid_until is null or hours.valid_until >= local_day)
+      and hours.opens_at <= local_start::time
+      and hours.closes_at >= local_finish::time
+  ) then
+    raise exception 'requested booking is outside room availability'
+      using errcode = '23P01';
+  end if;
+
+  -- Serialising all bookings for one room is deliberately conservative. It
+  -- makes the subsequent overlap check deterministic without weakening the
+  -- invariant when two requested intervals start at different instants.
+  perform pg_advisory_xact_lock(hashtextextended(p_room::text, 0));
+  if exists (
+    select 1
+    from centre_bookings booking
+    where booking.centre_id = p_centre
+      and booking.room_id = p_room
+      and booking.status in ('booked', 'checked_in')
+      and booking.scheduled_start < scheduled_finish
+      and booking.scheduled_end > p_scheduled_start
+  ) then
+    raise exception 'requested booking overlaps an active booking'
+      using errcode = '23P01';
+  end if;
+
+  insert into centre_bookings (
+    centre_id, patient_id, service_id, room_id,
+    scheduled_start, scheduled_end, status, version,
+    service_name_snapshot, duration_minutes_snapshot,
+    indicative_price_minor_snapshot, currency_code_snapshot, created_by
+  ) values (
+    p_centre, p_patient, p_service, p_room,
+    p_scheduled_start, scheduled_finish, 'booked', 0,
+    service_row.name, service_row.duration_minutes,
+    service_row.indicative_price_minor, service_row.currency_code, p_actor
+  ) returning id into new_id;
+
+  insert into centre_booking_transitions (
+    centre_id, booking_id, actor_id, from_status, to_status,
+    command, expected_version
+  ) values (
+    p_centre, new_id, p_actor, null, 'booked', 'create', 0
+  );
+
+  return new_id;
+end;
+$$;
+
+create or replace function transition_centre_booking(
+  p_actor uuid,
+  p_centre uuid,
+  p_booking uuid,
+  p_command text,
+  p_expected_version integer,
+  p_reason text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  booking_row centre_bookings%rowtype;
+  next_status text;
+  clean_reason text := nullif(trim(coalesce(p_reason, '')), '');
+begin
+  if not centre_operational_actor_may_manage(p_actor, p_centre) then
+    raise exception 'actor cannot manage this centre' using errcode = '42501';
+  end if;
+
+  select * into booking_row
+  from centre_bookings
+  where id = p_booking and centre_id = p_centre
+  for update;
+  if not found then
+    raise exception 'booking not found' using errcode = 'P0002';
+  end if;
+
+  if booking_row.version <> p_expected_version then
+    raise exception 'stale booking version: current version is %', booking_row.version
+      using errcode = '40001';
+  end if;
+
+  next_status := case
+    when booking_row.status = 'booked' and p_command = 'check_in'
+      then 'checked_in'
+    when booking_row.status = 'booked' and p_command = 'mark_no_show'
+      then 'no_show'
+    when booking_row.status = 'booked' and p_command = 'cancel'
+      then 'cancelled'
+    when booking_row.status = 'checked_in' and p_command = 'complete'
+      then 'completed'
+    when booking_row.status = 'checked_in' and p_command = 'cancel'
+      then 'cancelled'
+    else null
+  end;
+
+  if next_status is null then
+    raise exception 'command % is invalid from status %',
+      p_command, booking_row.status using errcode = '22023';
+  end if;
+  if p_command = 'mark_no_show'
+     and now() < booking_row.scheduled_start + interval '15 minutes' then
+    raise exception 'no-show grace period has not passed' using errcode = '22023';
+  end if;
+  if booking_row.status = 'checked_in'
+     and p_command = 'cancel'
+     and clean_reason is null then
+    raise exception 'a cancellation reason is required after check-in'
+      using errcode = '22023';
+  end if;
+
+  update centre_bookings
+  set status = next_status,
+      version = version + 1,
+      checked_in_at = case
+        when next_status = 'checked_in' then now() else checked_in_at end,
+      completed_at = case
+        when next_status = 'completed' then now() else completed_at end,
+      no_show_at = case
+        when next_status = 'no_show' then now() else no_show_at end,
+      cancelled_at = case
+        when next_status = 'cancelled' then now() else cancelled_at end,
+      cancellation_reason = case
+        when next_status = 'cancelled' then clean_reason else cancellation_reason end
+  where id = booking_row.id;
+
+  insert into centre_booking_transitions (
+    centre_id, booking_id, actor_id, from_status, to_status,
+    command, expected_version, reason
+  ) values (
+    p_centre, p_booking, p_actor, booking_row.status, next_status,
+    p_command, p_expected_version, clean_reason
+  );
+
+  return p_booking;
+end;
+$$;
+
 revoke all on function create_centre_room(uuid, uuid, text)
   from public, authenticated, anon;
 revoke all on function set_centre_room_status(uuid, uuid, uuid, text)
@@ -553,6 +773,12 @@ revoke all on function set_centre_service_status(uuid, uuid, uuid, text)
   from public, authenticated, anon;
 revoke all on function link_centre_room_service(uuid, uuid, uuid, uuid)
   from public, authenticated, anon;
+revoke all on function create_centre_booking(
+  uuid, uuid, uuid, uuid, uuid, timestamptz
+) from public, authenticated, anon;
+revoke all on function transition_centre_booking(
+  uuid, uuid, uuid, text, integer, text
+) from public, authenticated, anon;
 
 
 -- ── RLS and privileges ─────────────────────────────────────────────────────
