@@ -94,9 +94,9 @@ Operational reconciliation on 2026-10-13 returned:
 | Check | Result |
 |---|---|
 | Backend pytest suite | **1,680 passed**, 0 failed; 2 existing warnings |
-| Flutter test suite | **516 passed**, 0 failed |
+| Flutter test suite | **517 passed**, 0 failed |
 | Flutter analyzer | **No issues found** |
-| Android release APK | Release APK built successfully (66.0 MB) |
+| Android staging release APK | Release APK built successfully with the Supabase/Railway staging definitions (66.6 MB) |
 | Credential scan | No service-role credential name/value or invitation secret found in Flutter source or APK strings |
 
 The backend suite includes fail-closed audit behavior: if the access-audit
@@ -104,6 +104,11 @@ insert fails, the protected patient read returns an error rather than data.
 It also proves the clinical sweep can reduce `stranded_total` to zero and
 that expired/suspended clinician eligibility is visible and enforced on the
 next request.
+
+Release builds cannot use mock authentication, even if `USE_MOCKS` is omitted
+or set incorrectly. Staging APKs must be built with `.env.supabase`; this keeps
+an unconfigured artifact from accepting credentials locally while its Supabase
+features fail later.
 
 ## Android evidence
 
@@ -153,7 +158,7 @@ PYTHONPATH=. .venv/bin/python -m pytest -q
 cd ../mobile
 flutter test
 flutter analyze
-flutter build apk --release
+flutter build apk --release --dart-define-from-file=.env.supabase
 ```
 
 Database tests use `psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f` for every

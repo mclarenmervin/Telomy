@@ -30,6 +30,9 @@ class ApiConfig {
   final AppEnvironment environment;
   final String baseUrl;
   final bool useMocks;
+
+  bool allowsMocks({required bool isReleaseBuild}) =>
+      useMocks && !isReleaseBuild;
 }
 
 abstract final class ApiEndpoints {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_endpoints.dart';
@@ -12,6 +13,11 @@ import '../../../core/config/supabase_config.dart';
 import '../models/app_user.dart';
 
 final apiConfigProvider = Provider((ref) => ApiConfig.fromEnvironment());
+final mockAuthEnabledProvider = Provider(
+  (ref) =>
+      ref.watch(apiConfigProvider).allowsMocks(isReleaseBuild: kReleaseMode),
+);
+
 /// Where ApiClient gets its bearer token.
 ///
 /// With Supabase auth configured the session lives in the Supabase client, and
@@ -19,7 +25,8 @@ final apiConfigProvider = Provider((ref) => ApiConfig.fromEnvironment());
 /// gateway went out unauthenticated and came back 401. Reading the live session
 /// keeps one copy of the credential instead of two that can diverge.
 final tokenStorageProvider = Provider<TokenStorage>(
-  (ref) => SupabaseConfig.configured ? SupabaseTokenStorage() : SecureTokenStorage(),
+  (ref) =>
+      SupabaseConfig.configured ? SupabaseTokenStorage() : SecureTokenStorage(),
 );
 final apiClientProvider = Provider((ref) {
   final tokens = ref.watch(tokenStorageProvider);
@@ -39,7 +46,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
     return SupabaseAuthRepository(Supabase.instance.client);
   }
   final tokens = ref.watch(tokenStorageProvider);
-  return ref.watch(apiConfigProvider).useMocks
+  return ref.watch(mockAuthEnabledProvider)
       ? MockAuthRepository(tokens)
       : ApiAuthRepository(ref.watch(apiClientProvider), tokens);
 });

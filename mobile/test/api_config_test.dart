@@ -20,4 +20,10 @@ void main() {
     );
     expect(config.useMocks, isTrue);
   });
+
+  test('a release build never enables mock auth implicitly', () {
+    final config = ApiConfig.fromEnvironment();
+    expect(config.allowsMocks(isReleaseBuild: true), isFalse);
+    expect(config.allowsMocks(isReleaseBuild: false), isTrue);
+  });
 }

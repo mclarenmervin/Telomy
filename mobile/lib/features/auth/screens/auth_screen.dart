@@ -49,8 +49,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         if (mounted) {
           setState(
             () => _resetMessage =
-                ref.read(apiConfigProvider).useMocks &&
-                    !SupabaseConfig.configured
+                ref.read(mockAuthEnabledProvider) && !SupabaseConfig.configured
                 ? 'Demo only: no reset email was sent.'
                 : 'If an account exists, reset instructions will be sent.',
           );
@@ -84,7 +83,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final auth = ref.watch(authProvider);
     final busy = auth.isLoading || _resetBusy;
     final demo =
-        !SupabaseConfig.configured && ref.watch(apiConfigProvider).useMocks;
+        !SupabaseConfig.configured && ref.watch(mockAuthEnabledProvider);
     final authError = auth.error;
     final authErrorMessage = authError is AuthException
         ? authError.message
