@@ -54,7 +54,11 @@ void main() {
                           'is_primary': false,
                         },
                       ],
-                      'consent': {'active': false, 'history': []},
+                      'consent': {
+                        'active': false,
+                        'expires_at': '2026-10-01T00:00:00Z',
+                        'history': [],
+                      },
                     },
                   ],
                 }
@@ -64,6 +68,7 @@ void main() {
       final repository = PatientCareRepository(http: dio);
       final care = await repository.read();
       expect(care.centres.single.doctors.first.isPrimary, isTrue);
+      expect(care.centres.single.consentExpired, isTrue);
       await repository.setConsent('c1', true);
       await repository.setConsent('c1', false);
       expect(calls.map((call) => call.split(' ').take(2).join(' ')), [
@@ -78,13 +83,14 @@ void main() {
     'care screen identifies primary and additional doctors and consent',
     (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
           home: PatientCareScreen(
             initial: PatientCare([
               PatientCentre(
                 id: 'c1',
                 name: 'Telomy Bengaluru',
                 consentActive: false,
+                consentExpiresAt: DateTime.utc(2020, 1),
                 doctors: [
                   CareDoctor(id: 'd1', name: 'Dr Primary', isPrimary: true),
                   CareDoctor(id: 'd2', name: 'Dr Additional'),
@@ -97,7 +103,33 @@ void main() {
       expect(find.text('Primary doctor'), findsOneWidget);
       expect(find.text('Additional doctor'), findsOneWidget);
       expect(find.text('Allow centre clinical access'), findsOneWidget);
+      expect(find.textContaining('Clinical access expired on'), findsOneWidget);
+      expect(find.textContaining('renew for one year'), findsOneWidget);
       expect(find.text('Assign doctor'), findsNothing);
     },
   );
+
+  testWidgets('active consent shows its expiry date without payment claims', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PatientCareScreen(
+          initial: PatientCare([
+            PatientCentre(
+              id: 'c1',
+              name: 'Telomy Bengaluru',
+              consentActive: true,
+              consentExpiresAt: DateTime.utc(2030, 1, 7),
+              doctors: const [],
+            ),
+          ]),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Clinical access expires on'), findsOneWidget);
+    expect(find.textContaining('7 Jan 2030'), findsOneWidget);
+    expect(find.textContaining('revenue'), findsNothing);
+  });
 }

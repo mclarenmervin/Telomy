@@ -17,6 +17,155 @@ alter table centres add constraint centres_currency_code_known
   check (currency_code ~ '^[A-Z]{3}$');
 
 
+-- ── Expiring, append-only clinical consent ────────────────────────────────
+
+alter table clinical_access_consents
+  add column if not exists expires_at timestamptz;
+
+-- Existing active grants receive a full year from this migration. Historical
+-- revoked grants need a stable expiry value too, but never become active again.
+update clinical_access_consents
+set expires_at = now() + interval '1 year'
+where expires_at is null and revoked_at is null;
+update clinical_access_consents
+set expires_at = granted_at + interval '1 year'
+where expires_at is null;
+
+alter table clinical_access_consents
+  alter column expires_at set default (now() + interval '1 year'),
+  alter column expires_at set not null;
+alter table clinical_access_consents
+  drop constraint if exists clinical_access_consent_positive_term;
+alter table clinical_access_consents
+  add constraint clinical_access_consent_positive_term
+  check (expires_at > granted_at);
+
+create or replace function protect_patient_access_history()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception '% history is append-only', tg_table_name using errcode = '55000';
+  end if;
+
+  if tg_table_name = 'patient_doctor_assignments' then
+    if new.id is distinct from old.id
+       or new.centre_id is distinct from old.centre_id
+       or new.patient_id is distinct from old.patient_id
+       or new.doctor_id is distinct from old.doctor_id
+       or new.is_primary is distinct from old.is_primary
+       or new.assigned_by is distinct from old.assigned_by
+       or new.assigned_at is distinct from old.assigned_at then
+      raise exception 'assignment identity is immutable' using errcode = '55000';
+    end if;
+    if old.ended_at is not null then
+      raise exception 'an ended assignment is immutable' using errcode = '55000';
+    end if;
+    return new;
+  end if;
+
+  if new.id is distinct from old.id
+     or new.patient_id is distinct from old.patient_id
+     or new.centre_id is distinct from old.centre_id
+     or new.purpose is distinct from old.purpose
+     or new.granted_by is distinct from old.granted_by
+     or new.granted_at is distinct from old.granted_at
+     or new.expires_at is distinct from old.expires_at
+     or new.provenance is distinct from old.provenance then
+    raise exception 'consent grant is immutable' using errcode = '55000';
+  end if;
+  if old.revoked_at is not null then
+    raise exception 'a revoked consent is immutable' using errcode = '55000';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function centre_can_read_clinical(
+  p_actor uuid,
+  p_centre uuid,
+  p_patient uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select centre_owner_may_manage(p_actor, p_centre)
+    and active_centre_membership(p_patient, p_centre, 'patient')
+    and exists (
+      select 1 from clinical_access_consents consent
+      where consent.patient_id = p_patient
+        and consent.centre_id = p_centre
+        and consent.purpose = 'clinical_care'
+        and consent.revoked_at is null
+        and consent.expires_at > now()
+    );
+$$;
+
+create or replace function set_clinical_access_consent(
+  p_actor uuid,
+  p_centre uuid,
+  p_patient uuid,
+  p_granted boolean,
+  p_purpose text default 'clinical_care'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  prior_id uuid;
+  consent_id uuid;
+begin
+  if p_actor <> p_patient or app_role_of(p_actor) <> 'member' then
+    raise exception 'only the Patient controls this consent' using errcode = '42501';
+  end if;
+  if p_purpose <> 'clinical_care'
+     or not active_centre_membership(p_patient, p_centre, 'patient') then
+    raise exception 'invalid consent scope' using errcode = '22023';
+  end if;
+
+  select id into prior_id
+  from clinical_access_consents
+  where patient_id = p_patient and centre_id = p_centre
+    and purpose = p_purpose and revoked_at is null
+  for update;
+
+  if p_granted then
+    if prior_id is not null then
+      update clinical_access_consents
+      set revoked_by = p_actor, revoked_at = now(), revoke_reason = 'renewed'
+      where id = prior_id;
+    end if;
+    insert into clinical_access_consents (
+      patient_id, centre_id, purpose, granted_by, expires_at, provenance
+    ) values (
+      p_patient, p_centre, p_purpose, p_actor, now() + interval '1 year',
+      jsonb_build_object(
+        'source', 'patient_action',
+        'term', 'one_year',
+        'renews_consent_id', prior_id
+      )
+    ) returning id into consent_id;
+    return consent_id;
+  end if;
+
+  if prior_id is null then
+    raise exception 'no unrevoked consent to revoke' using errcode = '55000';
+  end if;
+  update clinical_access_consents
+  set revoked_by = p_actor, revoked_at = now(), revoke_reason = 'patient_revoked'
+  where id = prior_id;
+  return prior_id;
+end;
+$$;
+
+
 -- ── Rooms and configured capacity ──────────────────────────────────────────
 
 create table if not exists centre_rooms (

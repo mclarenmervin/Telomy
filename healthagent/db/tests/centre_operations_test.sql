@@ -71,6 +71,55 @@ update centres
 set timezone_name = 'Asia/Kolkata', currency_code = 'INR'
 where id in (:'centre_a', :'centre_b');
 
+select set_clinical_access_consent(
+  :patient_a, :'centre_a', :patient_a, true, 'clinical_care'
+) as active_consent_a \gset
+select pg_temp.asserts(
+  centre_can_read_clinical(:owner_a, :'centre_a', :patient_a),
+  'an unexpired patient consent admits the centre owner'
+);
+select pg_temp.refuses(
+  format(
+    'update clinical_access_consents set expires_at = expires_at + interval %L where id = %L',
+    '1 year', :'active_consent_a'
+  ),
+  'a granted consent expiry cannot be rewritten'
+);
+
+insert into clinical_access_consents (
+  patient_id, centre_id, purpose, granted_by, granted_at,
+  expires_at, provenance
+) values (
+  :patient_b, :'centre_b', 'clinical_care', :patient_b,
+  now() - interval '2 years', now() - interval '1 year',
+  '{"source":"expiry_fixture"}'::jsonb
+) returning id as expired_consent_b, granted_at as expired_granted_at \gset
+select pg_temp.asserts(
+  not centre_can_read_clinical(:owner_b, :'centre_b', :patient_b),
+  'expiration removes the patient from centre clinical visibility'
+);
+
+select set_clinical_access_consent(
+  :patient_b, :'centre_b', :patient_b, true, 'clinical_care'
+) as renewed_consent_b \gset
+select pg_temp.asserts(
+  :'renewed_consent_b' <> :'expired_consent_b'
+  and (select count(*) from clinical_access_consents
+       where patient_id = :patient_b and centre_id = :'centre_b') = 2
+  and (select granted_at = :'expired_granted_at'::timestamptz
+       from clinical_access_consents where id = :'expired_consent_b')
+  and centre_can_read_clinical(:owner_b, :'centre_b', :patient_b),
+  'renewal appends a new grant without rewriting the prior grant'
+);
+
+select set_clinical_access_consent(
+  :patient_b, :'centre_b', :patient_b, false, 'clinical_care'
+);
+select pg_temp.asserts(
+  not centre_can_read_clinical(:owner_b, :'centre_b', :patient_b),
+  'revocation removes the patient on the next authorization check'
+);
+
 select create_centre_room(:owner_a, :'centre_a', 'Therapy Suite') as room_a \gset
 select create_centre_room(:owner_b, :'centre_b', 'Therapy Suite') as room_b \gset
 

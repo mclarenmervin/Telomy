@@ -218,18 +218,24 @@ class PatientCareSupabase(FakeSupabase):
             None,
         )
         if params["p_granted"]:
-            if active is None:
-                active = {
-                    "id": f"consent-{len(self.tables['clinical_access_consents']) + 1}",
-                    "patient_id": params["p_patient"],
-                    "centre_id": params["p_centre"],
-                    "purpose": "clinical_care",
-                    "granted_at": datetime.now(UTC).isoformat(),
-                    "revoked_at": None,
-                }
-                self.tables["clinical_access_consents"].append(active)
+            now = datetime.now(UTC)
+            if active is not None:
+                active["revoked_at"] = now.isoformat()
+                active["revoke_reason"] = "renewed"
+            active = {
+                "id": f"consent-{len(self.tables['clinical_access_consents']) + 1}",
+                "patient_id": params["p_patient"],
+                "centre_id": params["p_centre"],
+                "purpose": "clinical_care",
+                "granted_at": now.isoformat(),
+                "expires_at": (now + timedelta(days=365)).isoformat(),
+                "revoked_at": None,
+                "revoke_reason": None,
+            }
+            self.tables["clinical_access_consents"].append(active)
         else:
             active["revoked_at"] = datetime.now(UTC).isoformat()
+            active["revoke_reason"] = "patient_revoked"
         return SimpleNamespace(execute=lambda: SimpleNamespace(data=active["id"]))
 
 
@@ -288,12 +294,57 @@ def test_patient_care_consent_grant_and_revoke_preserve_history():
     client = patient_care_client(db)
     granted = client.post(f"/api/v1/account/care/{CENTRE}/consent", json={"granted": True})
     assert granted.status_code == 200
-    assert client.get("/api/v1/account/care").json()["centres"][0]["consent"]["active"] is True
+    current = client.get("/api/v1/account/care").json()["centres"][0]["consent"]
+    assert current["active"] is True
+    assert datetime.fromisoformat(current["expires_at"]) > datetime.now(UTC)
     revoked = client.post(f"/api/v1/account/care/{CENTRE}/consent", json={"granted": False})
     assert revoked.status_code == 200
     care = client.get("/api/v1/account/care").json()["centres"][0]
     assert care["consent"]["active"] is False
     assert len(care["consent"]["history"]) == 1
+
+
+def test_expired_consent_is_inactive_and_renewal_appends_history():
+    expired_at = datetime.now(UTC) - timedelta(days=1)
+    db = patient_care_db()
+    db.tables["clinical_access_consents"].append({
+        "id": "expired-consent",
+        "patient_id": USER,
+        "centre_id": CENTRE,
+        "purpose": "clinical_care",
+        "granted_at": (expired_at - timedelta(days=365)).isoformat(),
+        "expires_at": expired_at.isoformat(),
+        "revoked_at": None,
+        "revoke_reason": None,
+    })
+    client = patient_care_client(db)
+
+    before = client.get("/api/v1/account/care").json()["centres"][0]["consent"]
+    assert before["active"] is False
+    assert before["expires_at"] == expired_at.isoformat()
+
+    renewed = client.post(
+        f"/api/v1/account/care/{CENTRE}/consent", json={"granted": True}
+    )
+    assert renewed.status_code == 200
+    after = client.get("/api/v1/account/care").json()["centres"][0]["consent"]
+    assert after["active"] is True
+    assert len(after["history"]) == 2
+    assert db.tables["clinical_access_consents"][0]["revoke_reason"] == "renewed"
+
+
+def test_revocation_removes_consent_on_the_next_care_read():
+    db = patient_care_db()
+    client = patient_care_client(db)
+    assert client.post(
+        f"/api/v1/account/care/{CENTRE}/consent", json={"granted": True}
+    ).status_code == 200
+    assert client.get("/api/v1/account/care").json()["centres"][0]["consent"]["active"]
+
+    assert client.post(
+        f"/api/v1/account/care/{CENTRE}/consent", json={"granted": False}
+    ).status_code == 200
+    assert not client.get("/api/v1/account/care").json()["centres"][0]["consent"]["active"]
 
 
 def test_patient_care_exposes_no_assignment_mutation_route():

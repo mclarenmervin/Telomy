@@ -78,9 +78,7 @@ class _CareList extends StatelessWidget {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Allow centre clinical access'),
-                    subtitle: const Text(
-                      'Centre owners can view your clinical record only while this is on.',
-                    ),
+                    subtitle: Text(_consentDescription(centre)),
                     value: centre.consentActive,
                     onChanged: onConsent == null
                         ? null
@@ -107,4 +105,37 @@ class _CareList extends StatelessWidget {
       ],
     );
   }
+}
+
+String _consentDescription(PatientCentre centre) {
+  final expiry = centre.consentExpiresAt;
+  if (centre.consentActive && expiry != null) {
+    return 'Clinical access expires on ${_shortDate(expiry)}. '
+        'You can revoke it at any time.';
+  }
+  if (centre.consentExpired && expiry != null) {
+    return 'Clinical access expired on ${_shortDate(expiry)}. '
+        'Turn it on to renew for one year.';
+  }
+  return 'Centre owners can view your clinical record only while this is on. '
+      'New consent lasts one year.';
+}
+
+String _shortDate(DateTime value) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final date = value.toLocal();
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
 }

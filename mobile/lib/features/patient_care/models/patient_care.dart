@@ -22,6 +22,7 @@ class PatientCentre {
     required this.name,
     required this.doctors,
     required this.consentActive,
+    this.consentExpiresAt,
     this.consentHistory = const [],
   });
 
@@ -36,6 +37,9 @@ class PatientCentre {
           CareDoctor.fromJson((row as Map).cast<String, dynamic>()),
       ],
       consentActive: consent['active'] == true,
+      consentExpiresAt: DateTime.tryParse(
+        consent['expires_at']?.toString() ?? '',
+      )?.toUtc(),
       consentHistory: [
         for (final row in consent['history'] as List? ?? const [])
           (row as Map).cast<String, dynamic>(),
@@ -47,7 +51,13 @@ class PatientCentre {
   final String name;
   final List<CareDoctor> doctors;
   final bool consentActive;
+  final DateTime? consentExpiresAt;
   final List<Map<String, dynamic>> consentHistory;
+
+  bool get consentExpired =>
+      !consentActive &&
+      consentExpiresAt != null &&
+      !consentExpiresAt!.isAfter(DateTime.now().toUtc());
 }
 
 class PatientCare {

@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -103,6 +104,18 @@ def _active_patient_membership(supabase: Any, user_id: str, centre_id: str) -> b
     return bool(rows)
 
 
+def _future_expiry(row: dict[str, Any] | None) -> datetime | None:
+    if not row or not row.get("expires_at"):
+        return None
+    try:
+        expiry = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=UTC)
+    except (TypeError, ValueError):
+        return None
+    return expiry if expiry > datetime.now(UTC) else None
+
+
 @care_router.get("")
 def patient_care(
     user_id: Annotated[str, Depends(current_user_id)],
@@ -156,7 +169,9 @@ def patient_care(
     doctor_names = {row["id"]: row.get("full_name") or "Doctor" for row in doctors}
     consents = (
         supabase.table("clinical_access_consents")
-        .select("id,centre_id,purpose,granted_at,revoked_at,revoke_reason")
+        .select(
+            "id,centre_id,purpose,granted_at,expires_at,revoked_at,revoke_reason"
+        )
         .eq("patient_id", user_id)
         .in_("centre_id", centre_ids)
         .eq("purpose", "clinical_care")
@@ -175,6 +190,11 @@ def patient_care(
         ]
         centre_assignments.sort(key=lambda row: not bool(row.get("is_primary")))
         history = [row for row in consents if row["centre_id"] == centre_id]
+        unrevoked = next(
+            (row for row in history if row.get("revoked_at") is None), None
+        )
+        active_expiry = _future_expiry(unrevoked)
+        displayed_consent = unrevoked or (history[0] if history else None)
         items.append({
             "id": centre_id,
             "name": centre.get("name") or "Centre",
@@ -187,7 +207,12 @@ def patient_care(
                 for row in centre_assignments
             ],
             "consent": {
-                "active": any(row.get("revoked_at") is None for row in history),
+                "active": active_expiry is not None,
+                "expires_at": (
+                    displayed_consent.get("expires_at")
+                    if displayed_consent is not None
+                    else None
+                ),
                 "history": history,
             },
         })

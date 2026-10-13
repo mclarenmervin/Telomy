@@ -90,6 +90,18 @@ def booking_database():
                   accepted_at timestamptz,
                   left_at timestamptz
                 );
+                create table clinical_access_consents (
+                  id uuid primary key default gen_random_uuid(),
+                  patient_id uuid not null references auth.users(id),
+                  centre_id uuid not null references centres(id),
+                  purpose text not null,
+                  granted_by uuid not null references auth.users(id),
+                  granted_at timestamptz not null default now(),
+                  provenance jsonb not null default '{}'::jsonb,
+                  revoked_by uuid references auth.users(id),
+                  revoked_at timestamptz,
+                  revoke_reason text
+                );
                 create function active_centre_membership(
                   p_user uuid, p_centre uuid, p_kind text
                 ) returns boolean language sql stable security definer
