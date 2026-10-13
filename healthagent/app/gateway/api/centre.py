@@ -13,7 +13,12 @@ from app.gateway.access_audit import audited_read
 from app.gateway.api.accounts import get_invitation_service
 from app.gateway.auth import current_user_id
 from app.gateway.invitations import InvitationService
-from app.gateway.tenancy import centre_clinical_access, centre_member
+from app.gateway.roles import CENTRE, require_app_role
+from app.gateway.tenancy import (
+    CentreOwnerScope,
+    centre_clinical_access,
+    require_centre_owner_scope,
+)
 
 router = APIRouter(prefix="/api/v1/centre", tags=["centre"])
 
@@ -31,11 +36,6 @@ class AssignmentCreate(BaseModel):
 
 class PrimaryDoctor(BaseModel):
     doctor_id: str
-
-
-def _require_owner(supabase: Any, actor_id: str, centre_id: str) -> None:
-    if not centre_member(supabase, actor_id, centre_id, "owner"):
-        raise HTTPException(status_code=403, detail="not permitted")
 
 
 def _roster(supabase: Any, centre_id: str, kind: str, limit: int = 100) -> list[dict]:
@@ -56,10 +56,11 @@ def _roster(supabase: Any, centre_id: str, kind: str, limit: int = 100) -> list[
 @router.get("/mine")
 def my_centres(
     actor_id: Annotated[str, Depends(current_user_id)],
+    _: Annotated[str, Depends(require_app_role(CENTRE))],
     supabase: Annotated[Any, Depends(get_supabase_client)],
 ) -> dict:
     memberships = (
-        supabase.table("centre_memberships").select("centre_id")
+        supabase.table("centre_memberships").select("id,centre_id")
         .eq("user_id", actor_id).eq("member_kind", "owner")
         .eq("status", "active").is_("left_at", "null").execute().data or []
     )
@@ -69,71 +70,69 @@ def my_centres(
         .in_("id", ids).eq("status", "active").execute().data
         if ids else []
     )
-    return {"items": rows or []}
+    membership_by_centre = {row["centre_id"]: row["id"] for row in memberships}
+    return {
+        "items": [
+            {**row, "membership_id": membership_by_centre[row["id"]]}
+            for row in (rows or [])
+        ]
+    }
 
 
-@router.get("/{centre_id}/dashboard")
+@router.get("/dashboard")
 def centre_dashboard(
-    centre_id: str,
-    actor_id: Annotated[str, Depends(current_user_id)],
+    scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)],
     supabase: Annotated[Any, Depends(get_supabase_client)],
 ) -> dict:
-    _require_owner(supabase, actor_id, centre_id)
-    doctors = _roster(supabase, centre_id, "doctor")
-    patients = _roster(supabase, centre_id, "patient")
-    return {"centre_id": centre_id, "doctors": len(doctors), "patients": len(patients)}
+    doctors = _roster(supabase, scope.centre_id, "doctor")
+    patients = _roster(supabase, scope.centre_id, "patient")
+    return {"centre_id": scope.centre_id, "doctors": len(doctors), "patients": len(patients)}
 
 
-@router.get("/{centre_id}/doctors")
-def list_centre_doctors(centre_id: str, actor_id: Annotated[str, Depends(current_user_id)], supabase: Annotated[Any, Depends(get_supabase_client)], limit: int = Query(default=100, ge=1, le=200)) -> dict:
-    _require_owner(supabase, actor_id, centre_id)
-    return {"items": _roster(supabase, centre_id, "doctor", limit)}
+@router.get("/doctors")
+def list_centre_doctors(scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)], limit: int = Query(default=100, ge=1, le=200)) -> dict:
+    return {"items": _roster(supabase, scope.centre_id, "doctor", limit)}
 
 
-@router.get("/{centre_id}/patients")
-def list_centre_patients(centre_id: str, actor_id: Annotated[str, Depends(current_user_id)], supabase: Annotated[Any, Depends(get_supabase_client)], limit: int = Query(default=100, ge=1, le=200)) -> dict:
-    _require_owner(supabase, actor_id, centre_id)
-    return {"items": _roster(supabase, centre_id, "patient", limit)}
+@router.get("/patients")
+def list_centre_patients(scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)], limit: int = Query(default=100, ge=1, le=200)) -> dict:
+    return {"items": _roster(supabase, scope.centre_id, "patient", limit)}
 
 
-@router.post("/{centre_id}/invitations", status_code=201)
+@router.post("/invitations", status_code=201)
 def create_centre_invitation(
-    centre_id: str, body: CentreInvitationCreate,
-    actor_id: Annotated[str, Depends(current_user_id)],
+    body: CentreInvitationCreate,
+    scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)],
     supabase: Annotated[Any, Depends(get_supabase_client)],
     service: Annotated[InvitationService, Depends(get_invitation_service)],
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
 ) -> dict:
-    _require_owner(supabase, actor_id, centre_id)
-    result = service.invite(actor_id, body.email, body.intended_role, centre_id, body.primary_doctor_id, idempotency_key)
+    result = service.invite(scope.actor_id, body.email, body.intended_role, scope.centre_id, body.primary_doctor_id, idempotency_key)
     return service.result_dict(result)
 
 
-@router.post("/{centre_id}/patients/{patient_id}/assignments", status_code=201)
+@router.post("/patients/{patient_id}/assignments", status_code=201)
 def assign_patient(
-    centre_id: str, patient_id: str, body: AssignmentCreate,
-    actor_id: Annotated[str, Depends(current_user_id)],
+    patient_id: str, body: AssignmentCreate,
+    scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)],
     supabase: Annotated[Any, Depends(get_supabase_client)],
 ) -> dict:
-    _require_owner(supabase, actor_id, centre_id)
     assignment_id = supabase.rpc("assign_patient_doctor", {
-        "p_actor": actor_id, "p_centre": centre_id, "p_patient": patient_id,
+        "p_actor": scope.actor_id, "p_centre": scope.centre_id, "p_patient": patient_id,
         "p_doctor": body.doctor_id, "p_primary": body.primary,
     }).execute().data
     return {"id": str(assignment_id)}
 
 
-@router.patch("/{centre_id}/patients/{patient_id}/primary-doctor")
-def set_primary_doctor(centre_id: str, patient_id: str, body: PrimaryDoctor, actor_id: Annotated[str, Depends(current_user_id)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
-    _require_owner(supabase, actor_id, centre_id)
-    assignment_id = supabase.rpc("set_primary_doctor", {"p_actor": actor_id, "p_centre": centre_id, "p_patient": patient_id, "p_doctor": body.doctor_id}).execute().data
+@router.patch("/patients/{patient_id}/primary-doctor")
+def set_primary_doctor(patient_id: str, body: PrimaryDoctor, scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    assignment_id = supabase.rpc("set_primary_doctor", {"p_actor": scope.actor_id, "p_centre": scope.centre_id, "p_patient": patient_id, "p_doctor": body.doctor_id}).execute().data
     return {"id": str(assignment_id)}
 
 
-@router.delete("/{centre_id}/patients/{patient_id}/assignments/{assignment_id}")
-def end_assignment(centre_id: str, patient_id: str, assignment_id: str, actor_id: Annotated[str, Depends(current_user_id)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
-    _require_owner(supabase, actor_id, centre_id)
-    rows = supabase.table("patient_doctor_assignments").update({"ended_at": datetime.now(UTC).isoformat(), "ended_by": actor_id, "end_reason": "centre_ended"}).eq("id", assignment_id).eq("centre_id", centre_id).eq("patient_id", patient_id).is_("ended_at", "null").execute().data
+@router.delete("/patients/{patient_id}/assignments/{assignment_id}")
+def end_assignment(patient_id: str, assignment_id: str, scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    rows = supabase.table("patient_doctor_assignments").update({"ended_at": datetime.now(UTC).isoformat(), "ended_by": scope.actor_id, "end_reason": "centre_ended"}).eq("id", assignment_id).eq("centre_id", scope.centre_id).eq("patient_id", patient_id).is_("ended_at", "null").execute().data
     if not rows:
         raise HTTPException(status_code=404, detail="assignment not found")
     return {"id": assignment_id, "status": "ended"}
@@ -145,9 +144,8 @@ def _clinical_record(supabase: Any, patient_id: str) -> dict:
     return {"patient_id": patient_id, "drafts": drafts, "monthly_reports": reports, "read_only": True}
 
 
-@router.get("/{centre_id}/patients/{patient_id}/clinical-record")
-def read_centre_clinical_record(centre_id: str, patient_id: str, actor_id: Annotated[str, Depends(current_user_id)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
-    _require_owner(supabase, actor_id, centre_id)
-    if not centre_clinical_access(supabase, actor_id, centre_id, patient_id):
+@router.get("/patients/{patient_id}/clinical-record")
+def read_centre_clinical_record(patient_id: str, scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    if not centre_clinical_access(supabase, scope.actor_id, scope.centre_id, patient_id):
         raise HTTPException(status_code=403, detail="clinical consent required")
-    return audited_read(supabase, actor_id=actor_id, actor_role="centre", patient_id=patient_id, centre_id=centre_id, resource_type="clinical_record", resource_id=patient_id, read=lambda: _clinical_record(supabase, patient_id))
+    return audited_read(supabase, actor_id=scope.actor_id, actor_role="centre", patient_id=patient_id, centre_id=scope.centre_id, resource_type="clinical_record", resource_id=patient_id, read=lambda: _clinical_record(supabase, patient_id))

@@ -8,12 +8,24 @@ from app.gateway.api.centre import (
     assign_patient,
     read_centre_clinical_record,
 )
+from app.gateway import tenancy
 
 
 OWNER = "10000000-0000-0000-0000-000000000001"
 DOCTOR = "10000000-0000-0000-0000-000000000002"
 PATIENT = "10000000-0000-0000-0000-000000000003"
 CENTRE = "20000000-0000-0000-0000-000000000001"
+MEMBERSHIP = "30000000-0000-0000-0000-000000000001"
+
+
+def owner_scope():
+    scope_type = getattr(tenancy, "CentreOwnerScope", None)
+    assert scope_type is not None, "CentreOwnerScope is missing"
+    return scope_type(
+        actor_id=OWNER,
+        membership_id=MEMBERSHIP,
+        centre_id=CENTRE,
+    )
 
 
 class Db:
@@ -48,26 +60,32 @@ class Query:
 
 def test_centre_assigns_doctor_to_patient_with_jwt_actor():
     db = Db()
-    result = assign_patient(CENTRE, PATIENT, AssignmentCreate(doctor_id=DOCTOR, primary=True), OWNER, db)
+    result = assign_patient(
+        PATIENT,
+        AssignmentCreate(doctor_id=DOCTOR, primary=True),
+        owner_scope(),
+        db,
+    )
     assert result == {"id": "assignment-1"}
     assert db.calls[-1][1]["p_actor"] == OWNER
 
 
-def test_cross_centre_owner_is_refused_before_assignment():
+def test_assignment_uses_centre_derived_from_owner_scope():
     db = Db()
-    original = db.rpc
-    db.rpc = lambda name, params: SimpleNamespace(execute=lambda: SimpleNamespace(data=False)) if name == "active_centre_membership" else original(name, params)
-    with pytest.raises(HTTPException) as error:
-        assign_patient(CENTRE, PATIENT, AssignmentCreate(doctor_id=DOCTOR), OWNER, db)
-    assert error.value.status_code == 403
+
+    assign_patient(PATIENT, AssignmentCreate(doctor_id=DOCTOR), owner_scope(), db)
+
+    params = db.calls[-1][1]
+    assert params["p_centre"] == CENTRE
+    assert params["p_actor"] == OWNER
 
 
 def test_centre_clinical_read_requires_consent_and_is_audited():
     denied = Db(consent=False)
     with pytest.raises(HTTPException) as error:
-        read_centre_clinical_record(CENTRE, PATIENT, OWNER, denied)
+        read_centre_clinical_record(PATIENT, owner_scope(), denied)
     assert error.value.status_code == 403
     allowed = Db(consent=True)
-    payload = read_centre_clinical_record(CENTRE, PATIENT, OWNER, allowed)
+    payload = read_centre_clinical_record(PATIENT, owner_scope(), allowed)
     assert payload["patient_id"] == PATIENT
     assert any(name == "record_access_event" for name, _ in allowed.calls)

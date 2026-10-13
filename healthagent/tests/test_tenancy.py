@@ -4,6 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.gateway.access_audit import audited_read
+from app.gateway import tenancy
 from app.gateway.tenancy import (
     admin_patient_access,
     centre_clinical_access,
@@ -11,6 +12,7 @@ from app.gateway.tenancy import (
     doctor_patient_access,
     require_clinical_author,
 )
+from tests.fakes import FakeSupabase
 
 
 ADMIN = "10000000-0000-0000-0000-000000000001"
@@ -21,6 +23,116 @@ PATIENT_A = "10000000-0000-0000-0000-000000000005"
 PATIENT_B = "10000000-0000-0000-0000-000000000006"
 CENTRE_A = "20000000-0000-0000-0000-000000000001"
 CENTRE_B = "20000000-0000-0000-0000-000000000002"
+MEMBERSHIP_A = "30000000-0000-0000-0000-000000000001"
+MEMBERSHIP_B = "30000000-0000-0000-0000-000000000002"
+
+
+def owner_db(
+    *,
+    actor=OWNER,
+    role="centre",
+    membership_id=MEMBERSHIP_A,
+    centre_id=CENTRE_A,
+    membership_status="active",
+    left_at=None,
+    centre_status="active",
+):
+    return FakeSupabase({
+        "profiles": [{"id": actor, "app_role": role}],
+        "centre_memberships": [{
+            "id": membership_id,
+            "centre_id": centre_id,
+            "user_id": actor,
+            "member_kind": "owner",
+            "status": membership_status,
+            "left_at": left_at,
+        }],
+        "centres": [{
+            "id": centre_id,
+            "name": "North Centre",
+            "status": centre_status,
+        }],
+    })
+
+
+def resolve(db, *, actor=OWNER, membership=MEMBERSHIP_A):
+    resolver = getattr(tenancy, "resolve_centre_owner_scope", None)
+    assert resolver is not None, "membership-derived centre resolver is missing"
+    return resolver(db, actor, membership)
+
+
+def test_owner_scope_is_derived_from_membership_identity():
+    scope = resolve(owner_db())
+
+    assert scope.actor_id == OWNER
+    assert scope.membership_id == MEMBERSHIP_A
+    assert scope.centre_id == CENTRE_A
+
+
+def test_owner_cannot_select_somebody_elses_membership():
+    db = owner_db(actor="10000000-0000-0000-0000-000000000099")
+
+    with pytest.raises(HTTPException) as error:
+        resolve(db)
+
+    assert error.value.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("overrides", "label"),
+    [
+        ({"role": "member"}, "wrong platform role"),
+        ({"membership_status": "suspended"}, "suspended membership"),
+        ({"left_at": "2026-10-12T10:00:00+00:00"}, "ended membership"),
+        ({"centre_status": "suspended"}, "inactive centre"),
+    ],
+)
+def test_owner_scope_rechecks_current_state(overrides, label):
+    with pytest.raises(HTTPException, match="not permitted") as error:
+        resolve(owner_db(**overrides))
+
+    assert error.value.status_code == 403, label
+
+
+def test_owner_can_select_either_of_two_active_memberships():
+    db = FakeSupabase({
+        "profiles": [{"id": OWNER, "app_role": "centre"}],
+        "centre_memberships": [
+            {
+                "id": MEMBERSHIP_A,
+                "centre_id": CENTRE_A,
+                "user_id": OWNER,
+                "member_kind": "owner",
+                "status": "active",
+                "left_at": None,
+            },
+            {
+                "id": MEMBERSHIP_B,
+                "centre_id": CENTRE_B,
+                "user_id": OWNER,
+                "member_kind": "owner",
+                "status": "active",
+                "left_at": None,
+            },
+        ],
+        "centres": [
+            {"id": CENTRE_A, "name": "North", "status": "active"},
+            {"id": CENTRE_B, "name": "South", "status": "active"},
+        ],
+    })
+
+    assert resolve(db, membership=MEMBERSHIP_A).centre_id == CENTRE_A
+    assert resolve(db, membership=MEMBERSHIP_B).centre_id == CENTRE_B
+
+
+def test_missing_membership_header_fails_closed():
+    dependency = getattr(tenancy, "require_centre_owner_scope", None)
+    assert dependency is not None, "centre owner dependency is missing"
+
+    with pytest.raises(HTTPException) as error:
+        dependency(actor_id=OWNER, supabase=owner_db(), membership_id=None)
+
+    assert error.value.status_code == 403
 
 
 class RpcDb:
