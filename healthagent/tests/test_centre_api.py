@@ -29,12 +29,15 @@ def owner_scope():
 
 
 class Db:
-    def __init__(self, consent=True):
+    def __init__(self, consent=True, audit_fails=False):
         self.calls = []
         self.consent = consent
+        self.audit_fails = audit_fails
 
     def rpc(self, name, params):
         self.calls.append((name, params))
+        if name == "record_access_event" and self.audit_fails:
+            raise RuntimeError("audit unavailable")
         values = {
             "active_centre_membership": True,
             "centre_can_read_clinical": self.consent,
@@ -89,3 +92,14 @@ def test_centre_clinical_read_requires_consent_and_is_audited():
     payload = read_centre_clinical_record(PATIENT, owner_scope(), allowed)
     assert payload["patient_id"] == PATIENT
     assert any(name == "record_access_event" for name, _ in allowed.calls)
+
+
+def test_centre_clinical_read_fails_closed_when_audit_is_unavailable():
+    with pytest.raises(HTTPException) as error:
+        read_centre_clinical_record(
+            PATIENT,
+            owner_scope(),
+            Db(consent=True, audit_fails=True),
+        )
+
+    assert error.value.status_code == 503
