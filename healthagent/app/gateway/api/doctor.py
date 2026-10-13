@@ -102,7 +102,7 @@ def doctor_today(centre_id: str, doctor_id: Annotated[str, Depends(current_user_
     patients = loader.patients()
     drafts = loader.drafts()
     patient_ids = [row["id"] for row in patients]
-    escalations = supabase.table("lab_escalations").select("id,user_id,created_at").in_("user_id", patient_ids).is_("resolved_at", "null").execute().data if patient_ids else []
+    escalations = supabase.table("lab_escalations").select("id,user_id,created_at").in_("user_id", patient_ids).is_("acknowledged_at", "null").execute().data if patient_ids else []
     return {"centre_id": centre_id, "patient_count": len(patients), "pending_work": len(drafts), "critical_escalations": escalations or []}
 
 

@@ -41,7 +41,7 @@ class VerificationDecision(BaseModel):
     registration_number: str | None = None
     registration_body: str | None = None
     licence_expires_at: str | None = None
-    specialties: list[str] = []
+    specialties: list[str] = Field(default_factory=list)
 
 
 @router.post("/centres", status_code=201)
@@ -167,8 +167,8 @@ def read_admin_patient(
 
 
 def _clinical_record(supabase: Any, patient_id: str) -> dict:
-    drafts = supabase.table("clinical_drafts").select("id,state,created_at,updated_at").eq("user_id", patient_id).execute().data or []
-    reports = supabase.table("monthly_reports").select("id,status,period_start,period_end,version,signed_at").eq("patient_id", patient_id).execute().data or []
+    drafts = supabase.table("clinical_drafts").select("id,status,created_at,updated_at").eq("user_id", patient_id).execute().data or []
+    reports = supabase.table("monthly_reports").select("id,status,period_start,period_end,version,reviewed_at").eq("patient_id", patient_id).execute().data or []
     return {"patient_id": patient_id, "drafts": drafts, "monthly_reports": reports, "read_only": True}
 
 

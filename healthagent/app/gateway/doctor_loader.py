@@ -113,6 +113,9 @@ class DoctorLoader:
             return []
         return _rows(
             self.supabase.table("clinical_drafts")
-            .select("id,user_id,clinic_id,kind,title,body,state,version,created_at,updated_at,sla_due_at")
+            .select(
+                "id,user_id,clinic_id,kind,title,body,evidence,routing_flags,"
+                "status,claimed_by,claimed_at,created_at,updated_at,sla_due_at"
+            )
             .in_("user_id", allowed)
         )
