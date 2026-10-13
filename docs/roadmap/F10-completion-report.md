@@ -63,6 +63,7 @@ The F12 Therapy Plans and F18 Rx/Supplements queue segments are deliberately pre
 | `069ac33` | Patient care team and consent |
 | `c85340f` | Production-schema alignment for F10 reads |
 | `7df1490` | Mobile password recovery and native deep-link handling |
+| `9b64d7b` | Release builds cannot silently use mock authentication |
 
 ## Database verification
 
@@ -120,8 +121,10 @@ features fail later.
   account logged in successfully, `/api/v1/account/care` and
   `/api/v1/invitations/pending` both returned `200`, the patient care screen
   showed the expected no-centre state, ring characteristics streamed
-  continuously, and a smoking event entered its in-progress state without an
-  authentication, gateway, BLE, or crash error.
+  continuously, and a fresh smoking event completed a full start/stop cycle.
+  The UI entered its in-progress state and returned to idle; staging recorded
+  the same manual event first as `started` and then as `ended` with a 48-second
+  duration. No authentication, gateway, app-level BLE, or crash error occurred.
 - **Password recovery:** The final release APK cold-started from
   `telomy://auth/reset-password` on the Pixel emulator and rendered the
   pre-login new-password form. Four focused tests cover the redirect request,
@@ -129,9 +132,7 @@ features fail later.
   handling. The same URI is registered for Android and iOS and is present in
   the staging Supabase Auth redirect allow list.
 
-The physical phone disconnected from ADB after the smoking event started, so
-the final Stop tap was not observed from the Mac. No credentials are captured
-in this report.
+No credentials are captured in this report.
 
 ## Deployment state
 
