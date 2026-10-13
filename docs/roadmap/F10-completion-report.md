@@ -120,15 +120,18 @@ report.
 
 ## Deployment state
 
-The F10 code through `c85340f` is pushed to `staging`, and migrations 024–027
+The F10 code and this report are pushed to `staging`, and migrations 024–027
 are present in staging Supabase. The first Railway gateway deployment failed
 because those manually applied migrations had not yet been entered in
 `schema_migrations`; predeploy therefore tried to apply the intentionally
-non-idempotent files again. The four exact migration checksums are now
-recorded and a fresh runner reports the schema is current. This report commit
-triggers a clean redeployment. Completion requires the gateway commit check to
-turn green and the new `/api/v1/account/care` route to return an authentication
-response rather than `404`.
+non-idempotent files again. The four exact migration checksums were recorded
+and a fresh runner reported the schema current.
+
+The repaired `83e2d9e` deployment is green for all six Railway services:
+gateway, scheduler, worker, activity worker, extraction worker, and score
+worker. Live probes then returned `200` for `/health` and the expected `401`
+for unauthenticated `/api/v1/account/care`, proving that the F10 route is
+deployed (the prior gateway returned `404`).
 
 ## Re-run commands
 
