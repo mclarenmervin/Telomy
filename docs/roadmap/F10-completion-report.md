@@ -137,7 +137,8 @@ because those manually applied migrations had not yet been entered in
 non-idempotent files again. The four exact migration checksums were recorded
 and a fresh runner reported the schema current.
 
-The repaired `131cf08` deployment is green for all six Railway services:
+The staging deployment containing the final auth fix (`7df1490`) is green for
+all six Railway services:
 gateway, scheduler, worker, activity worker, extraction worker, and score
 worker. Live probes then returned `200` for `/health` and the expected `401`
 for unauthenticated `/api/v1/account/care`, proving that the F10 route is
