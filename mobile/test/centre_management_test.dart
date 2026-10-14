@@ -278,9 +278,9 @@ void main() {
   test('centre shell names the five management branches', () {
     expect(roleTabs(AppRole.centre).map((tab) => tab.label), [
       'Dashboard',
-      'Doctors',
-      'Patients',
-      'Assignments',
+      'Bookings',
+      'Members',
+      'Services',
       'Profile',
     ]);
   });

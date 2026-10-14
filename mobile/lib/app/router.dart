@@ -51,10 +51,10 @@ import '../features/admin/screens/centres_screen.dart';
 import '../features/admin/screens/licence_verification_screen.dart';
 import '../features/admin/screens/patient_viewer_screen.dart';
 import '../features/centre/screens/centre_dashboard_screen.dart';
-import '../features/centre/screens/doctors_screen.dart';
 import '../features/centre/screens/patients_screen.dart';
-import '../features/centre/screens/assignments_screen.dart';
 import '../features/centre/screens/centre_profile_screen.dart';
+import '../features/centre/screens/bookings_screen.dart';
+import '../features/centre/screens/services_screen.dart';
 import '../features/doctor/screens/doctor_today_screen.dart';
 import '../features/doctor/screens/doctor_patients_screen.dart';
 import '../features/doctor/screens/doctor_patient_detail_screen.dart';
@@ -183,9 +183,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ]),
       _shell(AppRole.centre, const [
         CentreDashboardScreen(),
-        DoctorsScreen(),
+        BookingsScreen(),
         PatientsScreen(),
-        AssignmentsScreen(),
+        ServicesScreen(),
         CentreProfileScreen(),
       ]),
       _shell(AppRole.admin, const [

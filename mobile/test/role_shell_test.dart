@@ -123,8 +123,9 @@ void main() {
   testWidgets('a centre operator lands on their own shell', (tester) async {
     await signIn(tester, AppRole.centre);
 
-    expect(find.text('Doctors'), findsWidgets);
-    expect(find.text('Assignments'), findsWidgets);
+    expect(find.text('Bookings'), findsWidgets);
+    expect(find.text('Members'), findsWidgets);
+    expect(find.text('Services'), findsWidgets);
     expect(find.byTooltip('Log something'), findsNothing);
   });
 
@@ -175,5 +176,27 @@ void main() {
 
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(BottomAppBar), findsNothing);
+  });
+
+  testWidgets('centre phone and tablet navigation expose the same five jobs', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await alreadySignedIn(tester, AppRole.centre);
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    for (final label in [
+      'Dashboard',
+      'Bookings',
+      'Members',
+      'Services',
+      'Profile',
+    ]) {
+      expect(find.text(label), findsWidgets, reason: label);
+    }
   });
 }

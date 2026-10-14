@@ -49,8 +49,16 @@ void main() {
 
     test('everything else is the member app', () {
       for (final path in [
-        '/home', '/trends', '/sinc', '/profile', '/labs', '/correlations',
-        '/biological-age', '/genetics', '/environment', '/settings',
+        '/home',
+        '/trends',
+        '/sinc',
+        '/profile',
+        '/labs',
+        '/correlations',
+        '/biological-age',
+        '/genetics',
+        '/environment',
+        '/settings',
       ]) {
         expect(routeRole(path), AppRole.member, reason: path);
       }
@@ -86,12 +94,25 @@ void main() {
       }
     });
 
+    test('centre uses the approved five operational destinations', () {
+      expect(roleTabs(AppRole.centre).map((tab) => tab.label), [
+        'Dashboard',
+        'Bookings',
+        'Members',
+        'Services',
+        'Profile',
+      ]);
+    });
+
     test('no two roles share a tab path', () {
       final seen = <String, AppRole>{};
       for (final role in AppRole.values) {
         for (final tab in roleTabs(role)) {
-          expect(seen[tab.path], isNull,
-              reason: '${tab.path} is also ${seen[tab.path]?.name}');
+          expect(
+            seen[tab.path],
+            isNull,
+            reason: '${tab.path} is also ${seen[tab.path]?.name}',
+          );
           seen[tab.path] = role;
         }
       }
@@ -131,6 +152,20 @@ void main() {
     test('a doctor cannot wander into the admin or centre trees', () {
       expect(redirectFor(AppRole.doctor, '/admin'), '/doctor');
       expect(redirectFor(AppRole.doctor, '/centre'), '/doctor');
+    });
+
+    test('every new centre route rejects all other roles', () {
+      for (final path in [
+        '/centre/bookings',
+        '/centre/members',
+        '/centre/services',
+        '/centre/profile',
+      ]) {
+        expect(redirectFor(AppRole.member, path), '/home', reason: path);
+        expect(redirectFor(AppRole.doctor, path), '/doctor', reason: path);
+        expect(redirectFor(AppRole.admin, path), '/admin', reason: path);
+        expect(redirectFor(AppRole.centre, path), isNull, reason: path);
+      }
     });
 
     test('an admin cannot wander into the doctor tree either', () {

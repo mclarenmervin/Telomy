@@ -116,19 +116,19 @@ List<RoleTab> roleTabs(AppRole role) => switch (role) {
       icon: Icons.dashboard_outlined,
     ),
     RoleTab(
-      path: '/centre/doctors',
-      label: 'Doctors',
-      icon: Icons.medical_services_outlined,
+      path: '/centre/bookings',
+      label: 'Bookings',
+      icon: Icons.calendar_month_outlined,
     ),
     RoleTab(
-      path: '/centre/patients',
-      label: 'Patients',
+      path: '/centre/members',
+      label: 'Members',
       icon: Icons.groups_outlined,
     ),
     RoleTab(
-      path: '/centre/assignments',
-      label: 'Assignments',
-      icon: Icons.assignment_ind_outlined,
+      path: '/centre/services',
+      label: 'Services',
+      icon: Icons.medical_services_outlined,
     ),
     RoleTab(
       path: '/centre/profile',
