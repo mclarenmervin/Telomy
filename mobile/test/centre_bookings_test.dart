@@ -188,6 +188,28 @@ void main() {
     expect(find.text('Review'), findsOneWidget);
     expect(find.text('15/10/2026 · 01:30–02:00'), findsOneWidget);
   });
+
+  testWidgets('booking card shows patient and room labels, never raw IDs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BookingCard(
+            booking: labelledBooking(),
+            onCommand: (_, _, _) async {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Patient Acceptance Member · Room Consultation A'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('patient-uuid'), findsNothing);
+    expect(find.textContaining('room-uuid'), findsNothing);
+  });
 }
 
 CentreBooking booking({required String status}) => CentreBooking.fromJson({
@@ -219,5 +241,22 @@ CentreBooking bookingAt(String start) => CentreBooking.fromJson({
   'service_name_snapshot': 'Review',
   'duration_minutes_snapshot': 30,
   'indicative_price_minor_snapshot': 100,
+  'currency_code_snapshot': 'INR',
+});
+
+CentreBooking labelledBooking() => CentreBooking.fromJson({
+  'id': 'booking-uuid',
+  'patient_id': 'patient-uuid',
+  'patient_display_name': 'Acceptance Member',
+  'service_id': 'service-uuid',
+  'room_id': 'room-uuid',
+  'room_name': 'Consultation A',
+  'scheduled_start': '2026-10-14T09:00:00Z',
+  'scheduled_end': '2026-10-14T09:30:00Z',
+  'status': 'booked',
+  'version': 0,
+  'service_name_snapshot': 'Review',
+  'duration_minutes_snapshot': 30,
+  'indicative_price_minor_snapshot': 125000,
   'currency_code_snapshot': 'INR',
 });

@@ -54,7 +54,7 @@ class BookingCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
-            'Patient ${booking.patientId} · Room ${booking.roomId}',
+            'Patient ${booking.patientDisplayName} · Room ${booking.roomName}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),

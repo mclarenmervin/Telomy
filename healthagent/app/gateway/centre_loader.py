@@ -79,7 +79,7 @@ class CentreLoader:
         )
 
     def bookings(self) -> list[dict]:
-        return self._rows(
+        bookings = self._rows(
             "centre_bookings",
             "id,centre_id,patient_id,service_id,room_id,scheduled_start,"
             "scheduled_end,status,version,service_name_snapshot,"
@@ -87,6 +87,36 @@ class CentreLoader:
             "currency_code_snapshot,checked_in_at,completed_at,no_show_at,"
             "cancelled_at,cancellation_reason,created_at,updated_at",
         )
+        patient_ids = list(
+            dict.fromkeys(
+                row["patient_id"] for row in bookings if row.get("patient_id")
+            )
+        )
+        profiles = (
+            self._db.table("profiles")
+            .select("id,full_name")
+            .in_("id", patient_ids)
+            .execute()
+            .data
+            if patient_ids
+            else []
+        ) or []
+        patient_names = {
+            row["id"]: row.get("full_name") or "Member" for row in profiles
+        }
+        room_names = {
+            row["id"]: row.get("name") or "Room" for row in self.rooms()
+        }
+        return [
+            {
+                **row,
+                "patient_display_name": patient_names.get(
+                    row.get("patient_id"), "Member"
+                ),
+                "room_name": room_names.get(row.get("room_id"), "Room"),
+            }
+            for row in bookings
+        ]
 
     def booking_transitions(self) -> list[dict]:
         return self._rows(

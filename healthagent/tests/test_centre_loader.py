@@ -75,6 +75,7 @@ def centre_db() -> AuditDb:
                 "id": "booking-a",
                 "centre_id": CENTRE_A,
                 "patient_id": PATIENT_A,
+                "room_id": "room-a",
                 "status": "completed",
                 "scheduled_start": recent,
                 "completed_at": recent,
@@ -162,6 +163,17 @@ def test_operational_loader_pages_past_five_hundred_rows():
 
     assert len(rows) == 1001
     assert rows[-1]["id"] == "booking-1000"
+
+
+def test_booking_rows_use_scoped_contact_free_patient_and_room_labels():
+    rows = CentreLoader(centre_db(), scope()).bookings()
+
+    booking = next(row for row in rows if row["id"] == "booking-a")
+    assert booking["patient_display_name"] == "Patient A"
+    assert booking["room_name"] == "A"
+    serialized = repr(booking).lower()
+    for forbidden in ("email", "phone", "address", "secret"):
+        assert forbidden not in serialized
 
 
 def test_member_snapshot_excludes_unconsented_expired_foreign_and_contact_data():

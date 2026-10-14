@@ -85,8 +85,10 @@ class CentreBooking {
   const CentreBooking({
     required this.id,
     required this.patientId,
+    required this.patientDisplayName,
     required this.serviceId,
     required this.roomId,
+    required this.roomName,
     required this.scheduledStart,
     required this.scheduledEnd,
     required this.status,
@@ -101,8 +103,10 @@ class CentreBooking {
     return CentreBooking(
       id: '${json['id']}',
       patientId: '${json['patient_id']}',
+      patientDisplayName: json['patient_display_name']?.toString() ?? 'Member',
       serviceId: '${json['service_id']}',
       roomId: '${json['room_id']}',
+      roomName: json['room_name']?.toString() ?? 'Room',
       scheduledStart: start,
       scheduledEnd: json['scheduled_end'] == null
           ? start.add(
@@ -122,8 +126,10 @@ class CentreBooking {
   }
   final String id;
   final String patientId;
+  final String patientDisplayName;
   final String serviceId;
   final String roomId;
+  final String roomName;
   final DateTime scheduledStart;
   final DateTime scheduledEnd;
   final String status;
