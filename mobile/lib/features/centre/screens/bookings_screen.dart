@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/centre_repository.dart';
 import '../models/centre_operations.dart';
+import '../models/centre_roster.dart';
 import '../providers/centre_provider.dart';
 import '../widgets/booking_card.dart';
 import '../utils/centre_time.dart';
@@ -36,6 +37,10 @@ class BookingsScreen extends StatefulWidget {
     this.onCreate,
     this.initialDate,
     this.timezoneName = 'UTC',
+    this.patients = const [],
+    this.services = const [],
+    this.rooms = const [],
+    this.compatibility = const [],
   });
 
   final List<CentreBooking>? initial;
@@ -45,6 +50,10 @@ class BookingsScreen extends StatefulWidget {
   final BookingCreateAction? onCreate;
   final DateTime? initialDate;
   final String timezoneName;
+  final List<CentrePerson> patients;
+  final List<CentreService> services;
+  final List<CentreRoom> rooms;
+  final List<RoomServiceLink> compatibility;
 
   @override
   State<BookingsScreen> createState() => _BookingsScreenState();
@@ -153,6 +162,10 @@ class _BookingsScreenState extends State<BookingsScreen> {
                       builder: (_) => BookingEditorScreen(
                         onCreate: create,
                         timezoneName: widget.timezoneName,
+                        patients: widget.patients,
+                        services: widget.services,
+                        rooms: widget.rooms,
+                        compatibility: widget.compatibility,
                       ),
                     ),
                   ),
@@ -242,50 +255,74 @@ class _BookingsLoader extends ConsumerWidget {
       return const Center(child: Text('No active centre membership'));
     }
     final dashboard = ref.watch(centreDashboardProvider(membershipId));
+    final patients = ref.watch(centrePatientsProvider(membershipId));
+    final services = ref.watch(centreServicesProvider(membershipId));
+    final rooms = ref.watch(centreRoomsProvider(membershipId));
     return ref
         .watch(centreBookingsProvider(membershipId))
         .when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, _) =>
               const Center(child: Text('Bookings are unavailable. Try again.')),
-          data: (items) => dashboard.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) => const Center(
-              child: Text('Bookings are unavailable. Try again.'),
-            ),
-            data: (dashboard) => BookingsScreen(
-              initial: items,
-              timezoneName: dashboard.centre.timezoneName,
-              onRefresh: () async =>
-                  ref.invalidate(centreBookingsProvider(membershipId)),
-              onBookingTransition: (bookingId, command, version, reason) async {
-                final updated = await ref
-                    .read(centreRepositoryProvider)
-                    .transitionBooking(
-                      membershipId,
-                      bookingId: bookingId,
-                      command: command,
-                      expectedVersion: version,
-                      reason: reason,
-                    );
-                ref.invalidate(centreBookingsProvider(membershipId));
-                return updated;
-              },
-              onCreate: (draft) async {
-                final created = await ref
-                    .read(centreRepositoryProvider)
-                    .createBooking(
-                      membershipId,
-                      patientId: draft.patientId,
-                      serviceId: draft.serviceId,
-                      roomId: draft.roomId,
-                      scheduledStart: draft.scheduledStart,
-                    );
-                ref.invalidate(centreBookingsProvider(membershipId));
-                return created;
-              },
-            ),
-          ),
+          data: (items) {
+            if (dashboard.isLoading ||
+                patients.isLoading ||
+                services.isLoading ||
+                rooms.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (dashboard.hasError ||
+                patients.hasError ||
+                services.hasError ||
+                rooms.hasError) {
+              return const Center(
+                child: Text('Bookings are unavailable. Try again.'),
+              );
+            }
+            return dashboard.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => const Center(
+                child: Text('Bookings are unavailable. Try again.'),
+              ),
+              data: (dashboard) => BookingsScreen(
+                initial: items,
+                timezoneName: dashboard.centre.timezoneName,
+                patients: patients.requireValue,
+                services: services.requireValue.items,
+                rooms: rooms.requireValue.items,
+                compatibility: services.requireValue.compatibility,
+                onRefresh: () async =>
+                    ref.invalidate(centreBookingsProvider(membershipId)),
+                onBookingTransition:
+                    (bookingId, command, version, reason) async {
+                      final updated = await ref
+                          .read(centreRepositoryProvider)
+                          .transitionBooking(
+                            membershipId,
+                            bookingId: bookingId,
+                            command: command,
+                            expectedVersion: version,
+                            reason: reason,
+                          );
+                      ref.invalidate(centreBookingsProvider(membershipId));
+                      return updated;
+                    },
+                onCreate: (draft) async {
+                  final created = await ref
+                      .read(centreRepositoryProvider)
+                      .createBooking(
+                        membershipId,
+                        patientId: draft.patientId,
+                        serviceId: draft.serviceId,
+                        roomId: draft.roomId,
+                        scheduledStart: draft.scheduledStart,
+                      );
+                  ref.invalidate(centreBookingsProvider(membershipId));
+                  return created;
+                },
+              ),
+            );
+          },
         );
   }
 }

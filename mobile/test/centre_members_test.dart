@@ -86,6 +86,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(invited, 'doctor@example.com');
   });
+
+  testWidgets('operational patient roster remains usable without consent', (
+    tester,
+  ) async {
+    var invited = '';
+    var assignedPatient = '';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PatientsScreen(
+          initial: const [],
+          patients: const [
+            CentrePerson(id: 'p2', name: 'Roster Patient', status: 'active'),
+          ],
+          doctors: const [
+            CentrePerson(id: 'd1', name: 'Dr Meera', status: 'active'),
+          ],
+          onInvitePatient: (email) async => invited = email,
+          onAssign: (patientId, _, _) async => assignedPatient = patientId,
+        ),
+      ),
+    );
+
+    expect(
+      find.text('No members currently share data with this centre.'),
+      findsOneWidget,
+    );
+    expect(find.text('Patient roster'), findsOneWidget);
+    expect(find.text('Roster Patient'), findsOneWidget);
+    await tester.tap(find.text('Assign doctor').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save assignment'));
+    await tester.pumpAndSettle();
+    expect(assignedPatient, 'p2');
+    await tester.tap(find.text('Invite patient'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Email'),
+      'patient@example.com',
+    );
+    await tester.tap(find.text('Send invitation'));
+    await tester.pumpAndSettle();
+    expect(invited, 'patient@example.com');
+  });
 }
 
 CentreMember member() => CentreMember.fromJson({

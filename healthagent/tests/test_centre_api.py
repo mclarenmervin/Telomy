@@ -317,7 +317,7 @@ def test_centre_router_exposes_every_f11_operational_surface():
     paths = {route.path for route in router.routes}
     assert {
         "/api/v1/centre/dashboard", "/api/v1/centre/members",
-        "/api/v1/centre/doctors", "/api/v1/centre/invitations",
+        "/api/v1/centre/doctors", "/api/v1/centre/patients", "/api/v1/centre/invitations",
         "/api/v1/centre/patients/{patient_id}/assignments",
         "/api/v1/centre/rooms", "/api/v1/centre/rooms/{room_id}/hours",
         "/api/v1/centre/services",

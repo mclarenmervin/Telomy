@@ -161,6 +161,43 @@ class CentreLoader:
             for row in memberships
         ]
 
+    def patients(self, *, limit: int = 200) -> list[dict]:
+        """Return the contact-free operational roster, independent of consent."""
+        memberships = (
+            self._db.table("centre_memberships")
+            .select("id,user_id,status,accepted_at")
+            .eq("centre_id", self.scope.centre_id)
+            .eq("member_kind", "patient")
+            .eq("status", "active")
+            .is_("left_at", "null")
+            .limit(limit)
+            .execute()
+            .data
+            or []
+        )
+        patient_ids = [row["user_id"] for row in memberships]
+        profiles = (
+            self._db.table("profiles")
+            .select("id,full_name")
+            .in_("id", patient_ids)
+            .execute()
+            .data
+            if patient_ids
+            else []
+        ) or []
+        names = {row["id"]: row.get("full_name") or "Patient" for row in profiles}
+        return [
+            {
+                "id": row["user_id"],
+                "centre_id": self.scope.centre_id,
+                "name": names.get(row["user_id"], "Patient"),
+                "membership_id": row["id"],
+                "status": row.get("status"),
+                "accepted_at": row.get("accepted_at"),
+            }
+            for row in memberships
+        ]
+
     def _current_member_ids(self) -> list[str]:
         now = datetime.now(UTC).isoformat()
         consents = (

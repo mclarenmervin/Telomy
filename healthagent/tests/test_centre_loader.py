@@ -152,6 +152,21 @@ def test_every_operational_loader_method_is_centre_scoped():
     assert {row["centre_id"] for row in doctors} == {CENTRE_A}
 
 
+def test_patient_roster_is_scoped_contact_free_and_independent_of_consent():
+    patients = CentreLoader(centre_db(), scope()).patients()
+
+    assert {row["id"] for row in patients} == {
+        PATIENT_A,
+        PATIENT_NEVER,
+        PATIENT_EXPIRED,
+    }
+    assert {row["centre_id"] for row in patients} == {CENTRE_A}
+    assert next(row for row in patients if row["id"] == PATIENT_NEVER)["name"] == "Never Consented"
+    serialized = repr(patients).lower()
+    for forbidden in ("email", "phone", "address", "secret"):
+        assert forbidden not in serialized
+
+
 def test_operational_loader_pages_past_five_hundred_rows():
     db = centre_db()
     db.tables["centre_bookings"] = [

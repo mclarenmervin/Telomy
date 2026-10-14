@@ -47,7 +47,11 @@ final centreMembersProvider = FutureProvider.autoDispose
           ref.read(centreRepositoryProvider).members(membershipId),
     );
 
-final centrePatientsProvider = centreMembersProvider;
+final centrePatientsProvider = FutureProvider.autoDispose
+    .family<List<CentrePerson>, String>(
+      (ref, membershipId) =>
+          ref.read(centreRepositoryProvider).patients(membershipId),
+    );
 
 final centreRoomsProvider = FutureProvider.autoDispose
     .family<CentreRooms, String>(
@@ -80,6 +84,7 @@ void invalidateCentreMembership(Ref ref, String membershipId) {
   ref.invalidate(centreDashboardProvider(membershipId));
   ref.invalidate(centreDoctorsProvider(membershipId));
   ref.invalidate(centreMembersProvider(membershipId));
+  ref.invalidate(centrePatientsProvider(membershipId));
   ref.invalidate(centreRoomsProvider(membershipId));
   ref.invalidate(centreServicesProvider(membershipId));
   ref.invalidate(centreBookingsProvider(membershipId));

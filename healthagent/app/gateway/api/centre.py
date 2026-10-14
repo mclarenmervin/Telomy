@@ -165,6 +165,11 @@ def list_centre_doctors(scope: Annotated[CentreOwnerScope, Depends(require_centr
     return {"items": _slice(_loader(supabase, scope).doctors(limit=200), limit, offset), "limit": limit, "offset": offset}
 
 
+@router.get("/patients")
+def list_centre_patients(scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)], limit: int = Query(default=100, ge=1, le=200), offset: int = Query(default=0, ge=0)) -> dict:
+    return {"items": _slice(_loader(supabase, scope).patients(limit=200), limit, offset), "limit": limit, "offset": offset}
+
+
 @router.post("/invitations", status_code=201)
 def create_centre_invitation(body: CentreInvitationCreate, scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)], service: Annotated[InvitationService, Depends(get_invitation_service)], idempotency_key: Annotated[str, Header(alias="Idempotency-Key")]) -> dict:
     del supabase

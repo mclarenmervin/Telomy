@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telomy/features/centre/data/centre_repository.dart';
 import 'package:telomy/features/centre/models/centre_operations.dart';
+import 'package:telomy/features/centre/models/centre_roster.dart';
 import 'package:telomy/features/centre/screens/booking_editor_screen.dart';
 import 'package:telomy/features/centre/screens/bookings_screen.dart';
 import 'package:telomy/features/centre/widgets/booking_card.dart';
@@ -37,20 +38,37 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(home: BookingEditorScreen(onCreate: (_) async {})),
+      MaterialApp(
+        home: BookingEditorScreen(
+          onCreate: (_) async {},
+          patients: const [
+            CentrePerson(id: 'p1', name: 'Asha', status: 'active'),
+          ],
+          services: const [
+            CentreService(
+              id: 's1',
+              name: 'Review',
+              durationMinutes: 30,
+              indicativePriceMinor: 100,
+              currencyCode: 'INR',
+              status: 'active',
+            ),
+          ],
+          rooms: const [CentreRoom(id: 'r1', name: 'Room A', status: 'active')],
+          compatibility: const [
+            RoomServiceLink(id: 'l1', roomId: 'r1', serviceId: 's1'),
+          ],
+        ),
+      ),
     );
     final button = find.widgetWithText(FilledButton, 'Create booking');
     expect(tester.widget<FilledButton>(button).onPressed, isNull);
-    for (final entry in {
-      'Patient ID': 'p1',
-      'Service ID': 's1',
-      'Room ID': 'r1',
-    }.entries) {
-      await tester.enterText(
-        find.widgetWithText(TextField, entry.key),
-        entry.value,
-      );
-    }
+    expect(find.text('Asha'), findsOneWidget);
+    expect(find.text('Review'), findsOneWidget);
+    expect(find.text('Room A'), findsOneWidget);
+    expect(find.textContaining('p1'), findsNothing);
+    expect(find.textContaining('s1'), findsNothing);
+    expect(find.textContaining('r1'), findsNothing);
     await tester.tap(find.text('Choose time'));
     await tester.pump();
     expect(find.textContaining('future'), findsWidgets);

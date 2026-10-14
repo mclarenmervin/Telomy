@@ -51,8 +51,13 @@ class CentreRepository {
       CentreMember.fromJson(row),
   ];
 
-  Future<List<CentreMember>> patients(String membershipId) =>
-      members(membershipId);
+  Future<List<CentrePerson>> patients(String membershipId) async => [
+    for (final row in await _items(
+      '/api/v1/centre/patients',
+      membershipId: membershipId,
+    ))
+      CentrePerson.fromJson(row),
+  ];
 
   Future<CentreRooms> rooms(String membershipId) async {
     final data = _map(

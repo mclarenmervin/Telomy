@@ -15,18 +15,28 @@ class PatientsScreen extends StatelessWidget {
   const PatientsScreen({
     super.key,
     this.initial,
+    this.patients = const [],
     this.doctors = const [],
     this.onAssign,
+    this.onInvitePatient,
   });
 
   final List<CentreMember>? initial;
+  final List<CentrePerson> patients;
   final List<CentrePerson> doctors;
   final AssignMemberDoctor? onAssign;
+  final Future<void> Function(String email)? onInvitePatient;
 
   @override
   Widget build(BuildContext context) => initial == null
       ? const _MembersLoader()
-      : _MembersView(members: initial!, doctors: doctors, onAssign: onAssign);
+      : _MembersView(
+          members: initial!,
+          patients: patients,
+          doctors: doctors,
+          onAssign: onAssign,
+          onInvitePatient: onInvitePatient,
+        );
 }
 
 class _MembersLoader extends ConsumerWidget {
@@ -39,15 +49,17 @@ class _MembersLoader extends ConsumerWidget {
       return const Center(child: Text('No active centre membership'));
     }
     final members = ref.watch(centreMembersProvider(membershipId));
+    final patients = ref.watch(centrePatientsProvider(membershipId));
     final doctors = ref.watch(centreDoctorsProvider(membershipId));
-    if (members.isLoading || doctors.isLoading) {
+    if (members.isLoading || patients.isLoading || doctors.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (members.hasError || doctors.hasError) {
+    if (members.hasError || patients.hasError || doctors.hasError) {
       return const Center(child: Text('Members are unavailable. Try again.'));
     }
     return _MembersView(
       members: members.requireValue,
+      patients: patients.requireValue,
       doctors: doctors.requireValue,
       onAssign: (patientId, doctorId, primary) async {
         await ref
@@ -60,6 +72,12 @@ class _MembersLoader extends ConsumerWidget {
             );
         ref.invalidate(centreMembersProvider(membershipId));
       },
+      onInvitePatient: (email) async {
+        await ref
+            .read(centreRepositoryProvider)
+            .invite(membershipId: membershipId, email: email, role: 'member');
+        ref.invalidate(centrePatientsProvider(membershipId));
+      },
     );
   }
 }
@@ -67,12 +85,16 @@ class _MembersLoader extends ConsumerWidget {
 class _MembersView extends StatelessWidget {
   const _MembersView({
     required this.members,
+    required this.patients,
     required this.doctors,
     this.onAssign,
+    this.onInvitePatient,
   });
   final List<CentreMember> members;
+  final List<CentrePerson> patients;
   final List<CentrePerson> doctors;
   final AssignMemberDoctor? onAssign;
+  final Future<void> Function(String email)? onInvitePatient;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -95,8 +117,140 @@ class _MembersView extends StatelessWidget {
         else
           for (final member in members)
             _MemberCard(member: member, doctors: doctors, onAssign: onAssign),
+        const SizedBox(height: AppSpacing.xl),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Patient roster',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            if (onInvitePatient != null)
+              FilledButton.icon(
+                onPressed: () => _invitePatient(context),
+                icon: const Icon(Icons.person_add_outlined),
+                label: const Text('Invite patient'),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        const Text(
+          'Operational roster access is separate from clinical-data consent.',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (patients.isEmpty)
+          const AppCard(child: Text('No patients have joined this centre yet.'))
+        else
+          for (final patient in patients)
+            AppCard(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(patient.name),
+                subtitle: Text(patient.status),
+                trailing: doctors.isNotEmpty && onAssign != null
+                    ? TextButton(
+                        onPressed: () => _assignRosterPatient(context, patient),
+                        child: const Text('Assign doctor'),
+                      )
+                    : null,
+              ),
+            ),
       ],
     ),
+  );
+
+  Future<void> _invitePatient(BuildContext context) async {
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) => const _InvitePatientDialog(),
+    );
+    if (email != null && email.contains('@')) await onInvitePatient!(email);
+  }
+
+  Future<void> _assignRosterPatient(
+    BuildContext context,
+    CentrePerson patient,
+  ) async {
+    var doctorId = doctors.first.id;
+    var primary = true;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Assign doctor to ${patient.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final doctor in doctors)
+                ListTile(
+                  leading: Icon(
+                    doctor.id == doctorId
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                  ),
+                  onTap: () => setDialogState(() => doctorId = doctor.id),
+                  title: Text(doctor.name),
+                ),
+              CheckboxListTile(
+                value: primary,
+                onChanged: (value) =>
+                    setDialogState(() => primary = value ?? true),
+                title: const Text('Primary doctor'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save assignment'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved == true) await onAssign!(patient.id, doctorId, primary);
+  }
+}
+
+class _InvitePatientDialog extends StatefulWidget {
+  const _InvitePatientDialog();
+
+  @override
+  State<_InvitePatientDialog> createState() => _InvitePatientDialogState();
+}
+
+class _InvitePatientDialogState extends State<_InvitePatientDialog> {
+  final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Invite patient'),
+    content: TextField(
+      controller: controller,
+      keyboardType: TextInputType.emailAddress,
+      decoration: const InputDecoration(labelText: 'Email'),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, controller.text.trim()),
+        child: const Text('Send invitation'),
+      ),
+    ],
   );
 }
 
