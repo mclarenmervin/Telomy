@@ -120,6 +120,22 @@ void main() {
     expect(find.textContaining('changed'), findsOneWidget);
     expect(find.text('booked'), findsOneWidget);
   });
+
+  testWidgets('create flow adds only the authoritative returned booking', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingsScreen(
+          initial: const [],
+          onCreate: (_) async => booking(status: 'booked'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Add booking'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create booking'), findsWidgets);
+  });
 }
 
 CentreBooking booking({required String status}) => CentreBooking.fromJson({

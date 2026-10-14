@@ -73,6 +73,7 @@ class _BookingEditorScreenState extends State<BookingEditorScreen> {
   Future<void> save() async {
     if (!valid) return;
     setState(() => saving = true);
+    var created = false;
     try {
       await widget.onCreate(
         BookingDraft(
@@ -82,10 +83,13 @@ class _BookingEditorScreenState extends State<BookingEditorScreen> {
           scheduledStart: scheduledStart!,
         ),
       );
-      if (mounted) Navigator.maybePop(context);
+      created = true;
+    } catch (_) {
+      // The parent owns the user-facing, non-sensitive error message.
     } finally {
       if (mounted) setState(() => saving = false);
     }
+    if (created && mounted) Navigator.maybePop(context);
   }
 
   @override

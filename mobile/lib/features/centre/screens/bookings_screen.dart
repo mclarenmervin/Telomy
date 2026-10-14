@@ -6,6 +6,7 @@ import '../data/centre_repository.dart';
 import '../models/centre_operations.dart';
 import '../providers/centre_provider.dart';
 import '../widgets/booking_card.dart';
+import 'booking_editor_screen.dart';
 import 'centre_dashboard_screen.dart';
 
 typedef BookingTransitionAction =
@@ -16,6 +17,8 @@ typedef ScopedBookingTransitionAction =
       String command,
       int version,
     );
+typedef BookingCreateAction =
+    Future<CentreBooking?> Function(BookingDraft draft);
 
 class BookingsScreen extends StatefulWidget {
   const BookingsScreen({
@@ -24,12 +27,14 @@ class BookingsScreen extends StatefulWidget {
     this.onRefresh,
     this.onTransition,
     this.onBookingTransition,
+    this.onCreate,
   });
 
   final List<CentreBooking>? initial;
   final Future<void> Function()? onRefresh;
   final BookingTransitionAction? onTransition;
   final ScopedBookingTransitionAction? onBookingTransition;
+  final BookingCreateAction? onCreate;
 
   @override
   State<BookingsScreen> createState() => _BookingsScreenState();
@@ -79,6 +84,22 @@ class _BookingsScreenState extends State<BookingsScreen> {
     }
   }
 
+  Future<void> create(BookingDraft draft) async {
+    try {
+      final created = await widget.onCreate?.call(draft);
+      if (created != null && mounted) {
+        setState(() => bookings = [created, ...bookings]);
+      }
+    } on CentreUnavailable catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+      rethrow;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.initial == null) return const _BookingsLoader();
@@ -89,7 +110,27 @@ class _BookingsScreenState extends State<BookingsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          Text('Bookings', style: Theme.of(context).textTheme.headlineMedium),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Bookings',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+              ),
+              if (widget.onCreate != null)
+                FilledButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => BookingEditorScreen(onCreate: create),
+                    ),
+                  ),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add booking'),
+                ),
+            ],
+          ),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.sm,
@@ -172,6 +213,19 @@ class _BookingsLoader extends ConsumerWidget {
                   );
               ref.invalidate(centreBookingsProvider(membershipId));
               return updated;
+            },
+            onCreate: (draft) async {
+              final created = await ref
+                  .read(centreRepositoryProvider)
+                  .createBooking(
+                    membershipId,
+                    patientId: draft.patientId,
+                    serviceId: draft.serviceId,
+                    roomId: draft.roomId,
+                    scheduledStart: draft.scheduledStart,
+                  );
+              ref.invalidate(centreBookingsProvider(membershipId));
+              return created;
             },
           ),
         );
