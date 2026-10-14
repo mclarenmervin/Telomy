@@ -18,6 +18,21 @@ void main() {
     expect(find.text('Review'), findsOneWidget);
   });
 
+  testWidgets('date filter excludes bookings from other local days', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingsScreen(
+          initial: [booking(status: 'booked')],
+          initialDate: DateTime(2026, 10, 15),
+        ),
+      ),
+    );
+    expect(find.text('Review'), findsNothing);
+    expect(find.text('No bookings match these filters.'), findsOneWidget);
+  });
+
   testWidgets('booking editor validates required operational fields', (
     tester,
   ) async {

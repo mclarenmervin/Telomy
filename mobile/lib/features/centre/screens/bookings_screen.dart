@@ -28,6 +28,7 @@ class BookingsScreen extends StatefulWidget {
     this.onTransition,
     this.onBookingTransition,
     this.onCreate,
+    this.initialDate,
   });
 
   final List<CentreBooking>? initial;
@@ -35,6 +36,7 @@ class BookingsScreen extends StatefulWidget {
   final BookingTransitionAction? onTransition;
   final ScopedBookingTransitionAction? onBookingTransition;
   final BookingCreateAction? onCreate;
+  final DateTime? initialDate;
 
   @override
   State<BookingsScreen> createState() => _BookingsScreenState();
@@ -42,6 +44,7 @@ class BookingsScreen extends StatefulWidget {
 
 class _BookingsScreenState extends State<BookingsScreen> {
   late List<CentreBooking> bookings = [...?widget.initial];
+  late DateTime? selectedDate = widget.initialDate;
   String status = 'all';
 
   @override
@@ -103,9 +106,16 @@ class _BookingsScreenState extends State<BookingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.initial == null) return const _BookingsLoader();
-    final visible = status == 'all'
-        ? bookings
-        : bookings.where((booking) => booking.status == status).toList();
+    final visible = bookings.where((booking) {
+      final statusMatches = status == 'all' || booking.status == status;
+      final local = booking.scheduledStart.toLocal();
+      final dateMatches =
+          selectedDate == null ||
+          (local.year == selectedDate!.year &&
+              local.month == selectedDate!.month &&
+              local.day == selectedDate!.day);
+      return statusMatches && dateMatches;
+    }).toList();
     return Material(
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -137,10 +147,28 @@ class _BookingsScreenState extends State<BookingsScreen> {
             runSpacing: AppSpacing.sm,
             children: [
               OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () async {
+                  final chosen = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now().add(const Duration(days: 730)),
+                  );
+                  if (chosen != null) setState(() => selectedDate = chosen);
+                },
                 icon: const Icon(Icons.calendar_today_outlined),
-                label: const Text('Date'),
+                label: Text(
+                  selectedDate == null
+                      ? 'Date'
+                      : '${selectedDate!.day.toString().padLeft(2, '0')}/${selectedDate!.month.toString().padLeft(2, '0')}/${selectedDate!.year}',
+                ),
               ),
+              if (selectedDate != null)
+                IconButton(
+                  tooltip: 'Clear date filter',
+                  onPressed: () => setState(() => selectedDate = null),
+                  icon: const Icon(Icons.close),
+                ),
               DropdownButton<String>(
                 value: status,
                 onChanged: (value) => setState(() => status = value ?? 'all'),
