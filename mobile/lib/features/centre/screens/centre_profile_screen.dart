@@ -19,12 +19,17 @@ class CentreProfileScreen extends ConsumerWidget {
           error: (_, _) => [const Text('Centre profile unavailable')],
           data: (items) => [
             DropdownButton<String>(
-              value: ref.watch(selectedCentreProvider) ?? items.firstOrNull?.id,
+              value:
+                  ref.watch(selectedCentreProvider) ??
+                  items.firstOrNull?.membershipId,
               isExpanded: true,
               hint: const Text('Select a centre'),
               items: [
                 for (final item in items)
-                  DropdownMenuItem(value: item.id, child: Text(item.name)),
+                  DropdownMenuItem(
+                    value: item.membershipId,
+                    child: Text(item.name),
+                  ),
               ],
               onChanged: (value) {
                 if (value != null) {

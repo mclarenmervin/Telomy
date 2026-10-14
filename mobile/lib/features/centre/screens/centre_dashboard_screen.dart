@@ -4,7 +4,7 @@ import '../providers/centre_provider.dart';
 
 String? activeCentre(WidgetRef ref) =>
     ref.watch(selectedCentreProvider) ??
-    ref.watch(myCentresProvider).asData?.value.firstOrNull?.id;
+    ref.watch(myCentresProvider).asData?.value.firstOrNull?.membershipId;
 
 class CentreDashboardScreen extends ConsumerWidget {
   const CentreDashboardScreen({super.key});
