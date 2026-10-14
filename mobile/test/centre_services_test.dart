@@ -41,9 +41,14 @@ void main() {
       find.widgetWithText(TextField, 'Indicative price'),
       '1250',
     );
-    await tester.enterText(find.widgetWithText(TextField, 'Currency'), 'INR');
     await tester.pump();
     expect(tester.widget<FilledButton>(create).onPressed, isNotNull);
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, 'Centre currency'))
+          .readOnly,
+      isTrue,
+    );
   });
 
   testWidgets('room editor rejects invalid weekly hours', (tester) async {
@@ -94,12 +99,29 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: BookingCard(booking: booking, onCommand: (_, _) async {}),
+          body: BookingCard(booking: booking, onCommand: (_, _, _) async {}),
         ),
       ),
     );
     expect(find.text('Original review'), findsOneWidget);
     expect(find.text('Renamed service'), findsNothing);
+  });
+
+  testWidgets('active compatibility and hours expose maintenance actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ServicesScreen(
+          initialServices: services,
+          initialRooms: rooms,
+          onUnlink: (_, _) async {},
+          onEndHours: (_, _) async {},
+        ),
+      ),
+    );
+    expect(find.text('Unlink room'), findsOneWidget);
+    expect(find.text('End hours'), findsOneWidget);
   });
 }
 

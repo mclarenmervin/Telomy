@@ -608,17 +608,28 @@ language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
-declare new_id uuid;
+declare
+  new_id uuid;
+  centre_currency text;
 begin
   if not centre_operational_actor_may_manage(p_actor, p_centre) then
     raise exception 'actor cannot manage this centre' using errcode = '42501';
+  end if;
+  select upper(currency_code) into centre_currency
+  from centres where id = p_centre and status = 'active';
+  if centre_currency is null then
+    raise exception 'active centre not found' using errcode = 'P0002';
+  end if;
+  if upper(trim(p_currency_code)) <> centre_currency then
+    raise exception 'service currency must match centre currency'
+      using errcode = '22023';
   end if;
   insert into centre_services (
     centre_id, name, description, duration_minutes,
     indicative_price_minor, currency_code, created_by, updated_by
   ) values (
     p_centre, trim(p_name), nullif(trim(coalesce(p_description, '')), ''),
-    p_duration_minutes, p_indicative_price_minor, upper(trim(p_currency_code)),
+    p_duration_minutes, p_indicative_price_minor, centre_currency,
     p_actor, p_actor
   ) returning id into new_id;
   return new_id;
@@ -685,6 +696,49 @@ begin
   ) values (
     p_centre, p_room, p_service, p_actor
   ) returning id into link_id;
+  return link_id;
+end;
+$$;
+
+create or replace function end_centre_room_hours(
+  p_actor uuid, p_centre uuid, p_hours uuid,
+  p_valid_until date default current_date
+)
+returns uuid language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not centre_operational_actor_may_manage(p_actor, p_centre) then
+    raise exception 'actor cannot manage this centre' using errcode = '42501';
+  end if;
+  update centre_room_hours set valid_until = p_valid_until
+  where id = p_hours and centre_id = p_centre and valid_until is null
+    and p_valid_until >= valid_from;
+  if not found then
+    raise exception 'active room hours not found' using errcode = 'P0002';
+  end if;
+  return p_hours;
+end;
+$$;
+
+create or replace function unlink_centre_room_service(
+  p_actor uuid, p_centre uuid, p_room uuid, p_service uuid
+)
+returns uuid language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+declare link_id uuid;
+begin
+  if not centre_operational_actor_may_manage(p_actor, p_centre) then
+    raise exception 'actor cannot manage this centre' using errcode = '42501';
+  end if;
+  update centre_room_services set unlinked_at = now(), unlinked_by = p_actor
+  where centre_id = p_centre and room_id = p_room
+    and service_id = p_service and unlinked_at is null
+  returning id into link_id;
+  if link_id is null then
+    raise exception 'active compatible room not found' using errcode = 'P0002';
+  end if;
   return link_id;
 end;
 $$;
@@ -921,6 +975,10 @@ revoke all on function create_centre_service(
 revoke all on function set_centre_service_status(uuid, uuid, uuid, text)
   from public, authenticated, anon;
 revoke all on function link_centre_room_service(uuid, uuid, uuid, uuid)
+  from public, authenticated, anon;
+revoke all on function end_centre_room_hours(uuid, uuid, uuid, date)
+  from public, authenticated, anon;
+revoke all on function unlink_centre_room_service(uuid, uuid, uuid, uuid)
   from public, authenticated, anon;
 revoke all on function create_centre_booking(
   uuid, uuid, uuid, uuid, uuid, timestamptz

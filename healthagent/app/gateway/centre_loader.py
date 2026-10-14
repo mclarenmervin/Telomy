@@ -35,16 +35,23 @@ class CentreLoader:
         self.request_id = request_id
         self.actor_role = actor_role
 
-    def _rows(self, table: str, columns: str, *, limit: int = 500) -> list[dict]:
-        return (
-            self._db.table(table)
-            .select(columns)
-            .eq("centre_id", self.scope.centre_id)
-            .limit(limit)
-            .execute()
-            .data
-            or []
-        )
+    def _rows(self, table: str, columns: str, *, batch_size: int = 500) -> list[dict]:
+        """Load every scoped row in bounded PostgREST pages."""
+        rows: list[dict] = []
+        offset = 0
+        while True:
+            query = (
+                self._db.table(table)
+                .select(columns)
+                .eq("centre_id", self.scope.centre_id)
+            )
+            if not hasattr(query, "range"):
+                return query.limit(10_000).execute().data or []
+            page = query.range(offset, offset + batch_size - 1).execute().data or []
+            rows.extend(page)
+            if len(page) < batch_size:
+                return rows
+            offset += batch_size
 
     def rooms(self) -> list[dict]:
         return self._rows(

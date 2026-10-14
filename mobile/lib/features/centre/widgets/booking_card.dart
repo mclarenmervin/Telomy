@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/vocabulary/surfaces.dart';
 import '../models/centre_operations.dart';
+import '../utils/centre_time.dart';
 
-typedef BookingCommand = Future<void> Function(String command, int version);
+typedef BookingCommand =
+    Future<void> Function(String command, int version, String? reason);
 
 class BookingCard extends StatelessWidget {
   const BookingCard({
@@ -12,15 +14,18 @@ class BookingCard extends StatelessWidget {
     required this.booking,
     required this.onCommand,
     this.now,
+    this.timezoneName = 'UTC',
   });
 
   final CentreBooking booking;
   final BookingCommand onCommand;
   final DateTime? now;
+  final String timezoneName;
 
   @override
   Widget build(BuildContext context) {
-    final localStart = booking.scheduledStart.toLocal();
+    final localStart = centreLocalTime(booking.scheduledStart, timezoneName);
+    final localEnd = centreLocalTime(booking.scheduledEnd, timezoneName);
     final current = now ?? DateTime.now().toUtc();
     final noShowAt = booking.scheduledStart.toUtc().add(
       const Duration(minutes: 15),
@@ -45,7 +50,7 @@ class BookingCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '${_date(localStart)} · ${_time(localStart)}–${_time(booking.scheduledEnd.toLocal())}',
+            '${_date(localStart)} · ${_time(localStart)}–${_time(localEnd)}',
           ),
           const SizedBox(height: AppSpacing.xxs),
           Text(
@@ -75,23 +80,25 @@ class BookingCard extends StatelessWidget {
               children: [
                 if (booking.status == 'booked')
                   FilledButton(
-                    onPressed: () => onCommand('check_in', booking.version),
+                    onPressed: () =>
+                        onCommand('check_in', booking.version, null),
                     child: const Text('Check in'),
                   ),
                 if (booking.status == 'checked_in')
                   FilledButton(
-                    onPressed: () => onCommand('complete', booking.version),
+                    onPressed: () =>
+                        onCommand('complete', booking.version, null),
                     child: const Text('Complete'),
                   ),
                 if (booking.status == 'booked')
                   TextButton(
                     onPressed: noShowReady
-                        ? () => onCommand('mark_no_show', booking.version)
+                        ? () => onCommand('mark_no_show', booking.version, null)
                         : null,
                     child: const Text('Mark no-show'),
                   ),
                 TextButton(
-                  onPressed: () => onCommand('cancel', booking.version),
+                  onPressed: () => _cancel(context),
                   child: const Text('Cancel'),
                 ),
               ],
@@ -99,6 +106,39 @@ class BookingCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _cancel(BuildContext context) async {
+    String? reason;
+    if (booking.status == 'checked_in') {
+      var draft = '';
+      reason = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Cancel checked-in booking'),
+          content: TextField(
+            autofocus: true,
+            onChanged: (value) => draft = value,
+            decoration: const InputDecoration(labelText: 'Cancellation reason'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Keep booking'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final value = draft.trim();
+                if (value.isNotEmpty) Navigator.pop(context, value);
+              },
+              child: const Text('Cancel booking'),
+            ),
+          ],
+        ),
+      );
+      if (reason == null) return;
+    }
+    await onCommand('cancel', booking.version, reason);
   }
 }
 

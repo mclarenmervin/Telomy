@@ -18,8 +18,13 @@ class ServiceDraft {
 }
 
 class ServiceEditorScreen extends StatefulWidget {
-  const ServiceEditorScreen({super.key, required this.onCreate});
+  const ServiceEditorScreen({
+    super.key,
+    required this.onCreate,
+    this.currencyCode = 'INR',
+  });
   final Future<void> Function(ServiceDraft draft) onCreate;
+  final String currencyCode;
 
   @override
   State<ServiceEditorScreen> createState() => _ServiceEditorScreenState();
@@ -30,7 +35,7 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
   final description = TextEditingController();
   final duration = TextEditingController();
   final price = TextEditingController();
-  final currency = TextEditingController(text: 'INR');
+  late final currency = TextEditingController(text: widget.currencyCode);
   bool saving = false;
 
   int? get minutes => int.tryParse(duration.text);
@@ -83,7 +88,14 @@ class _ServiceEditorScreenState extends State<ServiceEditorScreen> {
         _field(description, 'Description'),
         _field(duration, 'Duration (minutes)', numeric: true),
         _field(price, 'Indicative price', numeric: true),
-        _field(currency, 'Currency'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: TextField(
+            controller: currency,
+            readOnly: true,
+            decoration: const InputDecoration(labelText: 'Centre currency'),
+          ),
+        ),
         const Text(
           'Prices are indicative planning values, not payment revenue.',
         ),

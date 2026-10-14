@@ -17,7 +17,9 @@ from app.gateway.api.centre import (
     create_room,
     create_room_hours,
     create_service,
+    end_room_hours,
     link_room_service,
+    unlink_room_service,
     list_bookings,
     list_members,
     read_centre_clinical_record,
@@ -151,11 +153,14 @@ def test_operational_commands_always_use_resolved_scope():
         "add_centre_room_hours": "hours-1",
         "create_centre_service": "service-1",
         "link_centre_room_service": "link-1",
+        "end_centre_room_hours": "hours-1",
+        "unlink_centre_room_service": "link-1",
         "create_centre_booking": "booking-1",
         "transition_centre_booking": "booking-1",
     }
     db.tables = {
         "centre_rooms": [{"id": "room-1", "centre_id": CENTRE}],
+        "centre_room_hours": [{"id": "hours-1", "centre_id": CENTRE, "room_id": "room-1"}],
         "centre_services": [{"id": "service-1", "centre_id": CENTRE}],
         "centre_bookings": [{
             "id": "booking-1", "centre_id": CENTRE, "status": "booked", "version": 2,
@@ -166,6 +171,8 @@ def test_operational_commands_always_use_resolved_scope():
     create_room_hours("room-1", RoomHoursCreate(weekday=1, opens_at="09:00", closes_at="17:00", valid_from="2026-10-01"), owner_scope(), db)
     create_service(ServiceCreate(name="Review", duration_minutes=30, indicative_price_minor=150000, currency_code="INR"), owner_scope(), db)
     link_room_service("service-1", "room-1", owner_scope(), db)
+    assert end_room_hours("room-1", "hours-1", owner_scope(), db)["status"] == "ended"
+    assert unlink_room_service("service-1", "room-1", owner_scope(), db)["status"] == "ended"
     created = create_booking(BookingCreate(patient_id=PATIENT, service_id="service-1", room_id="room-1", scheduled_start="2026-10-19T09:00:00Z"), owner_scope(), db)
     transitioned = transition_booking("booking-1", BookingTransition(command="check_in", expected_version=0), owner_scope(), db)
 

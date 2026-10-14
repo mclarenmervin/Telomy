@@ -128,6 +128,7 @@ def operational_dashboard(scope: CentreOwnerScope, supabase: Any, *, actor_role:
     members = loader.member_snapshot()
     metrics = calculate_centre_metrics(
         timezone_name=settings[0].get("timezone_name") or "UTC",
+        currency_code=settings[0].get("currency_code") or "INR",
         now=datetime.now(UTC),
         bookings=loader.bookings(), services=loader.services(), rooms=loader.rooms(),
         room_hours=loader.room_hours(), room_services=loader.room_services(), members=members["items"],
@@ -217,6 +218,15 @@ def create_room_hours(room_id: str, body: RoomHoursCreate, scope: Annotated[Cent
     return {"id": str(value)}
 
 
+@router.delete("/rooms/{room_id}/hours/{hours_id}")
+def end_room_hours(room_id: str, hours_id: str, scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    hours = _scoped(_loader(supabase, scope).room_hours(), hours_id, "room hours not found")
+    if str(hours.get("room_id")) != room_id:
+        raise HTTPException(status_code=404, detail="room hours not found")
+    value = _rpc(supabase, "end_centre_room_hours", {"p_actor": scope.actor_id, "p_centre": scope.centre_id, "p_hours": hours_id, "p_valid_until": date.today().isoformat()})
+    return {"id": str(value), "status": "ended"}
+
+
 @router.get("/services")
 def list_services(scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)], limit: int = Query(default=100, ge=1, le=200), offset: int = Query(default=0, ge=0)) -> dict:
     loader = _loader(supabase, scope)
@@ -243,6 +253,15 @@ def link_room_service(service_id: str, room_id: str, scope: Annotated[CentreOwne
     _scoped(loader.rooms(), room_id, "room not found")
     value = _rpc(supabase, "link_centre_room_service", {"p_actor": scope.actor_id, "p_centre": scope.centre_id, "p_room": room_id, "p_service": service_id})
     return {"id": str(value)}
+
+
+@router.delete("/services/{service_id}/compatible-rooms/{room_id}")
+def unlink_room_service(service_id: str, room_id: str, scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    loader = _loader(supabase, scope)
+    _scoped(loader.services(), service_id, "service not found")
+    _scoped(loader.rooms(), room_id, "room not found")
+    value = _rpc(supabase, "unlink_centre_room_service", {"p_actor": scope.actor_id, "p_centre": scope.centre_id, "p_room": room_id, "p_service": service_id})
+    return {"id": str(value), "status": "ended"}
 
 
 @router.get("/bookings")

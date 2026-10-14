@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '../utils/centre_time.dart';
 
 class BookingDraft {
   const BookingDraft({
@@ -16,8 +17,13 @@ class BookingDraft {
 }
 
 class BookingEditorScreen extends StatefulWidget {
-  const BookingEditorScreen({super.key, required this.onCreate});
+  const BookingEditorScreen({
+    super.key,
+    required this.onCreate,
+    this.timezoneName = 'UTC',
+  });
   final Future<void> Function(BookingDraft draft) onCreate;
+  final String timezoneName;
 
   @override
   State<BookingEditorScreen> createState() => _BookingEditorScreenState();
@@ -60,12 +66,11 @@ class _BookingEditorScreenState extends State<BookingEditorScreen> {
     );
     if (time == null) return;
     setState(() {
-      scheduledStart = DateTime(
-        date.year,
-        date.month,
-        date.day,
+      scheduledStart = centreUtcTime(
+        date,
         time.hour,
         time.minute,
+        widget.timezoneName,
       );
     });
   }
@@ -107,7 +112,10 @@ class _BookingEditorScreenState extends State<BookingEditorScreen> {
           label: Text(
             scheduledStart == null
                 ? 'Choose time'
-                : scheduledStart!.toLocal().toString().substring(0, 16),
+                : centreLocalTime(
+                    scheduledStart!,
+                    widget.timezoneName,
+                  ).toString().substring(0, 16),
           ),
         ),
         const SizedBox(height: AppSpacing.xs),

@@ -187,6 +187,16 @@ class CentreRepository {
     'valid_until': validUntil,
   });
 
+  Future<void> endRoomHours(
+    String membershipId, {
+    required String roomId,
+    required String hoursId,
+  }) => _request(
+    'DELETE',
+    '/api/v1/centre/rooms/$roomId/hours/$hoursId',
+    membershipId: membershipId,
+  );
+
   Future<String> createService(
     String membershipId, {
     required String name,
@@ -222,6 +232,16 @@ class CentreRepository {
     '/api/v1/centre/services/$serviceId/compatible-rooms/$roomId',
     membershipId,
     const {},
+  );
+
+  Future<void> unlinkRoomService(
+    String membershipId, {
+    required String serviceId,
+    required String roomId,
+  }) => _request(
+    'DELETE',
+    '/api/v1/centre/services/$serviceId/compatible-rooms/$roomId',
+    membershipId: membershipId,
   );
 
   Future<CentreBooking> createBooking(

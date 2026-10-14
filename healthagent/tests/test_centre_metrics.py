@@ -99,8 +99,8 @@ def fixture():
             {"id": "service-b", "name": "Session B"},
         ],
         "rooms": [
-            {"id": "room-a", "name": "Room A"},
-            {"id": "room-b", "name": "Room B"},
+            {"id": "room-a", "name": "Room A", "status": "active"},
+            {"id": "room-b", "name": "Room B", "status": "active"},
         ],
         "room_hours": [{
             "room_id": "room-a",
@@ -196,6 +196,32 @@ def test_utilisation_uses_configured_room_capacity_and_zero_is_none():
         "utilised_minutes": 0,
         "rate": None,
         "inconsistent_over_capacity": False,
+    }
+
+
+def test_inactive_rooms_do_not_contribute_capacity():
+    inputs = fixture()
+    inputs["rooms"][0]["status"] = "inactive"
+
+    result = calculate_centre_metrics(
+        **inputs, timezone_name="Asia/Kolkata", now=NOW
+    )
+
+    assert result["utilisation"][0]["capacity_minutes"] == 0
+
+
+def test_booking_value_uses_centre_currency_and_excludes_mixed_snapshots():
+    inputs = fixture()
+    inputs["bookings"][0]["currency_code_snapshot"] = "USD"
+
+    result = calculate_centre_metrics(
+        **inputs, timezone_name="Asia/Kolkata", now=NOW, currency_code="INR"
+    )
+
+    assert result["indicative_booking_value"] == {
+        "currency_code": "INR",
+        "current_month_minor": 0,
+        "previous_month_minor": 7000,
     }
 
 

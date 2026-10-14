@@ -151,6 +151,19 @@ def test_every_operational_loader_method_is_centre_scoped():
     assert {row["centre_id"] for row in doctors} == {CENTRE_A}
 
 
+def test_operational_loader_pages_past_five_hundred_rows():
+    db = centre_db()
+    db.tables["centre_bookings"] = [
+        {"id": f"booking-{index}", "centre_id": CENTRE_A}
+        for index in range(1001)
+    ]
+
+    rows = CentreLoader(db, scope()).bookings()
+
+    assert len(rows) == 1001
+    assert rows[-1]["id"] == "booking-1000"
+
+
 def test_member_snapshot_excludes_unconsented_expired_foreign_and_contact_data():
     db = centre_db()
     snapshot = CentreLoader(db, scope(), request_id="request-1").member_snapshot()

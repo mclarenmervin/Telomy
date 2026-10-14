@@ -6,16 +6,22 @@ import '../data/centre_repository.dart';
 import '../models/centre_operations.dart';
 import '../providers/centre_provider.dart';
 import '../widgets/booking_card.dart';
+import '../utils/centre_time.dart';
 import 'booking_editor_screen.dart';
 import 'centre_dashboard_screen.dart';
 
 typedef BookingTransitionAction =
-    Future<CentreBooking?> Function(String command, int version);
+    Future<CentreBooking?> Function(
+      String command,
+      int version,
+      String? reason,
+    );
 typedef ScopedBookingTransitionAction =
     Future<CentreBooking?> Function(
       String bookingId,
       String command,
       int version,
+      String? reason,
     );
 typedef BookingCreateAction =
     Future<CentreBooking?> Function(BookingDraft draft);
@@ -29,6 +35,7 @@ class BookingsScreen extends StatefulWidget {
     this.onBookingTransition,
     this.onCreate,
     this.initialDate,
+    this.timezoneName = 'UTC',
   });
 
   final List<CentreBooking>? initial;
@@ -37,6 +44,7 @@ class BookingsScreen extends StatefulWidget {
   final ScopedBookingTransitionAction? onBookingTransition;
   final BookingCreateAction? onCreate;
   final DateTime? initialDate;
+  final String timezoneName;
 
   @override
   State<BookingsScreen> createState() => _BookingsScreenState();
@@ -59,11 +67,17 @@ class _BookingsScreenState extends State<BookingsScreen> {
     CentreBooking booking,
     String command,
     int version,
+    String? reason,
   ) async {
     try {
       final updated = widget.onBookingTransition != null
-          ? await widget.onBookingTransition!(booking.id, command, version)
-          : await widget.onTransition?.call(command, version);
+          ? await widget.onBookingTransition!(
+              booking.id,
+              command,
+              version,
+              reason,
+            )
+          : await widget.onTransition?.call(command, version, reason);
       if (updated != null && mounted) {
         setState(() {
           bookings = [
@@ -108,7 +122,10 @@ class _BookingsScreenState extends State<BookingsScreen> {
     if (widget.initial == null) return const _BookingsLoader();
     final visible = bookings.where((booking) {
       final statusMatches = status == 'all' || booking.status == status;
-      final local = booking.scheduledStart.toLocal();
+      final local = centreLocalTime(
+        booking.scheduledStart,
+        widget.timezoneName,
+      );
       final dateMatches =
           selectedDate == null ||
           (local.year == selectedDate!.year &&
@@ -133,7 +150,10 @@ class _BookingsScreenState extends State<BookingsScreen> {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(
-                      builder: (_) => BookingEditorScreen(onCreate: create),
+                      builder: (_) => BookingEditorScreen(
+                        onCreate: create,
+                        timezoneName: widget.timezoneName,
+                      ),
                     ),
                   ),
                   icon: const Icon(Icons.add),
@@ -202,8 +222,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
             for (final booking in visible)
               BookingCard(
                 booking: booking,
-                onCommand: (command, version) =>
-                    transition(booking, command, version),
+                timezoneName: widget.timezoneName,
+                onCommand: (command, version, reason) =>
+                    transition(booking, command, version, reason),
               ),
         ],
       ),
@@ -220,41 +241,50 @@ class _BookingsLoader extends ConsumerWidget {
     if (membershipId == null) {
       return const Center(child: Text('No active centre membership'));
     }
+    final dashboard = ref.watch(centreDashboardProvider(membershipId));
     return ref
         .watch(centreBookingsProvider(membershipId))
         .when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, _) =>
               const Center(child: Text('Bookings are unavailable. Try again.')),
-          data: (items) => BookingsScreen(
-            initial: items,
-            onRefresh: () async =>
-                ref.invalidate(centreBookingsProvider(membershipId)),
-            onBookingTransition: (bookingId, command, version) async {
-              final updated = await ref
-                  .read(centreRepositoryProvider)
-                  .transitionBooking(
-                    membershipId,
-                    bookingId: bookingId,
-                    command: command,
-                    expectedVersion: version,
-                  );
-              ref.invalidate(centreBookingsProvider(membershipId));
-              return updated;
-            },
-            onCreate: (draft) async {
-              final created = await ref
-                  .read(centreRepositoryProvider)
-                  .createBooking(
-                    membershipId,
-                    patientId: draft.patientId,
-                    serviceId: draft.serviceId,
-                    roomId: draft.roomId,
-                    scheduledStart: draft.scheduledStart,
-                  );
-              ref.invalidate(centreBookingsProvider(membershipId));
-              return created;
-            },
+          data: (items) => dashboard.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, _) => const Center(
+              child: Text('Bookings are unavailable. Try again.'),
+            ),
+            data: (dashboard) => BookingsScreen(
+              initial: items,
+              timezoneName: dashboard.centre.timezoneName,
+              onRefresh: () async =>
+                  ref.invalidate(centreBookingsProvider(membershipId)),
+              onBookingTransition: (bookingId, command, version, reason) async {
+                final updated = await ref
+                    .read(centreRepositoryProvider)
+                    .transitionBooking(
+                      membershipId,
+                      bookingId: bookingId,
+                      command: command,
+                      expectedVersion: version,
+                      reason: reason,
+                    );
+                ref.invalidate(centreBookingsProvider(membershipId));
+                return updated;
+              },
+              onCreate: (draft) async {
+                final created = await ref
+                    .read(centreRepositoryProvider)
+                    .createBooking(
+                      membershipId,
+                      patientId: draft.patientId,
+                      serviceId: draft.serviceId,
+                      roomId: draft.roomId,
+                      scheduledStart: draft.scheduledStart,
+                    );
+                ref.invalidate(centreBookingsProvider(membershipId));
+                return created;
+              },
+            ),
           ),
         );
   }

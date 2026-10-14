@@ -65,7 +65,7 @@ void main() {
             body: BookingCard(
               booking: booking(status: 'booked'),
               now: DateTime.utc(2026, 10, 14, 10),
-              onCommand: (_, _) async {},
+              onCommand: (_, _, _) async {},
             ),
           ),
         ),
@@ -79,7 +79,7 @@ void main() {
             body: BookingCard(
               booking: booking(status: 'completed'),
               now: DateTime.utc(2026, 10, 14, 10),
-              onCommand: (_, _) async {},
+              onCommand: (_, _, _) async {},
             ),
           ),
         ),
@@ -98,7 +98,7 @@ void main() {
           body: BookingCard(
             booking: booking(status: 'booked'),
             now: DateTime.utc(2026, 10, 14, 9, 5),
-            onCommand: (_, _) async {},
+            onCommand: (_, _, _) async {},
           ),
         ),
       ),
@@ -124,7 +124,7 @@ void main() {
             onRefresh: () async {
               refreshed++;
             },
-            onTransition: (_, _) async => throw const CentreConflict(),
+            onTransition: (_, _, _) async => throw const CentreConflict(),
           ),
         ),
       ),
@@ -151,6 +151,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Create booking'), findsWidgets);
   });
+
+  testWidgets('checked-in cancellation requires and forwards a reason', (
+    tester,
+  ) async {
+    String? received;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BookingCard(
+            booking: booking(status: 'checked_in'),
+            onCommand: (_, _, reason) async => received = reason,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cancellation reason'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '  Patient requested  ');
+    await tester.tap(find.text('Cancel booking'));
+    await tester.pumpAndSettle();
+    expect(received, 'Patient requested');
+  });
+
+  testWidgets('date filter uses the centre timezone', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingsScreen(
+          initial: [bookingAt('2026-10-14T20:00:00Z')],
+          initialDate: DateTime(2026, 10, 15),
+          timezoneName: 'Asia/Kolkata',
+        ),
+      ),
+    );
+    expect(find.text('Review'), findsOneWidget);
+    expect(find.text('15/10/2026 · 01:30–02:00'), findsOneWidget);
+  });
 }
 
 CentreBooking booking({required String status}) => CentreBooking.fromJson({
@@ -165,5 +202,22 @@ CentreBooking booking({required String status}) => CentreBooking.fromJson({
   'service_name_snapshot': 'Review',
   'duration_minutes_snapshot': 30,
   'indicative_price_minor_snapshot': 125000,
+  'currency_code_snapshot': 'INR',
+});
+
+CentreBooking bookingAt(String start) => CentreBooking.fromJson({
+  'id': 'b2',
+  'patient_id': 'p1',
+  'service_id': 's1',
+  'room_id': 'r1',
+  'scheduled_start': start,
+  'scheduled_end': DateTime.parse(
+    start,
+  ).add(const Duration(minutes: 30)).toIso8601String(),
+  'status': 'booked',
+  'version': 1,
+  'service_name_snapshot': 'Review',
+  'duration_minutes_snapshot': 30,
+  'indicative_price_minor_snapshot': 100,
   'currency_code_snapshot': 'INR',
 });

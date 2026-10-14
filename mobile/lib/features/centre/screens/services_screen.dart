@@ -17,16 +17,22 @@ class ServicesScreen extends StatelessWidget {
     this.initialRooms,
     this.onRetire,
     this.onLink,
+    this.onUnlink,
+    this.onEndHours,
     this.onCreateService,
     this.onCreateRoom,
+    this.currencyCode = 'INR',
   });
 
   final CentreServices? initialServices;
   final CentreRooms? initialRooms;
   final Future<void> Function(String serviceId)? onRetire;
   final Future<void> Function(String serviceId, String roomId)? onLink;
+  final Future<void> Function(String serviceId, String roomId)? onUnlink;
+  final Future<void> Function(String roomId, String hoursId)? onEndHours;
   final Future<void> Function(ServiceDraft draft)? onCreateService;
   final Future<void> Function(RoomDraft draft)? onCreateRoom;
+  final String currencyCode;
 
   @override
   Widget build(BuildContext context) =>
@@ -37,8 +43,11 @@ class ServicesScreen extends StatelessWidget {
           rooms: initialRooms!,
           onRetire: onRetire,
           onLink: onLink,
+          onUnlink: onUnlink,
+          onEndHours: onEndHours,
           onCreateService: onCreateService,
           onCreateRoom: onCreateRoom,
+          currencyCode: currencyCode,
         );
 }
 
@@ -53,10 +62,11 @@ class _ServicesLoader extends ConsumerWidget {
     }
     final services = ref.watch(centreServicesProvider(membershipId));
     final rooms = ref.watch(centreRoomsProvider(membershipId));
-    if (services.isLoading || rooms.isLoading) {
+    final dashboard = ref.watch(centreDashboardProvider(membershipId));
+    if (services.isLoading || rooms.isLoading || dashboard.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (services.hasError || rooms.hasError) {
+    if (services.hasError || rooms.hasError || dashboard.hasError) {
       return const Center(child: Text('Services are unavailable. Try again.'));
     }
     void refresh() {
@@ -67,6 +77,7 @@ class _ServicesLoader extends ConsumerWidget {
     return _ServicesView(
       services: services.requireValue,
       rooms: rooms.requireValue,
+      currencyCode: dashboard.requireValue.centre.currencyCode,
       onRetire: (serviceId) async {
         await ref
             .read(centreRepositoryProvider)
@@ -85,6 +96,22 @@ class _ServicesLoader extends ConsumerWidget {
               serviceId: serviceId,
               roomId: roomId,
             );
+        refresh();
+      },
+      onUnlink: (serviceId, roomId) async {
+        await ref
+            .read(centreRepositoryProvider)
+            .unlinkRoomService(
+              membershipId,
+              serviceId: serviceId,
+              roomId: roomId,
+            );
+        refresh();
+      },
+      onEndHours: (roomId, hoursId) async {
+        await ref
+            .read(centreRepositoryProvider)
+            .endRoomHours(membershipId, roomId: roomId, hoursId: hoursId);
         refresh();
       },
       onCreateService: (draft) async {
@@ -124,15 +151,21 @@ class _ServicesView extends StatelessWidget {
   const _ServicesView({
     required this.services,
     required this.rooms,
+    required this.currencyCode,
     this.onRetire,
     this.onLink,
+    this.onUnlink,
+    this.onEndHours,
     this.onCreateService,
     this.onCreateRoom,
   });
   final CentreServices services;
   final CentreRooms rooms;
+  final String currencyCode;
   final Future<void> Function(String serviceId)? onRetire;
   final Future<void> Function(String serviceId, String roomId)? onLink;
+  final Future<void> Function(String serviceId, String roomId)? onUnlink;
+  final Future<void> Function(String roomId, String hoursId)? onEndHours;
   final Future<void> Function(ServiceDraft draft)? onCreateService;
   final Future<void> Function(RoomDraft draft)? onCreateRoom;
 
@@ -154,8 +187,10 @@ class _ServicesView extends StatelessWidget {
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        ServiceEditorScreen(onCreate: onCreateService!),
+                    builder: (_) => ServiceEditorScreen(
+                      onCreate: onCreateService!,
+                      currencyCode: currencyCode,
+                    ),
                   ),
                 ),
                 icon: const Icon(Icons.add),
@@ -182,6 +217,7 @@ class _ServicesView extends StatelessWidget {
             links: services.compatibility,
             onRetire: onRetire,
             onLink: onLink,
+            onUnlink: onUnlink,
           ),
         const SizedBox(height: AppSpacing.lg),
         Text(
@@ -199,8 +235,19 @@ class _ServicesView extends StatelessWidget {
                 for (final hours in rooms.hours.where(
                   (item) => item.roomId == room.id,
                 ))
-                  Text(
-                    '${_weekday(hours.weekday)} ${hours.opensAt}–${hours.closesAt}',
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${_weekday(hours.weekday)} ${hours.opensAt}–${hours.closesAt}',
+                        ),
+                      ),
+                      if (hours.validUntil == null && onEndHours != null)
+                        TextButton(
+                          onPressed: () => onEndHours!(room.id, hours.id),
+                          child: const Text('End hours'),
+                        ),
+                    ],
                   ),
               ],
             ),
@@ -221,12 +268,14 @@ class _ServiceCard extends StatelessWidget {
     required this.links,
     this.onRetire,
     this.onLink,
+    this.onUnlink,
   });
   final CentreService service;
   final List<CentreRoom> rooms;
   final List<RoomServiceLink> links;
   final Future<void> Function(String serviceId)? onRetire;
   final Future<void> Function(String serviceId, String roomId)? onLink;
+  final Future<void> Function(String serviceId, String roomId)? onUnlink;
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +322,11 @@ class _ServiceCard extends StatelessWidget {
                     onPressed: () => _link(context, linked),
                     child: const Text('Link room'),
                   ),
+                if (onUnlink != null && linked.isNotEmpty)
+                  TextButton(
+                    onPressed: () => _unlink(context, linked),
+                    child: const Text('Unlink room'),
+                  ),
                 if (onRetire != null)
                   TextButton(
                     onPressed: () => onRetire!(service.id),
@@ -303,6 +357,23 @@ class _ServiceCard extends StatelessWidget {
       ),
     );
     if (roomId != null) await onLink!(service.id, roomId);
+  }
+
+  Future<void> _unlink(BuildContext context, Set<String> linked) async {
+    final roomId = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Unlink compatible room'),
+        children: [
+          for (final room in rooms.where((room) => linked.contains(room.id)))
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, room.id),
+              child: Text(room.name),
+            ),
+        ],
+      ),
+    );
+    if (roomId != null) await onUnlink!(service.id, roomId);
   }
 }
 

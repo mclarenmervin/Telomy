@@ -98,6 +98,7 @@ def _capacity_minutes(
     period_start: datetime,
     period_end: datetime,
     zone: ZoneInfo,
+    active_room_ids: set[str],
 ) -> int:
     day = period_start.date()
     final_day = period_end.date()
@@ -107,6 +108,7 @@ def _capacity_minutes(
             link.get("room_id")
             for link in room_services
             if link.get("service_id") == service_id
+            and str(link.get("room_id")) in active_room_ids
             and _link_includes_day(link, day, zone)
         }
         for hours in room_hours:
@@ -138,8 +140,14 @@ def _utilisation(
     period_start: datetime,
     period_end: datetime,
     zone: ZoneInfo,
+    rooms: list[dict],
 ) -> list[dict]:
     completed = _completed_in(bookings, period_start, period_end, zone)
+    active_room_ids = {
+        str(room["id"])
+        for room in rooms
+        if room.get("status", "active") == "active"
+    }
     output = []
     for service in services:
         service_id = str(service["id"])
@@ -150,6 +158,7 @@ def _utilisation(
             period_start,
             period_end,
             zone,
+            active_room_ids,
         )
         utilised = sum(
             int(row.get("duration_minutes_snapshot") or 0)
@@ -219,9 +228,9 @@ def calculate_centre_metrics(
     room_hours: list[dict],
     room_services: list[dict],
     members: list[dict],
+    currency_code: str = "INR",
 ) -> dict:
     """Calculate one deterministic dashboard projection from scoped rows."""
-    del rooms  # Room identity is carried by hours and links; retained in the API.
     zone = ZoneInfo(timezone_name)
     instant = now if now.tzinfo is not None else now.replace(tzinfo=UTC)
     local_now = instant.astimezone(zone)
@@ -233,14 +242,21 @@ def calculate_centre_metrics(
     previous_completed = _completed_in(
         bookings, previous_start, current_start, zone
     )
-    currency = next(
-        (
-            str(row["currency_code_snapshot"])
-            for row in current_completed + previous_completed
-            if row.get("currency_code_snapshot")
-        ),
-        None,
-    )
+    currency = currency_code.upper()
+    current_value_rows = [
+        row for row in current_completed
+        if str(row.get("currency_code_snapshot") or "").upper() == currency
+    ]
+    previous_value_rows = [
+        row for row in previous_completed
+        if str(row.get("currency_code_snapshot") or "").upper() == currency
+    ]
+    excluded = len(current_completed) + len(previous_completed) - len(current_value_rows) - len(previous_value_rows)
+    if excluded:
+        logger.warning(
+            "centre metrics excluded mixed-currency booking snapshots",
+            extra={"currency_code": currency, "excluded_booking_count": excluded},
+        )
 
     current_period_bookings = [
         row
@@ -291,11 +307,11 @@ def calculate_centre_metrics(
             "currency_code": currency,
             "current_month_minor": sum(
                 int(row.get("indicative_price_minor_snapshot") or 0)
-                for row in current_completed
+                for row in current_value_rows
             ),
             "previous_month_minor": sum(
                 int(row.get("indicative_price_minor_snapshot") or 0)
-                for row in previous_completed
+                for row in previous_value_rows
             ),
         },
         "sessions": {
@@ -325,6 +341,7 @@ def calculate_centre_metrics(
             current_start,
             next_start,
             zone,
+            rooms,
         ),
         "members_at_risk": risks,
     }
