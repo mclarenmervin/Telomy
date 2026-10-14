@@ -113,7 +113,7 @@ def _scoped(rows: list[dict], object_id: str, detail: str) -> dict:
     row = next((row for row in rows if str(row.get("id")) == object_id), None)
     if row is None:
         raise HTTPException(status_code=404, detail=detail)
-    return row
+    return dict(row)
 
 
 def _loader(supabase: Any, scope: CentreOwnerScope, *, actor_role: str = "centre") -> CentreLoader:
@@ -261,7 +261,7 @@ def list_bookings(scope: Annotated[CentreOwnerScope, Depends(require_centre_owne
 @router.post("/bookings", status_code=201)
 def create_booking(body: BookingCreate, scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
     value = _rpc(supabase, "create_centre_booking", {"p_actor": scope.actor_id, "p_centre": scope.centre_id, "p_patient": body.patient_id, "p_service": body.service_id, "p_room": body.room_id, "p_scheduled_start": body.scheduled_start.isoformat()})
-    return {"id": str(value)}
+    return _scoped(_loader(supabase, scope).bookings(), str(value), "booking not found")
 
 
 @router.post("/bookings/{booking_id}/transitions")
@@ -273,7 +273,7 @@ def operational_transition_booking(booking_id: str, body: BookingTransition, sco
     if verify_scoped:
         _scoped(_loader(supabase, scope).bookings(), booking_id, "booking not found")
     value = _rpc(supabase, "transition_centre_booking", {"p_actor": scope.actor_id, "p_centre": scope.centre_id, "p_booking": booking_id, "p_command": body.command, "p_expected_version": body.expected_version, "p_reason": body.reason})
-    return {"id": str(value)}
+    return _scoped(_loader(supabase, scope).bookings(), str(value), "booking not found")
 
 
 def _clinical_record(supabase: Any, patient_id: str) -> dict:

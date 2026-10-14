@@ -64,6 +64,24 @@ void main() {
               'compatibility': [],
             });
           }
+          if (options.path.contains('/bookings')) {
+            return response({
+              'id': 'b1',
+              'patient_id': 'p1',
+              'service_id': 's1',
+              'room_id': 'r1',
+              'scheduled_start': '2026-10-20T09:00:00Z',
+              'scheduled_end': '2026-10-20T09:30:00Z',
+              'status': options.path.endsWith('/transitions')
+                  ? 'checked_in'
+                  : 'booked',
+              'version': options.path.endsWith('/transitions') ? 1 : 0,
+              'service_name_snapshot': 'Review',
+              'duration_minutes_snapshot': 30,
+              'indicative_price_minor_snapshot': 150000,
+              'currency_code_snapshot': 'INR',
+            }, status: 201);
+          }
           return response({'id': 'created'}, status: 201);
         });
       final repo = CentreRepository(http: dio);

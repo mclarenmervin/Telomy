@@ -28,7 +28,15 @@ class Db:
         self.centres = {CENTRE_A, CENTRE_B}
 
     def table(self, name):
-        rows = [{"id": centre, "status": "active"} for centre in self.centres] if name == "centres" else []
+        if name == "centres":
+            rows = [{"id": centre, "status": "active"} for centre in self.centres]
+        elif name == "centre_bookings":
+            rows = [
+                {"id": "booking-1", "centre_id": centre, "status": "booked", "version": 0}
+                for centre in self.centres
+            ]
+        else:
+            rows = []
         return Query(rows)
 
     def rpc(self, name, params):

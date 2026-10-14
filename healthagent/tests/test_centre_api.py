@@ -157,20 +157,67 @@ def test_operational_commands_always_use_resolved_scope():
     db.tables = {
         "centre_rooms": [{"id": "room-1", "centre_id": CENTRE}],
         "centre_services": [{"id": "service-1", "centre_id": CENTRE}],
-        "centre_bookings": [{"id": "booking-1", "centre_id": CENTRE}],
+        "centre_bookings": [{
+            "id": "booking-1", "centre_id": CENTRE, "status": "booked", "version": 2,
+        }],
     }
 
     create_room(RoomCreate(name="Room A"), owner_scope(), db)
     create_room_hours("room-1", RoomHoursCreate(weekday=1, opens_at="09:00", closes_at="17:00", valid_from="2026-10-01"), owner_scope(), db)
     create_service(ServiceCreate(name="Review", duration_minutes=30, indicative_price_minor=150000, currency_code="INR"), owner_scope(), db)
     link_room_service("service-1", "room-1", owner_scope(), db)
-    create_booking(BookingCreate(patient_id=PATIENT, service_id="service-1", room_id="room-1", scheduled_start="2026-10-19T09:00:00Z"), owner_scope(), db)
-    transition_booking("booking-1", BookingTransition(command="check_in", expected_version=0), owner_scope(), db)
+    created = create_booking(BookingCreate(patient_id=PATIENT, service_id="service-1", room_id="room-1", scheduled_start="2026-10-19T09:00:00Z"), owner_scope(), db)
+    transitioned = transition_booking("booking-1", BookingTransition(command="check_in", expected_version=0), owner_scope(), db)
+
+    assert created["id"] == "booking-1"
+    assert created["status"] == "booked"
+    assert transitioned["id"] == "booking-1"
+    assert transitioned["version"] == 2
 
     operational_calls = [params for name, params in db.calls if name in db.rpc_values]
     assert operational_calls
     assert {params["p_centre"] for params in operational_calls} == {CENTRE}
     assert {params["p_actor"] for params in operational_calls} == {OWNER}
+
+
+def test_booking_commands_return_authoritative_status_and_version():
+    class BookingDb(Db):
+        def __init__(self):
+            super().__init__()
+            self.tables = {
+                "centre_bookings": [{
+                    "id": "booking-1", "centre_id": CENTRE, "patient_id": PATIENT,
+                    "service_id": "service-1", "room_id": "room-1",
+                    "scheduled_start": "2026-10-19T09:00:00+00:00",
+                    "scheduled_end": "2026-10-19T09:30:00+00:00",
+                    "status": "booked", "version": 0,
+                    "service_name_snapshot": "Review", "duration_minutes_snapshot": 30,
+                    "indicative_price_minor_snapshot": 150000,
+                    "currency_code_snapshot": "INR",
+                }],
+            }
+            self.rpc_values = {
+                "create_centre_booking": "booking-1",
+                "transition_centre_booking": "booking-1",
+            }
+
+        def rpc(self, name, params):
+            result = super().rpc(name, params)
+            if name == "transition_centre_booking":
+                self.tables["centre_bookings"][0].update(status="checked_in", version=1)
+            return result
+
+    db = BookingDb()
+    created = create_booking(
+        BookingCreate(patient_id=PATIENT, service_id="service-1", room_id="room-1", scheduled_start="2026-10-19T09:00:00Z"),
+        owner_scope(), db,
+    )
+    transitioned = transition_booking(
+        "booking-1", BookingTransition(command="check_in", expected_version=0), owner_scope(), db,
+    )
+
+    assert (created["status"], created["version"]) == ("booked", 0)
+    assert (transitioned["status"], transitioned["version"]) == ("checked_in", 1)
 
 
 def test_foreign_operational_ids_are_not_an_existence_oracle():

@@ -228,30 +228,47 @@ class CentreRepository {
     const {},
   );
 
-  Future<String> createBooking(
+  Future<CentreBooking> createBooking(
     String membershipId, {
     required String patientId,
     required String serviceId,
     required String roomId,
     required DateTime scheduledStart,
-  }) => _command('POST', '/api/v1/centre/bookings', membershipId, {
-    'patient_id': patientId,
-    'service_id': serviceId,
-    'room_id': roomId,
-    'scheduled_start': scheduledStart.toUtc().toIso8601String(),
-  });
+  }) async => CentreBooking.fromJson(
+    _map(
+      await _request(
+        'POST',
+        '/api/v1/centre/bookings',
+        membershipId: membershipId,
+        data: {
+          'patient_id': patientId,
+          'service_id': serviceId,
+          'room_id': roomId,
+          'scheduled_start': scheduledStart.toUtc().toIso8601String(),
+        },
+      ),
+    ),
+  );
 
-  Future<String> transitionBooking(
+  Future<CentreBooking> transitionBooking(
     String membershipId, {
     required String bookingId,
     required String command,
     required int expectedVersion,
     String? reason,
-  }) => _command(
-    'POST',
-    '/api/v1/centre/bookings/$bookingId/transitions',
-    membershipId,
-    {'command': command, 'expected_version': expectedVersion, 'reason': reason},
+  }) async => CentreBooking.fromJson(
+    _map(
+      await _request(
+        'POST',
+        '/api/v1/centre/bookings/$bookingId/transitions',
+        membershipId: membershipId,
+        data: {
+          'command': command,
+          'expected_version': expectedVersion,
+          'reason': reason,
+        },
+      ),
+    ),
   );
 
   Future<String> _command(
