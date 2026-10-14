@@ -14,6 +14,7 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
   final doctor = TextEditingController();
   bool primary = true;
   String? message;
+  bool saving = false;
   @override
   void dispose() {
     patient.dispose();
@@ -28,10 +29,12 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
       Text('Assign a Doctor', style: Theme.of(context).textTheme.headlineSmall),
       TextField(
         controller: patient,
+        onChanged: (_) => setState(() {}),
         decoration: const InputDecoration(labelText: 'Patient ID'),
       ),
       TextField(
         controller: doctor,
+        onChanged: (_) => setState(() {}),
         decoration: const InputDecoration(labelText: 'Doctor ID'),
       ),
       SwitchListTile(
@@ -40,19 +43,28 @@ class _AssignmentsScreenState extends ConsumerState<AssignmentsScreen> {
         title: const Text('Primary Doctor'),
       ),
       FilledButton(
-        onPressed: () async {
-          final id = activeCentre(ref);
-          if (id == null) return;
-          await ref
-              .read(centreRepositoryProvider)
-              .assign(
-                centreId: id,
-                patientId: patient.text.trim(),
-                doctorId: doctor.text.trim(),
-                primary: primary,
-              );
-          if (mounted) setState(() => message = 'Assignment saved');
-        },
+        onPressed:
+            saving || patient.text.trim().isEmpty || doctor.text.trim().isEmpty
+            ? null
+            : () async {
+                final id = activeCentre(ref);
+                if (id == null) return;
+                setState(() => saving = true);
+                await ref
+                    .read(centreRepositoryProvider)
+                    .assign(
+                      membershipId: id,
+                      patientId: patient.text.trim(),
+                      doctorId: doctor.text.trim(),
+                      primary: primary,
+                    );
+                if (mounted) {
+                  setState(() {
+                    message = 'Assignment saved';
+                    saving = false;
+                  });
+                }
+              },
         child: const Text('Assign'),
       ),
       if (message != null) Text(message!),

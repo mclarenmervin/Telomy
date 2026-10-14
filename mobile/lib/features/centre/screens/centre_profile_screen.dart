@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/centre_provider.dart';
+import 'doctors_screen.dart';
 
 class CentreProfileScreen extends ConsumerWidget {
   const CentreProfileScreen({super.key});
@@ -39,6 +40,14 @@ class CentreProfileScreen extends ConsumerWidget {
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        Text('Team', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        const Text(
+          'Invite doctors and review the operational roster. Patient data appears in Members only while consent is current.',
+        ),
+        const SizedBox(height: 12),
+        const SizedBox(height: 360, child: DoctorsScreen()),
       ],
     );
   }
