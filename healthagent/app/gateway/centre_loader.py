@@ -28,10 +28,12 @@ class CentreLoader:
         scope: CentreOwnerScope,
         *,
         request_id: str | None = None,
+        actor_role: str = "centre",
     ) -> None:
         self._db = supabase
         self.scope = scope
         self.request_id = request_id
+        self.actor_role = actor_role
 
     def _rows(self, table: str, columns: str, *, limit: int = 500) -> list[dict]:
         return (
@@ -163,7 +165,7 @@ class CentreLoader:
         return audited_patient_reads(
             self._db,
             actor_id=self.scope.actor_id,
-            actor_role="centre",
+            actor_role=self.actor_role,
             patient_ids=patient_ids,
             centre_id=self.scope.centre_id,
             resource_type="centre_member_summary",

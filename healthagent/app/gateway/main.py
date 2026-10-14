@@ -4,6 +4,7 @@ from app.gateway.activity_webhooks import router as activity_router
 from app.gateway.api.admin import router as admin_router
 from app.gateway.api.accounts import care_router, router as accounts_router
 from app.gateway.api.admin_people import router as admin_people_router
+from app.gateway.api.admin_centre_operations import router as admin_centre_operations_router
 from app.gateway.api.centre import router as centre_router
 from app.gateway.api.doctor import router as doctor_router
 from app.gateway.api.chat import router as chat_router
@@ -34,6 +35,7 @@ app.include_router(admin_router)
 app.include_router(accounts_router)
 app.include_router(care_router)
 app.include_router(admin_people_router)
+app.include_router(admin_centre_operations_router)
 app.include_router(centre_router)
 app.include_router(doctor_router)
 
