@@ -105,17 +105,15 @@ class CentreRepository {
   ];
 
   Future<void> invite({
-    String? membershipId,
-    String? centreId,
+    required String membershipId,
     required String email,
     required String role,
     String? primaryDoctorId,
   }) async {
-    final membership = _membership(membershipId, centreId);
     await _request(
       'POST',
       '/api/v1/centre/invitations',
-      membershipId: membership,
+      membershipId: membershipId,
       data: {
         'email': email,
         'intended_role': role,
@@ -128,27 +126,25 @@ class CentreRepository {
   }
 
   Future<String> assign({
-    String? membershipId,
-    String? centreId,
+    required String membershipId,
     required String patientId,
     required String doctorId,
     bool primary = false,
   }) => _command(
     'POST',
     '/api/v1/centre/patients/$patientId/assignments',
-    _membership(membershipId, centreId),
+    membershipId,
     {'doctor_id': doctorId, 'primary': primary},
   );
 
   Future<String> setPrimary({
-    String? membershipId,
-    String? centreId,
+    required String membershipId,
     required String patientId,
     required String doctorId,
   }) => _command(
     'PATCH',
     '/api/v1/centre/patients/$patientId/primary-doctor',
-    _membership(membershipId, centreId),
+    membershipId,
     {'doctor_id': doctorId},
   );
 
@@ -336,14 +332,6 @@ class CentreRepository {
     } on DioException {
       throw const CentreUnavailable('The centre service is unavailable.');
     }
-  }
-
-  String _membership(String? membershipId, String? legacyValue) {
-    final value = membershipId ?? legacyValue;
-    if (value == null || value.isEmpty) {
-      throw ArgumentError('membershipId is required');
-    }
-    return value;
   }
 }
 
