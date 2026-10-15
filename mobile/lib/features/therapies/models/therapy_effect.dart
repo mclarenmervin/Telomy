@@ -15,6 +15,10 @@ class TherapyEffect {
     required this.mechanism,
     required this.mechanismReviewed,
     required this.withheld,
+    this.verdict = TherapyVerdict.helped,
+    this.qValue, this.ciLow, this.ciHigh,
+    this.replicated = false, this.wearableCoverage = 0,
+    this.nextMilestone = '', this.provenance = const {},
   });
 
   final String modality;
@@ -39,6 +43,12 @@ class TherapyEffect {
   final bool mechanismReviewed;
 
   final String? withheld;
+  final TherapyVerdict verdict;
+  final double? qValue, ciLow, ciHigh;
+  final bool replicated;
+  final double wearableCoverage;
+  final String nextMilestone;
+  final Map<String, dynamic> provenance;
 
   bool get isReported => withheld == null;
   bool get rose => (meanDelta ?? 0) >= 0;
@@ -54,6 +64,14 @@ class TherapyEffect {
         mechanism: json['mechanism']?.toString(),
         mechanismReviewed: json['mechanism_reviewed'] == true,
         withheld: json['withheld']?.toString(),
+        verdict: therapyVerdictFromWire(json['verdict']?.toString()),
+        qValue: (json['q_value'] as num?)?.toDouble(),
+        ciLow: (json['ci_low'] as num?)?.toDouble(),
+        ciHigh: (json['ci_high'] as num?)?.toDouble(),
+        replicated: json['replicated'] == true,
+        wearableCoverage: (json['wearable_coverage'] as num?)?.toDouble() ?? 0,
+        nextMilestone: json['next_milestone']?.toString() ?? '',
+        provenance: (json['provenance'] as Map?)?.cast<String, dynamic>() ?? const {},
       );
 }
 
@@ -63,14 +81,16 @@ class TherapyEffectReport {
     required this.tested,
     required this.reported,
     required this.withheld,
+    this.verdicts = const [],
   });
 
   final int minSessions;
   final int tested;
   final List<TherapyEffect> reported;
   final List<TherapyEffect> withheld;
+  final List<TherapyEffect> verdicts;
 
-  bool get isEmpty => reported.isEmpty;
+  bool get isEmpty => verdicts.isEmpty && reported.isEmpty;
 
   factory TherapyEffectReport.fromJson(Map<String, dynamic> json) {
     List<TherapyEffect> parse(String key) => [
@@ -82,6 +102,7 @@ class TherapyEffectReport {
       tested: (json['tested'] as num?)?.toInt() ?? 0,
       reported: parse('reported'),
       withheld: parse('withheld'),
+      verdicts: parse('verdicts'),
     );
   }
 }
@@ -121,3 +142,22 @@ String therapyWithheldReason(String reason, int minSessions) =>
             'to the session.',
       _ => 'Not reportable.',
     };
+enum TherapyVerdict { helped, promising, possibleNegative, noReliableSignal, tooEarly, inSessionOnly }
+
+extension TherapyVerdictWire on TherapyVerdict {
+  String get wire => switch (this) {
+    TherapyVerdict.helped => 'helped', TherapyVerdict.promising => 'promising',
+    TherapyVerdict.possibleNegative => 'possible_negative',
+    TherapyVerdict.noReliableSignal => 'no_reliable_signal',
+    TherapyVerdict.tooEarly => 'too_early', TherapyVerdict.inSessionOnly => 'in_session_only',
+  };
+}
+
+TherapyVerdict therapyVerdictFromWire(String? value) => switch (value) {
+  'promising' => TherapyVerdict.promising,
+  'possible_negative' => TherapyVerdict.possibleNegative,
+  'no_reliable_signal' => TherapyVerdict.noReliableSignal,
+  'too_early' => TherapyVerdict.tooEarly,
+  'in_session_only' => TherapyVerdict.inSessionOnly,
+  _ => TherapyVerdict.helped,
+};

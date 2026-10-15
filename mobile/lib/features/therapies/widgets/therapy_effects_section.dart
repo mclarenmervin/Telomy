@@ -63,6 +63,17 @@ class TherapyEffectsSection extends ConsumerWidget {
   }
 
   List<Widget> _results(TherapyEffectReport report) {
+    if (report.verdicts.isNotEmpty) {
+      return [
+        for (final effect in report.verdicts) TherapyVerdictCard(effect: effect),
+        const SizedBox(height: AppSpacing.xs),
+        const T(
+          'These are associations in your readings around sessions, not proof that a therapy caused a change.',
+          v: TextVariant.small,
+          muted: true,
+        ),
+      ];
+    }
     return [
       if (report.tested == 0 && report.withheld.isEmpty)
         Empty(
@@ -103,6 +114,71 @@ class TherapyEffectsSection extends ConsumerWidget {
         ),
       ],
     ];
+  }
+}
+
+String therapyVerdictTitle(TherapyVerdict verdict) => switch (verdict) {
+  TherapyVerdict.helped => 'Helped in your data',
+  TherapyVerdict.promising => 'Promising pattern',
+  TherapyVerdict.possibleNegative => 'Possible negative pattern',
+  TherapyVerdict.noReliableSignal => 'No reliable signal',
+  TherapyVerdict.tooEarly => 'Too early to tell',
+  TherapyVerdict.inSessionOnly => 'In-session only',
+};
+
+String _therapyVerdictBody(TherapyEffect effect) => switch (effect.verdict) {
+  TherapyVerdict.helped => 'The expected change held across both halves of your sessions and passed the evidence threshold.',
+  TherapyVerdict.promising => 'The change is clear enough to keep watching, but it has not replicated strongly enough to call helped.',
+  TherapyVerdict.possibleNegative => 'The measured change ran in an adverse direction. Pause and discuss it with your care team.',
+  TherapyVerdict.noReliableSignal => 'Your readings did not show a stable change. That is a complete result, not missing data.',
+  TherapyVerdict.tooEarly => 'There are fewer than five eligible sessions, so individual experiences still outweigh the pattern.',
+  TherapyVerdict.inSessionOnly => 'Your check-ins are available, but there is not enough wearable coverage for a measured outcome.',
+};
+
+class TherapyVerdictCard extends StatelessWidget {
+  const TherapyVerdictCard({super.key, required this.effect});
+  final TherapyEffect effect;
+
+  @override Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final adverse = effect.verdict == TherapyVerdict.possibleNegative;
+    final icon = switch (effect.verdict) {
+      TherapyVerdict.helped => Icons.check_circle_outline,
+      TherapyVerdict.promising => Icons.trending_up,
+      TherapyVerdict.possibleNegative => Icons.trending_down,
+      TherapyVerdict.noReliableSignal => Icons.horizontal_rule,
+      TherapyVerdict.tooEarly => Icons.more_time,
+      TherapyVerdict.inSessionOnly => Icons.self_improvement,
+    };
+    return AppCard(
+      key: Key('therapy-verdict-${effect.verdict.wire}'),
+      tone: adverse ? CardTone.copper : CardTone.teal,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, color: adverse ? theme.colorScheme.error : theme.colorScheme.primary),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(child: T(therapyVerdictTitle(effect.verdict), v: TextVariant.h3)),
+        ]),
+        const SizedBox(height: AppSpacing.xs),
+        T('${metricLabel(effect.metric)} after ${effect.label}', muted: true),
+        const SizedBox(height: AppSpacing.xs),
+        T(_therapyVerdictBody(effect)),
+        if (effect.meanDelta != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          T('Average change ${effect.meanDelta!.toStringAsFixed(1)} ${metricUnit(effect.metric)} · ${effect.sessions} sessions', v: TextVariant.small),
+        ],
+        const SizedBox(height: AppSpacing.sm),
+        const T('This is an association in your readings, not proof of cause.', v: TextVariant.small, muted: true),
+        if (effect.nextMilestone.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          T(effect.nextMilestone, v: TextVariant.small),
+        ],
+        if (effect.provenance.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          T('Evidence: ${effect.provenance['model_version'] ?? 'versioned therapy model'}', v: TextVariant.small, muted: true),
+        ],
+      ]),
+    );
   }
 }
 

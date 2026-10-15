@@ -3,8 +3,10 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:telomy/features/therapies/data/therapy_repository.dart';
 import 'package:telomy/features/therapies/models/therapy_effect.dart';
+import 'package:telomy/features/therapies/widgets/therapy_effects_section.dart';
 
 /// Reading back what a run of sessions did.
 ///
@@ -53,6 +55,7 @@ Map<String, dynamic> effect({
   String? mechanism,
   bool reviewed = false,
   String? withheld,
+  String verdict = 'helped',
 }) =>
     {
       'modality': modality,
@@ -67,6 +70,14 @@ Map<String, dynamic> effect({
       'citation': null,
       'mechanism_reviewed': reviewed,
       'withheld': withheld,
+      'verdict': verdict,
+      'ci_low': meanDelta == null ? null : meanDelta - 2,
+      'ci_high': meanDelta == null ? null : meanDelta + 2,
+      'q_value': 0.02,
+      'replicated': verdict == 'helped',
+      'wearable_coverage': meanDelta == null ? 0.0 : 1.0,
+      'next_milestone': 'Keep recording sessions.',
+      'provenance': {'model_version': 'therapy-effect-v2'},
     };
 
 Map<String, dynamic> reportBody({
@@ -81,6 +92,7 @@ Map<String, dynamic> reportBody({
       'tested': tested,
       'reported': reported ?? [effect()],
       'withheld': withheld ?? const [],
+      'verdicts': reported ?? [effect()],
     };
 
 TherapyRepository repositoryWith(StubAdapter adapter) {
@@ -180,6 +192,19 @@ void main() {
       'direction_mismatch',
     ]) {
       expect(therapyWithheldReason(reason, 5), isNot('Not reportable.'));
+    }
+  });
+
+  testWidgets('all six honest verdicts have dedicated non-causal presentation', (tester) async {
+    for (final verdict in TherapyVerdict.values) {
+      final model = TherapyEffect.fromJson(effect(
+        verdict: verdict.wire,
+        meanDelta: verdict == TherapyVerdict.inSessionOnly ? null : 3,
+      ));
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: TherapyVerdictCard(effect: model))));
+      expect(find.text(therapyVerdictTitle(verdict)), findsOneWidget, reason: verdict.wire);
+      expect(find.textContaining('not proof of cause'), findsOneWidget);
+      expect(find.textContaining('Keep recording sessions'), findsOneWidget);
     }
   });
 }
