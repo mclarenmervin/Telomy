@@ -169,7 +169,11 @@ def read_admin_patient(
 def _clinical_record(supabase: Any, patient_id: str) -> dict:
     drafts = supabase.table("clinical_drafts").select("id,status,created_at,updated_at").eq("user_id", patient_id).execute().data or []
     reports = supabase.table("monthly_reports").select("id,status,period_start,period_end,version,reviewed_at").eq("patient_id", patient_id).execute().data or []
-    return {"patient_id": patient_id, "drafts": drafts, "monthly_reports": reports, "read_only": True}
+    therapy_plans = supabase.table("therapy_plans").select("id,centre_id,version,status,content_sha256,signed_by,signed_at,created_at").eq("patient_id", patient_id).execute().data or []
+    therapy_sessions = supabase.table("therapy_service_sessions").select("id,centre_id,status,prescribed_dose,delivered_dose,scheduled_start,started_at,ended_at,event_id").eq("patient_id", patient_id).execute().data or []
+    return {"patient_id": patient_id, "drafts": drafts, "monthly_reports": reports,
+            "therapy_plans": therapy_plans, "therapy_sessions": therapy_sessions,
+            "read_only": True}
 
 
 @router.get("/patients/{patient_id}/clinical-record")

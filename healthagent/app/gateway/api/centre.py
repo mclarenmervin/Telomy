@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
+import uuid
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -58,6 +59,15 @@ class ServiceCreate(BaseModel):
 
 class StatusUpdate(BaseModel):
     status: Literal["active", "inactive"]
+
+
+class TherapyOfferingCreate(BaseModel):
+    catalogue_id: str
+    service_id: str | None = None
+    indicative_price_minor: int = Field(ge=0)
+    currency_code: str = Field(min_length=3, max_length=3, pattern=r"^[A-Z]{3}$")
+    default_duration_minutes: int | None = Field(default=None, ge=1, le=1440)
+    operational_notes: str | None = Field(default=None, max_length=2000)
 
 
 class BookingCreate(BaseModel):
@@ -168,6 +178,33 @@ def list_centre_doctors(scope: Annotated[CentreOwnerScope, Depends(require_centr
 @router.get("/patients")
 def list_centre_patients(scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)], limit: int = Query(default=100, ge=1, le=200), offset: int = Query(default=0, ge=0)) -> dict:
     return {"items": _slice(_loader(supabase, scope).patients(limit=200), limit, offset), "limit": limit, "offset": offset}
+
+
+@router.get("/therapy-offerings")
+def list_therapy_offerings(scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    return {"items": _loader(supabase, scope).therapy_offerings(), "price_qualifier": "Indicative"}
+
+
+@router.post("/therapy-offerings", status_code=201)
+def create_therapy_offering(body: TherapyOfferingCreate, scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    catalogue = supabase.table("therapy_catalogue").select("id").eq("id", body.catalogue_id).eq("publication_status", "published").limit(1).execute().data or []
+    if not catalogue:
+        raise HTTPException(status_code=422, detail="published therapy catalogue entry required")
+    row = {
+        "id": str(uuid.uuid4()), "centre_id": scope.centre_id,
+        "catalogue_id": body.catalogue_id, "service_id": body.service_id,
+        "status": "active", "indicative_price_minor": body.indicative_price_minor,
+        "currency_code": body.currency_code, "default_duration_minutes": body.default_duration_minutes,
+        "operational_notes": body.operational_notes, "created_by": scope.actor_id,
+        "updated_by": scope.actor_id,
+    }
+    inserted = supabase.table("centre_therapy_offerings").insert(row).execute().data or [row]
+    return {**inserted[0], "price_qualifier": "Indicative"}
+
+
+@router.get("/therapy-sessions")
+def list_therapy_sessions(scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    return {"items": _loader(supabase, scope).therapy_sessions()}
 
 
 @router.post("/invitations", status_code=201)

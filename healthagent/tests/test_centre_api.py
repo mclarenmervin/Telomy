@@ -12,6 +12,7 @@ from app.gateway.api.centre import (
     RoomHoursCreate,
     ServiceCreate,
     StatusUpdate,
+    TherapyOfferingCreate,
     assign_patient,
     create_booking,
     create_room,
@@ -24,6 +25,7 @@ from app.gateway.api.centre import (
     list_members,
     read_centre_clinical_record,
     transition_booking,
+    create_therapy_offering,
 )
 from app.gateway import tenancy
 from app.gateway.api.centre import router
@@ -324,4 +326,22 @@ def test_centre_router_exposes_every_f11_operational_surface():
         "/api/v1/centre/services/{service_id}/compatible-rooms/{room_id}",
         "/api/v1/centre/bookings",
         "/api/v1/centre/bookings/{booking_id}/transitions",
+        "/api/v1/centre/therapy-offerings",
+        "/api/v1/centre/therapy-sessions",
     } <= paths
+
+
+def test_centre_can_create_an_operational_offering_but_not_clinical_content():
+    db = FakeSupabase({
+        "therapy_catalogue": [{"id": "cat-1", "publication_status": "published"}],
+        "centre_therapy_offerings": [],
+    })
+    row = create_therapy_offering(
+        TherapyOfferingCreate(catalogue_id="cat-1", indicative_price_minor=150000,
+                              currency_code="INR"),
+        owner_scope(), db,
+    )
+    assert row["centre_id"] == CENTRE
+    assert row["created_by"] == OWNER
+    assert row["price_qualifier"] == "Indicative"
+    assert "prescribed_dose" not in row

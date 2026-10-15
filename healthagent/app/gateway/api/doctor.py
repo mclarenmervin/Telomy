@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.clinical.monthly_reports import compose_monthly_report
 from app.clinical.queue_plan import therapy_plan_queue_rows
+from app.clinical.therapy_plans import PlanConflict, PlanForbidden, PlanInvalid, sign_plan
+from app.common.context_loader import ContextLoader
 from app.clinical.summaries import compose_patient_summary
 from app.common.supabase_client import get_supabase_client
 from app.gateway.api.accounts import get_invitation_service
@@ -79,6 +81,11 @@ class ReportGenerate(BaseModel):
     period_end: date
     source_cutoff: datetime
     period_label: str = Field(min_length=1, max_length=80)
+
+
+class TherapyPlanSignature(BaseModel):
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    note: str = Field(min_length=1, max_length=4000)
 
 
 def _loader(supabase: Any, doctor_id: str, centre_id: str) -> DoctorLoader:
@@ -164,6 +171,25 @@ def doctor_work_queue(centre_id: str, doctor_id: Annotated[str, Depends(current_
     drafts = [row for row in loader.drafts() if row.get("status") in ("queued", "revised", "in_review")]
     plans = supabase.table("therapy_plans").select("id,patient_id,centre_id,status,version,content_sha256,proposed_by,created_at").eq("centre_id", centre_id).in_("patient_id", patient_ids).in_("status", ["proposed", "in_review"]).execute().data if patient_ids else []
     return {"monthly_reports": reports or [], "sync_drafts": drafts, "consults": [], "therapy_plans": therapy_plan_queue_rows(plans), "rx_supplements": []}
+
+
+@router.post("/{centre_id}/therapy-plans/{plan_id}/sign")
+def sign_therapy_plan(centre_id: str, plan_id: str, body: TherapyPlanSignature, doctor_id: Annotated[str, Depends(current_user_id)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    loader = _loader(supabase, doctor_id, centre_id)
+    plans = supabase.table("therapy_plans").select("patient_id,centre_id").eq("id", plan_id).eq("centre_id", centre_id).limit(1).execute().data or []
+    if not plans:
+        raise HTTPException(status_code=404, detail="therapy plan not found")
+    patient_id = str(plans[0]["patient_id"])
+    loader.patient(patient_id)
+    try:
+        facts = ContextLoader(supabase).therapy_safety_facts(patient_id)
+        return sign_plan(supabase, doctor_id, plan_id, body.content_sha256, body.note, facts)
+    except PlanForbidden as error:
+        raise HTTPException(status_code=403, detail=str(error)) from None
+    except PlanConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    except PlanInvalid as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
 
 
 def _find_draft(loader: DoctorLoader, draft_id: str) -> dict:

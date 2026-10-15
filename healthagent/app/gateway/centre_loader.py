@@ -72,6 +72,19 @@ class CentreLoader:
             "indicative_price_minor,currency_code,status,created_at,updated_at",
         )
 
+    def therapy_offerings(self) -> list[dict]:
+        return self._rows(
+            "centre_therapy_offerings",
+            "id,centre_id,catalogue_id,service_id,status,indicative_price_minor,currency_code,default_duration_minutes,operational_notes,created_at,updated_at",
+        )
+
+    def therapy_sessions(self) -> list[dict]:
+        """Operational lifecycle only: no safety facts or clinical plan content."""
+        return self._rows(
+            "therapy_service_sessions",
+            "id,centre_id,patient_id,offering_id,status,scheduled_start,started_at,ended_at,centre_booking_id,created_at,updated_at",
+        )
+
     def room_services(self) -> list[dict]:
         return self._rows(
             "centre_room_services",
