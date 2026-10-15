@@ -14,6 +14,7 @@ from app.gateway.api.genetics import router as genetics_api_router
 from app.gateway.api.labs import router as labs_router
 from app.gateway.api.scores import router as scores_router
 from app.gateway.api.therapies import router as therapies_router
+from app.gateway.api.therapy_sessions import router as therapy_sessions_router
 from app.gateway.genetic_webhooks import router as genetic_router
 from app.gateway.lab_webhooks import router as lab_router
 from app.gateway.webhooks import router as webhooks_router
@@ -29,6 +30,7 @@ app.include_router(scores_router)
 app.include_router(chat_router)
 app.include_router(correlations_router)
 app.include_router(therapies_router)
+app.include_router(therapy_sessions_router)
 app.include_router(environment_router)
 app.include_router(genetics_api_router)
 app.include_router(admin_router)

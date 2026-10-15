@@ -292,6 +292,18 @@ class ContextLoader:
             "medications_known": True,
         }
 
+    def therapy_service_session_records(self, user_id: str, limit: int = 100) -> dict:
+        """F12 booking/execution records; analytics continues to read emitted events."""
+        rows = (
+            self._db.table("therapy_service_sessions")
+            .select("id,centre_id,offering_id,plan_item_id,status,prescribed_dose,delivered_dose,scheduled_start,started_at,ended_at,event_id")
+            .eq("patient_id", user_id)
+            .order("created_at", desc=True)
+            .range(0, max(0, limit - 1))
+            .execute().data
+        )
+        return _ok(rows)
+
     def logs(self, user_id: str, kind: str, days: int = 30, limit: int = 20) -> dict:
         if kind not in LOG_KINDS:
             raise ValueError(f"kind not allowed: {kind}")
