@@ -55,7 +55,12 @@ class Modality:
 
     id: str
     label: str
+    category: str
+    summary: str
+    intended_experience: str
     event_types: tuple[str, ...]
+    dose_schema: dict
+    contraindication_rule_ids: tuple[str, ...]
     effects: tuple[Effect, ...]
 
 
@@ -107,6 +112,18 @@ def _build(entry: dict) -> Modality:
     if not modality_id:
         raise TherapyCatalogError(f"a modality entry has no id: {entry!r}")
 
+    category = _text(entry, "category")
+    if not category:
+        raise TherapyCatalogError(f"{modality_id}: category is required")
+    summary = _text(entry, "summary")
+    if not summary:
+        raise TherapyCatalogError(f"{modality_id}: summary is required")
+    intended_experience = _text(entry, "intended_experience")
+    if not intended_experience:
+        raise TherapyCatalogError(
+            f"{modality_id}: intended_experience is required"
+        )
+
     event_types = tuple(
         str(t).strip() for t in (entry.get("event_types") or []) if str(t).strip()
     )
@@ -116,11 +133,30 @@ def _build(entry: dict) -> Modality:
             "ever reach the engine and the failure would be silent"
         )
 
+    dose_schema = entry.get("dose_schema")
+    if not isinstance(dose_schema, dict) or not dose_schema:
+        raise TherapyCatalogError(
+            f"{modality_id}: dose_schema must be a non-empty mapping"
+        )
+
+    if "contraindication_rule_ids" not in entry:
+        raise TherapyCatalogError(
+            f"{modality_id}: contraindication_rule_ids is required"
+        )
+    raw_rules = entry.get("contraindication_rule_ids")
+    if not isinstance(raw_rules, list):
+        raise TherapyCatalogError(
+            f"{modality_id}: contraindication_rule_ids must be a list"
+        )
+    rule_ids = tuple(str(rule).strip() for rule in raw_rules if str(rule).strip())
+    if len(set(rule_ids)) != len(rule_ids):
+        raise TherapyCatalogError(
+            f"{modality_id}: declares a contraindication rule twice"
+        )
+
     effects = tuple(
         _build_effect(raw, modality_id) for raw in (entry.get("effects") or [])
     )
-    if not effects:
-        raise TherapyCatalogError(f"{modality_id}: declares no effects")
 
     seen = [e.metric for e in effects]
     if len(set(seen)) != len(seen):
@@ -129,7 +165,12 @@ def _build(entry: dict) -> Modality:
     return Modality(
         id=modality_id,
         label=_text(entry, "label") or modality_id,
+        category=category,
+        summary=summary,
+        intended_experience=intended_experience,
         event_types=event_types,
+        dose_schema=dose_schema,
+        contraindication_rule_ids=rule_ids,
         effects=effects,
     )
 
@@ -193,11 +234,20 @@ def load_modalities(path: Path | None = None) -> tuple[str, dict[str, Modality]]
 
     modalities: dict[str, Modality] = {}
     fingerprints: dict[str, str] = {}
+    event_owners: dict[str, str] = {}
     for entry in raw.get("modalities", []):
         modality = _build(entry)
         if modality.id in modalities:
             raise TherapyCatalogError(f"{modality.id}: declared twice")
         modalities[modality.id] = modality
+        for event_type in modality.event_types:
+            prior = event_owners.get(event_type)
+            if prior is not None:
+                raise TherapyCatalogError(
+                    f"event type {event_type!r} belongs to both {prior} and "
+                    f"{modality.id}"
+                )
+            event_owners[event_type] = modality.id
         # Each effect is signed separately, so each is fingerprinted
         # separately: agreeing that a sauna raises heart rate is not agreeing
         # that it raises temperature.

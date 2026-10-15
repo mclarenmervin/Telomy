@@ -93,7 +93,11 @@ def test_an_effect_on_an_untracked_metric_is_refused(tmp_path):
     path = tmp_path / "t.yaml"
     path.write_text(yaml.safe_dump({
         "version": "t", "modalities": [{
-            "id": "sauna", "label": "sauna", "event_types": ["sauna"],
+            "id": "sauna", "label": "sauna", "category": "heat",
+            "summary": "test", "intended_experience": "test",
+            "event_types": ["sauna"],
+            "dose_schema": {"duration_minutes": {"minimum": 1}},
+            "contraindication_rule_ids": [],
             "effects": [{"metric": "mood", "expect": "increase",
                          "mechanism": "m", "citation": "c"}],
         }], "clinical_review": {"effects": []},
@@ -108,7 +112,11 @@ def test_an_effect_with_no_expected_direction_is_refused(tmp_path):
     path = tmp_path / "t.yaml"
     path.write_text(yaml.safe_dump({
         "version": "t", "modalities": [{
-            "id": "sauna", "label": "sauna", "event_types": ["sauna"],
+            "id": "sauna", "label": "sauna", "category": "heat",
+            "summary": "test", "intended_experience": "test",
+            "event_types": ["sauna"],
+            "dose_schema": {"duration_minutes": {"minimum": 1}},
+            "contraindication_rule_ids": [],
             "effects": [{"metric": "heartRate", "mechanism": "m", "citation": "c"}],
         }], "clinical_review": {"effects": []},
     }))
@@ -122,7 +130,11 @@ def test_a_modality_with_no_event_type_can_never_fire(tmp_path):
     path = tmp_path / "t.yaml"
     path.write_text(yaml.safe_dump({
         "version": "t", "modalities": [{
-            "id": "hbot", "label": "hyperbaric oxygen", "event_types": [],
+            "id": "hbot", "label": "hyperbaric oxygen", "category": "oxygen",
+            "summary": "test", "intended_experience": "test",
+            "event_types": [],
+            "dose_schema": {"duration_minutes": {"minimum": 1}},
+            "contraindication_rule_ids": [],
             "effects": [{"metric": "spo2", "expect": "increase",
                          "mechanism": "m", "citation": "c"}],
         }], "clinical_review": {"effects": []},
