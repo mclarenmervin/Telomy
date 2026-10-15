@@ -228,6 +228,27 @@ def one_sample_t(deltas) -> tuple[float | None, float | None]:
     return mean, student_t_two_tailed(t, len(deltas) - 1)
 
 
+def one_sample_summary(deltas, confidence: float = 0.95) -> dict:
+    """Mean, p-value and a conservative two-sided confidence interval.
+
+    The 1.96 normal critical value is intentionally widened for small samples
+    with a compact t-table. F12 never evaluates fewer than five sessions.
+    """
+    values = list(deltas)
+    mean, p_value = one_sample_t(values)
+    if not values:
+        return {"mean": None, "p_value": None, "ci_low": None, "ci_high": None}
+    if len(values) < 2:
+        return {"mean": mean, "p_value": p_value, "ci_low": None, "ci_high": None}
+    variance = sum((value - mean) ** 2 for value in values) / (len(values) - 1)
+    critical = {4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365,
+                8: 2.306, 9: 2.262, 10: 2.228}.get(len(values) - 1, 1.96)
+    margin = critical * math.sqrt(variance / len(values))
+    return {"mean": mean, "p_value": p_value,
+            "ci_low": mean - margin, "ci_high": mean + margin,
+            "confidence": confidence}
+
+
 # ── Multiple comparisons ─────────────────────────────────────────────────────
 
 def benjamini_hochberg(p_values, q: float) -> list[bool]:
@@ -257,3 +278,17 @@ def benjamini_hochberg(p_values, q: float) -> list[bool]:
         if rank <= cutoff:
             kept[position] = True
     return kept
+
+
+def benjamini_hochberg_q_values(p_values) -> list[float]:
+    """Adjusted BH q-values in caller order, monotone across ranked p-values."""
+    values = list(p_values)
+    ranked = sorted(enumerate(values), key=lambda pair: pair[1])
+    count = len(ranked)
+    adjusted = [1.0] * count
+    running = 1.0
+    for rank in range(count, 0, -1):
+        position, p_value = ranked[rank - 1]
+        running = min(running, p_value * count / rank)
+        adjusted[position] = min(1.0, running)
+    return adjusted

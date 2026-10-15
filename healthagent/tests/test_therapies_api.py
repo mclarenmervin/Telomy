@@ -53,6 +53,7 @@ def test_a_run_of_sessions_comes_back_with_its_provenance():
     body = response.json()
     assert body["model_version"] == MODEL_VERSION
     assert body["catalog_version"]
+    assert body["verdicts"][0]["verdict"] == "helped"
     reported = [r for r in body["reported"] if r["metric"] == "heartRate"]
     assert reported[0]["modality"] == "sauna"
     assert reported[0]["sessions"] == 8

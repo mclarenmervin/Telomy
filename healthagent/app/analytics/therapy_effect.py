@@ -54,11 +54,15 @@ from datetime import datetime, timedelta
 
 from app.analytics import therapy_catalog
 from app.analytics.event_analysis import WINDOW, analyze_event, to_readings
-from app.analytics.statistics import benjamini_hochberg, one_sample_t
+from app.analytics.statistics import (
+    benjamini_hochberg,
+    benjamini_hochberg_q_values,
+    one_sample_summary,
+)
 from app.analytics.therapy_catalog import INCREASE
 from app.common.timeparse import parse_ts
 
-MODEL_VERSION = "therapy-effect-v1"
+MODEL_VERSION = "therapy-effect-v2"
 
 #: How far back a run may reach. A year of sessions is a fair question;
 #: "ever" would compare this winter's sauna with the one in a different flat.
@@ -78,6 +82,14 @@ TOO_FEW_SESSIONS = "too_few_sessions"
 NOT_SIGNIFICANT = "not_significant"
 DIRECTION_MISMATCH = "direction_mismatch"
 CONFOUNDED = "confounded"
+NO_WEARABLE_DATA = "no_wearable_data"
+
+HELPED = "helped"
+PROMISING = "promising"
+POSSIBLE_NEGATIVE = "possible_negative"
+NO_RELIABLE_SIGNAL = "no_reliable_signal"
+TOO_EARLY = "too_early"
+IN_SESSION_ONLY = "in_session_only"
 
 
 def _overlaps(start: datetime, end: datetime, other_events) -> bool:
@@ -103,6 +115,7 @@ def _session_deltas(sessions, readings, other_events) -> dict:
     """
     deltas: dict[tuple[str, str], list[float]] = {}
     counted: dict[str, int] = {}
+    eligible: dict[str, int] = {}
     dropped: dict[str, int] = {}
 
     for raw in sessions:
@@ -120,6 +133,8 @@ def _session_deltas(sessions, readings, other_events) -> dict:
             dropped[modality.id] = dropped.get(modality.id, 0) + 1
             continue
 
+        eligible[modality.id] = eligible.get(modality.id, 0) + 1
+
         analysis = analyze_event(readings, start, end, other_events)
         used = False
         for effect in modality.effects:
@@ -132,7 +147,7 @@ def _session_deltas(sessions, readings, other_events) -> dict:
         if used:
             counted[modality.id] = counted.get(modality.id, 0) + 1
 
-    return {"deltas": deltas, "counted": counted, "dropped": dropped}
+    return {"deltas": deltas, "counted": counted, "eligible": eligible, "dropped": dropped}
 
 
 def _matches_direction(expect: str, mean_delta: float) -> bool:
@@ -141,42 +156,87 @@ def _matches_direction(expect: str, mean_delta: float) -> bool:
     )
 
 
+def _replicates(values, expect: str) -> bool:
+    """Chronological split-half direction agreement; never language-inferred."""
+    values = list(values)
+    midpoint = len(values) // 2
+    if midpoint < 2 or len(values) - midpoint < 2:
+        return False
+    first = sum(values[:midpoint]) / midpoint
+    second = sum(values[midpoint:]) / (len(values) - midpoint)
+    return _matches_direction(expect, first) and _matches_direction(expect, second)
+
+
+def classify_verdict(values, expect: str, q_value: float | None = None) -> dict:
+    """Six-state reversible classification over one declared outcome."""
+    values = list(values)
+    if not values:
+        return {"verdict": IN_SESSION_ONLY, "summary": one_sample_summary([]),
+                "replicated": False}
+    if len(values) < MIN_SESSIONS:
+        return {"verdict": TOO_EARLY, "summary": one_sample_summary(values),
+                "replicated": False}
+    summary = one_sample_summary(values)
+    mean = summary["mean"]
+    beneficial = _matches_direction(expect, mean)
+    replicated = _replicates(values, expect)
+    excludes_zero = summary["ci_low"] is not None and (
+        summary["ci_low"] > 0 or summary["ci_high"] < 0
+    )
+    raw_signal = summary["p_value"] is not None and summary["p_value"] < 0.01 and excludes_zero
+    if beneficial and raw_signal and q_value is not None and q_value <= FDR_Q and replicated:
+        verdict = HELPED
+    elif beneficial and raw_signal:
+        verdict = PROMISING
+    elif not beneficial and excludes_zero and summary["p_value"] is not None and summary["p_value"] < 0.05:
+        verdict = POSSIBLE_NEGATIVE
+    else:
+        verdict = NO_RELIABLE_SIGNAL
+    return {"verdict": verdict, "summary": summary, "replicated": replicated}
+
+
 def effects_for(sessions, readings, other_events=(), path=None) -> dict:
     """Every declared effect, tested against this person's sessions."""
     gathered = _session_deltas(sessions, readings, other_events)
     deltas = gathered["deltas"]
 
-    candidates, withheld = [], []
+    candidates = []
     _, modalities = therapy_catalog.load_modalities(path)
 
     for modality in sorted(modalities.values(), key=lambda m: m.id):
         for effect in modality.effects:
-            observed = deltas.get((modality.id, effect.metric))
-            if not observed:
+            eligible = gathered["eligible"].get(modality.id, 0)
+            if eligible == 0:
                 continue
-            if len(observed) < MIN_SESSIONS:
-                withheld.append(
-                    _row(modality, effect, None, len(observed), None,
-                         TOO_FEW_SESSIONS, gathered, path)
-                )
-                continue
-            mean_delta, p_value = one_sample_t(observed)
-            candidates.append((modality, effect, mean_delta, len(observed), p_value))
+            observed = deltas.get((modality.id, effect.metric), [])
+            summary = one_sample_summary(observed)
+            candidates.append((modality, effect, observed, summary))
 
-    survived = benjamini_hochberg([c[4] for c in candidates], FDR_Q)
+    tested_indexes = [index for index, candidate in enumerate(candidates)
+                      if len(candidate[2]) >= MIN_SESSIONS and candidate[3]["p_value"] is not None]
+    q_values = benjamini_hochberg_q_values([candidates[index][3]["p_value"] for index in tested_indexes])
+    q_by_index = dict(zip(tested_indexes, q_values))
 
-    reported = []
-    for (modality, effect, mean_delta, count, p_value), passed in zip(candidates, survived):
-        if not passed:
+    verdicts, reported, withheld = [], [], []
+    for index, (modality, effect, observed, _summary) in enumerate(candidates):
+        classification = classify_verdict(observed, effect.expect, q_by_index.get(index))
+        verdict = classification["verdict"]
+        if verdict == TOO_EARLY:
+            reason = TOO_FEW_SESSIONS
+        elif verdict == IN_SESSION_ONLY:
+            reason = NO_WEARABLE_DATA
+        elif verdict == NO_RELIABLE_SIGNAL:
             reason = NOT_SIGNIFICANT
-        elif not _matches_direction(effect.expect, mean_delta):
+        elif verdict == POSSIBLE_NEGATIVE:
             reason = DIRECTION_MISMATCH
         else:
             reason = None
-        row = _row(modality, effect, mean_delta, count, p_value, reason, gathered, path)
+        row = _row(modality, effect, observed, classification, q_by_index.get(index),
+                   reason, gathered, path)
+        verdicts.append(row)
         (withheld if reason else reported).append(row)
 
-    reported.sort(key=lambda r: abs(r["mean_delta"]), reverse=True)
+    reported.sort(key=lambda r: abs(r["mean_delta"] or 0), reverse=True)
     withheld.sort(key=lambda r: (r["modality"], r["metric"]))
 
     return {
@@ -185,14 +245,19 @@ def effects_for(sessions, readings, other_events=(), path=None) -> dict:
         "window_days": WINDOW_DAYS,
         "fdr_q": FDR_Q,
         "min_sessions": MIN_SESSIONS,
-        "tested": len(candidates),
+        "tested": len(tested_indexes),
+        "verdicts": verdicts,
         "reported": reported,
         "withheld": withheld,
     }
 
 
-def _row(modality, effect, mean_delta, sessions, p_value, withheld_reason,
+def _row(modality, effect, observed, classification, q_value, withheld_reason,
          gathered, path) -> dict:
+    summary = classification["summary"]
+    sessions = len(observed)
+    mean_delta = summary["mean"]
+    p_value = summary["p_value"]
     review = (
         therapy_catalog.review_status(modality.id, effect.metric, path)
         if withheld_reason is None
@@ -210,6 +275,14 @@ def _row(modality, effect, mean_delta, sessions, p_value, withheld_reason,
         # between a thin result and a broken one.
         "sessions_confounded": gathered["dropped"].get(modality.id, 0),
         "p_value": p_value,
+        "q_value": q_value,
+        "ci_low": summary["ci_low"],
+        "ci_high": summary["ci_high"],
+        "replicated": classification["replicated"],
+        "verdict": classification["verdict"],
+        "wearable_coverage": sessions / gathered["eligible"].get(modality.id, sessions or 1),
+        "next_milestone": _next_milestone(classification["verdict"], sessions),
+        "provenance": {"model_version": MODEL_VERSION, "catalogue_modality": modality.id},
         "expected_direction": effect.expect,
         "mechanism": effect.mechanism if reviewed else None,
         "citation": effect.citation if reviewed else None,
@@ -217,6 +290,18 @@ def _row(modality, effect, mean_delta, sessions, p_value, withheld_reason,
         "reviewer": review.reviewer if reviewed else None,
         "withheld": withheld_reason,
     }
+
+
+def _next_milestone(verdict: str, sessions: int) -> str:
+    if verdict in (IN_SESSION_ONLY, TOO_EARLY):
+        return f"Complete {max(0, MIN_SESSIONS - sessions)} more eligible sessions with wearable coverage."
+    if verdict == PROMISING:
+        return "Repeat the pattern in both halves of a longer run."
+    if verdict == POSSIBLE_NEGATIVE:
+        return "Discuss the adverse pattern with your care team before continuing."
+    if verdict == NO_RELIABLE_SIGNAL:
+        return "More consistent sessions may clarify whether a repeatable signal exists."
+    return "Keep recording sessions to confirm the pattern remains stable."
 
 
 # ── The seam: one implementation, two callers ────────────────────────────────

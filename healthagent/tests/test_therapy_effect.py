@@ -17,10 +17,17 @@ from app.analytics import therapy_catalog, therapy_effect
 from app.analytics.event_analysis import Reading
 from app.analytics.therapy_catalog import TherapyCatalogError
 from app.analytics.therapy_effect import (
+    HELPED,
+    IN_SESSION_ONLY,
     MIN_SESSIONS,
+    NO_RELIABLE_SIGNAL,
     NOT_SIGNIFICANT,
+    POSSIBLE_NEGATIVE,
+    PROMISING,
+    TOO_EARLY,
     TOO_FEW_SESSIONS,
     DIRECTION_MISMATCH,
+    classify_verdict,
     effects_for,
 )
 
@@ -61,6 +68,30 @@ def readings_for(sessions, *, before, after, baseline, metric="heartRate"):
 
 def flat(value, n):
     return [value] * n
+
+
+def test_the_six_verdicts_and_downgrades_are_reversible():
+    assert classify_verdict([8, 9, 7, 8, 9, 10, 8, 9], "increase", 0.01)["verdict"] == HELPED
+    # Strong overall, but the first half disagrees: this cannot be Helped.
+    assert classify_verdict([-1] * 10 + [100] * 10, "increase", 0.01)["verdict"] == PROMISING
+    assert classify_verdict([-9, -8, -10, -7, -9, -8], "increase", 0.01)["verdict"] == POSSIBLE_NEGATIVE
+    assert classify_verdict([-2, 2, -1, 1, 0, 1], "increase", 0.9)["verdict"] == NO_RELIABLE_SIGNAL
+    assert classify_verdict([1, 2, 1, 2], "increase", None)["verdict"] == TOO_EARLY
+    assert classify_verdict([], "increase", None)["verdict"] == IN_SESSION_ONLY
+
+
+def test_verdict_carries_effect_interval_replication_coverage_and_provenance():
+    sessions = [session(d * 3) for d in range(8)]
+    result = effects_for(sessions, readings_for(
+        sessions, before=flat(60, 8), after=flat(76, 8), baseline=60,
+    ))
+    row = result["verdicts"][0]
+    assert row["verdict"] == HELPED
+    assert row["ci_low"] > 0
+    assert row["q_value"] <= 0.1
+    assert row["replicated"] is True
+    assert row["wearable_coverage"] == 1
+    assert row["provenance"]["model_version"] == therapy_effect.MODEL_VERSION
 
 
 # ── The catalog ──────────────────────────────────────────────────────────────
