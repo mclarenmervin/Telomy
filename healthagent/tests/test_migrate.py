@@ -121,3 +121,26 @@ def test_a_directory_with_no_migrations_is_empty_not_an_error(tmp_path):
     (tmp_path / "dev_only.sql").write_text("select 1;")
 
     assert load_migrations(tmp_path) == []
+
+
+def test_f12_migration_defines_the_therapy_safety_and_session_contract():
+    """The migration is the last defence when an API path gets authorization wrong."""
+    from pathlib import Path
+
+    sql = (Path(__file__).parents[1] / "db" / "029_therapy_spine.sql").read_text()
+
+    for required in (
+        "pregnancy_status",
+        "therapy_catalogue",
+        "centre_therapy_offerings",
+        "therapy_plans",
+        "therapy_plan_items",
+        "therapy_safety_checks",
+        "therapy_service_sessions",
+        "therapy_checkins",
+        "prescribed_dose",
+        "delivered_dose",
+        "enable row level security",
+        "protect_therapy_history",
+    ):
+        assert required in sql

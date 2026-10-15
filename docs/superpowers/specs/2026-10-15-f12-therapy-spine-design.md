@@ -121,7 +121,9 @@ The latest check never replaces prior results.
 
 ### 6.6 Sessions
 
-`therapy_sessions` records booking and execution lifecycle:
+`therapy_service_sessions` records booking and execution lifecycle. The name is
+deliberately distinct from the pre-existing legacy `therapy_sessions` Vault
+journal table, which remains untouched for backward compatibility:
 
 - patient, centre, offering, signed plan item
 - scheduled, started, completed, cancelled, or refused state
