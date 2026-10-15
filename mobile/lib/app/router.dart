@@ -60,6 +60,9 @@ import '../features/doctor/screens/doctor_patients_screen.dart';
 import '../features/doctor/screens/doctor_patient_detail_screen.dart';
 import '../features/doctor/screens/doctor_work_queue_screen.dart';
 import '../features/doctor/screens/doctor_profile_screen.dart';
+import '../features/therapies/models/therapy_catalogue.dart';
+import '../features/therapies/screens/therapy_catalogue_screen.dart';
+import '../features/therapies/screens/therapy_detail_screen.dart';
 import 'role_routes.dart';
 
 /// One role's shell, its tabs taken from [roleTabs] so the branch order and
@@ -218,6 +221,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/activity-session',
         builder: (_, state) => const ActivitySessionScreen(),
+      ),
+      GoRoute(path: '/therapies', builder: (_, state) => const TherapyCatalogueScreen()),
+      GoRoute(
+        path: '/therapies/:catalogueId',
+        builder: (_, state) => TherapyDetailScreen(
+          item: state.extra is TherapyCatalogueItem
+              ? state.extra! as TherapyCatalogueItem
+              : TherapyCatalogueItem(
+                  id: state.pathParameters['catalogueId']!, slug: '', name: 'Therapy',
+                  category: '', summary: 'Open the catalogue to load this therapy.',
+                  intendedExperience: '', contraindicationRuleIds: const [], doseSchema: const {},
+                ),
+        ),
       ),
       for (final entry in <String, Widget>{
         'health': const DashboardScreen(healthOnly: true),
