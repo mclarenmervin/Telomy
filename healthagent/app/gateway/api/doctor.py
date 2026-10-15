@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
 from app.clinical.monthly_reports import compose_monthly_report
+from app.clinical.queue_plan import therapy_plan_queue_rows
 from app.clinical.summaries import compose_patient_summary
 from app.common.supabase_client import get_supabase_client
 from app.gateway.api.accounts import get_invitation_service
@@ -161,7 +162,8 @@ def doctor_work_queue(centre_id: str, doctor_id: Annotated[str, Depends(current_
     patient_ids = loader._patient_ids()
     reports = supabase.table("monthly_reports").select("id,patient_id,period_start,period_end,version,status,created_at").eq("centre_id", centre_id).in_("patient_id", patient_ids).in_("status", ["draft", "in_review"]).execute().data if patient_ids else []
     drafts = [row for row in loader.drafts() if row.get("status") in ("queued", "revised", "in_review")]
-    return {"monthly_reports": reports or [], "sync_drafts": drafts, "consults": [], "therapy_plans": [], "rx_supplements": []}
+    plans = supabase.table("therapy_plans").select("id,patient_id,centre_id,status,version,content_sha256,proposed_by,created_at").eq("centre_id", centre_id).in_("patient_id", patient_ids).in_("status", ["proposed", "in_review"]).execute().data if patient_ids else []
+    return {"monthly_reports": reports or [], "sync_drafts": drafts, "consults": [], "therapy_plans": therapy_plan_queue_rows(plans), "rx_supplements": []}
 
 
 def _find_draft(loader: DoctorLoader, draft_id: str) -> dict:

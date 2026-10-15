@@ -51,6 +51,12 @@ _SLA_PENDING = ("queued", "in_review", "revised")
 DELIVERABLE_STATUS = "signed"
 
 
+def therapy_plan_queue_rows(rows) -> list[dict]:
+    """Unsigned therapy plans, oldest first, for the already-scoped patients."""
+    pending = [row for row in rows or [] if row.get("status") in ("proposed", "in_review")]
+    return sorted(pending, key=lambda row: (row.get("created_at") or "", str(row.get("id"))))
+
+
 def expired_claims(rows, now: datetime) -> list[str]:
     """Drafts whose claim has gone stale, oldest claim first.
 

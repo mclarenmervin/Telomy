@@ -31,6 +31,7 @@ class Db:
             "patient_doctor_assignments": [{"id": "a1", "centre_id": CENTRE, "doctor_id": DOCTOR, "patient_id": PATIENT, "ended_at": None, "is_primary": True}],
             "clinical_drafts": [{"id": "draft-1", "user_id": PATIENT, "kind": "observation", "status": "queued", "body": "Body", "title": "Review", "updated_at": "v1", "routing_flags": []}],
             "monthly_reports": [{"id": "report-1", "patient_id": PATIENT, "centre_id": CENTRE, "status": "draft", "version": 1}],
+            "therapy_plans": [{"id": "plan-1", "patient_id": PATIENT, "centre_id": CENTRE, "status": "proposed", "version": 1, "created_at": "2026-10-15"}],
             "clinician_notes": [],
         }
 
@@ -98,10 +99,11 @@ def test_blank_notes_are_rejected_before_any_request():
         NoteCreate(body="   ")
 
 
-def test_queue_always_has_five_segments_and_intentional_empty_contracts():
+def test_queue_populates_the_f12_therapy_plan_segment():
     result = doctor_work_queue(CENTRE, DOCTOR, Db())
     assert set(result) == {"monthly_reports", "sync_drafts", "consults", "therapy_plans", "rx_supplements"}
-    assert result["therapy_plans"] == [] and result["rx_supplements"] == []
+    assert [row["id"] for row in result["therapy_plans"]] == ["plan-1"]
+    assert result["rx_supplements"] == []
 
 
 def test_doctor_can_append_note_only_through_scoped_rpc():
