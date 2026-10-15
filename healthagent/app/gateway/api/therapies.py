@@ -66,7 +66,29 @@ def read_plans(
     supabase: Annotated[Any, Depends(get_supabase_client)],
 ) -> dict:
     rows = supabase.table("therapy_plans").select("*").eq("patient_id", user_id).order("version", desc=True).execute().data or []
+    for plan in rows:
+        plan["items"] = supabase.table("therapy_plan_items").select("*").eq("plan_id", plan["id"]).order("position").execute().data or []
+        _name_plan_items(supabase, plan["items"])
     return {"items": rows}
+
+
+@router.get("/plans/{plan_id}")
+def read_plan(plan_id: str, user_id: Annotated[str, Depends(current_user_id)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    plans = supabase.table("therapy_plans").select("*").eq("id", plan_id).eq("patient_id", user_id).limit(1).execute().data or []
+    if not plans:
+        raise HTTPException(status_code=404, detail="therapy plan not found")
+    plan = plans[0]
+    plan["items"] = supabase.table("therapy_plan_items").select("*").eq("plan_id", plan_id).order("position").execute().data or []
+    _name_plan_items(supabase, plan["items"])
+    return plan
+
+
+def _name_plan_items(supabase: Any, items: list[dict]) -> None:
+    ids = [row["catalogue_id"] for row in items]
+    rows = supabase.table("therapy_catalogue").select("id,slug,display_name").in_("id", ids).execute().data if ids else []
+    names = {str(row["id"]): row.get("display_name") or row.get("slug") for row in (rows or [])}
+    for item in items:
+        item["name"] = names.get(str(item["catalogue_id"]), "Therapy")
 
 
 @router.post("/plans", status_code=201)

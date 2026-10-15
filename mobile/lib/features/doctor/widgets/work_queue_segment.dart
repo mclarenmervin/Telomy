@@ -22,6 +22,7 @@ class WorkQueueSegment extends StatelessWidget {
               ListTile(
                 title: Text(
                   item['title']?.toString() ??
+                      (item['version'] == null ? null : 'Therapy plan v${item['version']}') ??
                       item['period_start']?.toString() ??
                       'Clinical work item',
                 ),

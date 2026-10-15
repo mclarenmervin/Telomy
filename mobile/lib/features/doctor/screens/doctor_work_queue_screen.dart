@@ -4,6 +4,8 @@ import '../models/doctor_models.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/work_queue_segment.dart';
 import '../widgets/clinical_decision_sheet.dart';
+import '../../therapies/models/therapy_plan.dart';
+import '../../therapies/screens/therapy_plan_screen.dart';
 
 class DoctorWorkQueueScreen extends ConsumerWidget {
   const DoctorWorkQueueScreen({super.key, this.initial});
@@ -43,7 +45,7 @@ class DoctorWorkQueueScreen extends ConsumerWidget {
             label: e.value,
             items: queue.segments[e.key] ?? const [],
             emptyMessage: e.key == 'therapy_plans' || e.key == 'rx_supplements'
-                ? 'This segment opens in a later clinical phase.'
+                ? (e.key == 'therapy_plans' ? 'No therapy plans awaiting review' : 'This segment opens in a later clinical phase.')
                 : 'No work waiting',
             onOpen: centre == null
                 ? null
@@ -59,6 +61,29 @@ class DoctorWorkQueueScreen extends ConsumerWidget {
     String segment,
     Map<String, dynamic> item,
   ) {
+    if (segment == 'therapy_plans') {
+      final plan = TherapyPlan.fromJson(item);
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (sheetContext) => TherapyPlanScreen(
+          plan: plan,
+          viewer: TherapyPlanViewer.doctor,
+          onSign: (note) async {
+            await ref.read(doctorRepositoryProvider).signTherapyPlan(
+              centreId: centre,
+              planId: plan.id,
+              note: note,
+              contentSha256: plan.contentSha256,
+            );
+            if (sheetContext.mounted) Navigator.pop(sheetContext);
+            ref.invalidate(doctorWorkQueueProvider(centre));
+          },
+        ),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

@@ -4,6 +4,8 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/therapy_repository.dart';
 import '../models/therapy_effect.dart';
 import '../models/therapy_catalogue.dart';
+import '../models/therapy_plan.dart';
+import '../models/therapy_session.dart';
 
 final therapyRepositoryProvider = Provider(
   (ref) => TherapyRepository(http: ref.watch(apiClientProvider).dio),
@@ -26,4 +28,12 @@ final therapyCatalogueProvider = FutureProvider.autoDispose<List<TherapyCatalogu
 
 final therapyOfferingsProvider = FutureProvider.autoDispose.family<List<TherapyOffering>, String>(
   (ref, centreId) => ref.read(therapyRepositoryProvider).offerings(centreId),
+);
+
+final therapyPlansProvider = FutureProvider.autoDispose<List<TherapyPlan>>(
+  (ref) => ref.read(therapyRepositoryProvider).plans(),
+);
+
+final therapySessionsProvider = FutureProvider.autoDispose<List<TherapySession>>(
+  (ref) => ref.read(therapyRepositoryProvider).sessions(),
 );

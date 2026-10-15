@@ -170,6 +170,13 @@ def doctor_work_queue(centre_id: str, doctor_id: Annotated[str, Depends(current_
     reports = supabase.table("monthly_reports").select("id,patient_id,period_start,period_end,version,status,created_at").eq("centre_id", centre_id).in_("patient_id", patient_ids).in_("status", ["draft", "in_review"]).execute().data if patient_ids else []
     drafts = [row for row in loader.drafts() if row.get("status") in ("queued", "revised", "in_review")]
     plans = supabase.table("therapy_plans").select("id,patient_id,centre_id,status,version,content_sha256,proposed_by,created_at").eq("centre_id", centre_id).in_("patient_id", patient_ids).in_("status", ["proposed", "in_review"]).execute().data if patient_ids else []
+    for plan in plans or []:
+        plan["items"] = supabase.table("therapy_plan_items").select("*").eq("plan_id", plan["id"]).order("position").execute().data or []
+        catalogue_ids = [item["catalogue_id"] for item in plan["items"]]
+        catalogue = supabase.table("therapy_catalogue").select("id,slug,display_name").in_("id", catalogue_ids).execute().data if catalogue_ids else []
+        names = {str(row["id"]): row.get("display_name") or row.get("slug") for row in (catalogue or [])}
+        for item in plan["items"]:
+            item["name"] = names.get(str(item["catalogue_id"]), "Therapy")
     return {"monthly_reports": reports or [], "sync_drafts": drafts, "consults": [], "therapy_plans": therapy_plan_queue_rows(plans), "rx_supplements": []}
 
 

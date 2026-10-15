@@ -44,6 +44,12 @@ def _call(function, *args):
         raise HTTPException(status_code=409, detail=str(error)) from None
 
 
+@router.get("")
+def list_sessions(user_id: Annotated[str, Depends(current_user_id)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
+    rows = supabase.table("therapy_service_sessions").select("*").eq("patient_id", user_id).order("created_at", desc=True).execute().data or []
+    return {"items": rows}
+
+
 @router.post("", status_code=201)
 def create_booking(
     body: Booking,

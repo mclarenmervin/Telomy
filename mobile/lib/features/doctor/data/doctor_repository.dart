@@ -109,6 +109,15 @@ class DoctorRepository {
     });
   }
 
+  Future<void> signTherapyPlan({
+    required String centreId,
+    required String planId,
+    required String note,
+    required String contentSha256,
+  }) => _write('/api/v1/doctor/$centreId/therapy-plans/$planId/sign', {
+    'note': note.trim(), 'content_sha256': contentSha256,
+  });
+
   Future<List<Map<String, dynamic>>> _items(
     String path, {
     Map<String, dynamic>? query,
