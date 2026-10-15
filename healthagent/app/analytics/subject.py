@@ -21,7 +21,6 @@ Note the two shapes of "no answer" here, which are deliberately different:
   except relative to a chronological one.
 """
 
-import re
 from dataclasses import dataclass
 from datetime import date
 
@@ -48,38 +47,6 @@ _SEX_ALIASES = {
     "male": "male", "m": "male", "man": "male", "boy": "male",
     "female": "female", "f": "female", "woman": "female", "girl": "female",
 }
-
-# Pregnancy screening over a free-text field.
-#
-# There is no structured pregnancy flag in the profile today -- the only place a
-# user can say so is the free-text "Conditions / previous diseases" box. A
-# keyword screen over prose is a weak signal and this is the honest limitation to
-# record: **the correct fix is a structured field**, and until there is one this
-# will both miss people who never typed it and occasionally refuse someone it
-# should not.
-#
-# Given that, the direction of the error matters more than its rate. Refusing to
-# score someone who is not pregnant costs them a number; scoring someone who is
-# gives them a wrong one from ranges that do not apply. So an ambiguous match
-# refuses.
-#
-# `gestation` only counts in the "28 weeks gestation" form, and `gravida` not at
-# all. Bare "gestational" is nearly always "gestational diabetes" -- a named
-# condition recorded as history -- and obstetric notation like G2P1 is a parity
-# count, not a statement about now. Both would refuse permanently.
-_PREGNANCY_TERMS = re.compile(
-    r"\b(pregnan\w*|trimester|expecting|\d+\s*weeks?\s+gestation\w*)\b", re.I
-)
-
-# ...with the exception of history and negation, because the field explicitly
-# collects "previous diseases". Without this, any woman who has ever recorded a
-# pregnancy never gets a biological age again.
-_NOT_CURRENT = re.compile(
-    r"\b(not|non|no|never|post|after|previous|previously|past|prior|former|"
-    r"formerly|pre|before|history|hx)\b[\s\-]*$",
-    re.I,
-)
-
 
 @dataclass(frozen=True)
 class Subject:
@@ -150,24 +117,6 @@ def resolve_sex(profile: dict | None) -> str | None:
     return None
 
 
-def screen_for_pregnancy(text: str | None) -> bool:
-    """Best-effort pregnancy detection in free text. See `_PREGNANCY_TERMS`.
-
-    Each match is checked against the words immediately before it: "previous
-    pregnancy" and "not pregnant" are history, "24 weeks pregnant" is not.
-    """
-    if not text or not text.strip():
-        return False
-    for match in _PREGNANCY_TERMS.finditer(text):
-        # Just the run of words before the match -- enough to catch a qualifier,
-        # short enough that a qualifier attached to some other clause earlier in
-        # the sentence cannot suppress this one.
-        preceding = text[max(0, match.start() - 24):match.start()]
-        if not _NOT_CURRENT.search(preceding):
-            return True
-    return False
-
-
 def resolve_subject(profile: dict | None, as_of: date) -> Subject:
     """The subject of a score on one date.
 
@@ -190,7 +139,10 @@ def resolve_subject(profile: dict | None, as_of: date) -> Subject:
         elif age < MINIMUM_AGE_YEARS:
             refusals.add(UNDER_AGE)
 
-    if screen_for_pregnancy(profile.get("conditions")):
+    # F12 makes pregnancy a structured profile fact because this decision now
+    # gates therapies as well as scores. Free-text conditions are history and
+    # must never decide whether somebody is currently pregnant.
+    if profile.get("pregnancy_status") == "pregnant":
         refusals.add(PREGNANCY)
 
     return Subject(

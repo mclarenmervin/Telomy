@@ -42,6 +42,20 @@ def _since(days: int) -> str:
     return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
 
+def _structured_bool(profile: dict, *keys: str) -> bool | None:
+    """Read an explicit boolean field; never interpret clinical free text."""
+    for key in keys:
+        if key not in profile:
+            continue
+        value = profile.get(key)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+            return value.strip().lower() == "true"
+        return None
+    return None
+
+
 class ContextLoader:
     """The only place the agent reads user data. Every query is scoped by user_id."""
 
@@ -213,6 +227,20 @@ class ContextLoader:
             .execute()
             .data
         )
+        structured = (
+            self._db.table("profiles")
+            .select("pregnancy_status")
+            .eq("id", user_id)
+            .execute()
+            .data
+        )
+        pregnancy_status = (
+            structured[0].get("pregnancy_status") if structured else "unknown"
+        ) or "unknown"
+        for row in rows:
+            profile = dict(row.get("profile") or {})
+            profile["pregnancy_status"] = pregnancy_status
+            row["profile"] = profile
         return _ok(rows)
 
     def safety_facts(self, user_id: str) -> dict:
@@ -227,6 +255,42 @@ class ContextLoader:
             .data
         )
         return _ok(rows)
+
+    def therapy_safety_facts(self, user_id: str) -> dict:
+        """Structured facts consumed by the deterministic therapy gate.
+
+        `conditions` prose is deliberately excluded. Exact boolean keys are
+        data; guessing a current diagnosis from a history textarea is not.
+        """
+        profile_rows = self.user_profile(user_id)["items"]
+        profile = (profile_rows[0].get("profile") if profile_rows else None) or {}
+        medications = self.safety_facts(user_id)["items"]
+        return {
+            "pregnancy_status": profile.get("pregnancy_status") or "unknown",
+            "pacemaker": _structured_bool(profile, "pacemaker"),
+            "uncontrolled_blood_pressure": _structured_bool(
+                profile, "uncontrolled_blood_pressure", "uncontrolledBloodPressure"
+            ),
+            "recent_cardiac_event": _structured_bool(
+                profile, "recent_cardiac_event", "recentCardiacEvent"
+            ),
+            "raynaud": _structured_bool(profile, "raynaud"),
+            "untreated_pneumothorax": _structured_bool(
+                profile, "untreated_pneumothorax", "untreatedPneumothorax"
+            ),
+            "dvt": _structured_bool(profile, "dvt"),
+            "g6pd_deficiency": _structured_bool(
+                profile, "g6pd_deficiency", "g6pdDeficiency"
+            ),
+            "coronary_plaque": _structured_bool(
+                profile, "coronary_plaque", "coronaryPlaque"
+            ),
+            "alcohol_today": _structured_bool(
+                profile, "alcohol_today", "alcoholToday"
+            ),
+            "medications": medications,
+            "medications_known": True,
+        }
 
     def logs(self, user_id: str, kind: str, days: int = 30, limit: int = 20) -> dict:
         if kind not in LOG_KINDS:

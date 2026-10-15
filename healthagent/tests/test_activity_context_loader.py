@@ -167,6 +167,48 @@ def test_user_profile_returns_empty_envelope_when_absent():
     assert out["status"] == "empty"
 
 
+def test_user_profile_adds_structured_pregnancy_status():
+    db = FakeSupabase({
+        "user_preferences": [{"user_id": USER, "profile": {"dob": "1980-01-01"}}],
+        "profiles": [
+            {"id": USER, "pregnancy_status": "pregnant"},
+            {"id": OTHER, "pregnancy_status": "not_pregnant"},
+        ],
+    })
+
+    out = ContextLoader(db).user_profile(USER)
+
+    assert out["items"][0]["profile"]["pregnancy_status"] == "pregnant"
+
+
+def test_therapy_safety_facts_use_only_structured_keys():
+    db = FakeSupabase({
+        "user_preferences": [{
+            "user_id": USER,
+            "profile": {
+                "conditions": "pregnant and has a pacemaker",
+                "pacemaker": "false",
+                "dvt": "true",
+                "alcoholToday": "false",
+            },
+        }],
+        "profiles": [{"id": USER, "pregnancy_status": "not_pregnant"}],
+        "medications": [{
+            "user_id": USER, "title": "Doxycycline", "notes": "",
+            "fields": {}, "recorded_at": "2026-10-15T00:00:00+00:00",
+        }],
+    })
+
+    facts = ContextLoader(db).therapy_safety_facts(USER)
+
+    assert facts["pregnancy_status"] == "not_pregnant"
+    assert facts["pacemaker"] is False
+    assert facts["dvt"] is True
+    assert facts["alcohol_today"] is False
+    assert facts["medications"][0]["title"] == "Doxycycline"
+    assert "conditions" not in facts
+
+
 def test_past_sessions_can_exclude_the_session_being_analysed():
     """A session must never appear in its own baseline: it would dampen its own delta."""
     rows = [

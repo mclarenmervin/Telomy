@@ -121,18 +121,19 @@ def test_a_sex_we_cannot_map_is_unknown_rather_than_guessed():
 def test_pregnancy_refuses_to_score():
     """Reference ranges shift substantially in pregnancy and several models stop
     being valid. The plan's instruction is to refuse, not to score wrongly."""
-    subject = resolve_subject(
-        profile(conditions="Pregnant, 24 weeks"), as_of=AS_OF
-    )
+    subject = resolve_subject(profile(pregnancy_status="pregnant"), as_of=AS_OF)
 
     assert "pregnancy" in subject.refusals
     assert not subject.scorable
 
 
-def test_pregnancy_is_detected_from_the_phrasing_people_use():
-    for text in ("second trimester", "28 weeks gestation", "currently expecting"):
-        subject = resolve_subject(profile(conditions=text), as_of=AS_OF)
-        assert "pregnancy" in subject.refusals, text
+def test_pregnancy_is_not_inferred_from_free_text_anymore():
+    subject = resolve_subject(
+        profile(conditions="Pregnant, 24 weeks", pregnancy_status="not_pregnant"),
+        as_of=AS_OF,
+    )
+
+    assert "pregnancy" not in subject.refusals
 
 
 def test_a_past_pregnancy_in_a_history_field_does_not_refuse_forever():
@@ -145,7 +146,10 @@ def test_a_past_pregnancy_in_a_history_field_does_not_refuse_forever():
         "gestational diabetes in a past pregnancy",
         "not pregnant",
     ):
-        subject = resolve_subject(profile(conditions=text), as_of=AS_OF)
+        subject = resolve_subject(
+            profile(conditions=text, pregnancy_status="not_pregnant"),
+            as_of=AS_OF,
+        )
         assert "pregnancy" not in subject.refusals, text
 
 
@@ -162,7 +166,7 @@ def test_an_unrelated_condition_does_not_refuse():
 def test_refusals_are_sorted_and_deduplicated_so_a_hash_is_stable():
     """These reach `missing_inputs` and therefore `inputs_hash`. An unstable
     order would make the same inputs produce a different fingerprint."""
-    subject = resolve_subject({"conditions": "pregnant"}, as_of=AS_OF)
+    subject = resolve_subject({"pregnancy_status": "pregnant"}, as_of=AS_OF)
 
     assert subject.refusals == ("date_of_birth", "pregnancy")
 
