@@ -70,7 +70,7 @@ insert into therapy_catalogue (
   event_type, dose_schema, contraindication_rule_ids, content_sha256,
   publication_status, published_at, created_by
 ) values (
-  'sauna', 1, 'Sauna', 'heat', 'Controlled heat exposure',
+  'f12-contract-sauna', 1, 'F12 contract sauna', 'heat', 'Controlled heat exposure',
   'A warm supervised session', 'sauna',
   '{"duration":{"unit":"minutes"}}'::jsonb,
   array['pregnancy', 'alcohol_today'], repeat('a', 64),
