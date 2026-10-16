@@ -5,6 +5,7 @@ import pytest
 
 from app.analytics import therapy_catalog
 from app.analytics.therapy_catalog import TherapyCatalogError
+from app.migrate.therapy_catalogue_seed import catalogue_seed_rows, publish_catalogue
 
 
 def test_shipped_catalogue_has_the_f12_operational_depth():
@@ -17,6 +18,25 @@ def test_shipped_catalogue_has_the_f12_operational_depth():
         "hydrogen_inhalation", "ihht", "ewot", "compression",
         "vibroacoustic", "float_therapy", "iv_vitamin_c",
     } <= set(modalities)
+
+
+def test_deployment_publishes_the_exact_operational_catalogue():
+    class Cursor:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, sql, params=None):
+            self.calls.append((sql, params))
+
+    cursor = Cursor()
+    rows = catalogue_seed_rows()
+
+    assert len(rows) == 25
+    assert {row["slug"] for row in rows} == set(therapy_catalog.load_modalities()[1])
+    assert publish_catalogue(cursor) == 25
+    upserts = [call for call in cursor.calls if "insert into therapy_catalogue" in call[0]]
+    assert len(upserts) == 25
+    assert {params["slug"] for _, params in upserts} == set(therapy_catalog.load_modalities()[1])
 
 
 def test_every_modality_has_complete_operational_metadata():

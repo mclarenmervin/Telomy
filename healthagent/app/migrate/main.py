@@ -32,6 +32,7 @@ from app.migrate.plan import (
     load_migrations,
     pending_migrations,
 )
+from app.migrate.therapy_catalogue_seed import publish_catalogue
 
 logger = get_logger(__name__)
 
@@ -85,7 +86,6 @@ def run(dsn: str, directory: Path, baseline: bool = False, dry_run: bool = False
                 pending = pending_migrations(migrations, _applied(cursor))
                 if not pending:
                     logger.info("schema is up to date")
-                    return 0
 
                 if dry_run:
                     for migration in pending:
@@ -101,6 +101,19 @@ def run(dsn: str, directory: Path, baseline: bool = False, dry_run: bool = False
                         cursor.execute(migration.sql)
                         _record(cursor, migration.name, checksum(migration.sql))
                     logger.info(f"applied {migration.name}")
+
+                # The reviewed YAML is the source for global catalogue data.
+                # Publish it under the same advisory lock after the schema is
+                # current, including on a deploy with no pending migration.
+                # That prevents an empty production catalogue when a database
+                # was migrated manually before this publisher existed.
+                with connection.transaction():
+                    cursor.execute(
+                        "select to_regclass('public.therapy_catalogue')"
+                    )
+                    if cursor.fetchone()[0] is not None:
+                        published = publish_catalogue(cursor)
+                        logger.info(f"published {published} therapy modalities")
 
                 logger.info(f"applied {len(pending)} migration(s)")
                 return len(pending)

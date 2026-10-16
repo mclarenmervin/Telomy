@@ -38,12 +38,12 @@ class TherapyEffectsSection extends ConsumerWidget {
       children: [
         Section(
           title: 'What your sessions do',
-          blurb: 'Measured in the hour after each session against the hour '
+          blurb:
+              'Measured in the hour after each session against the hour '
               'before, across all the sessions you have logged.',
           children: [
             ...report.when(
-              loading: () =>
-                  [const Loading('Measuring your sessions…')],
+              loading: () => [const Loading('Measuring your sessions…')],
               error: (error, _) => [
                 ErrorState(
                   message: error is TherapyEffectsUnavailable
@@ -65,7 +65,8 @@ class TherapyEffectsSection extends ConsumerWidget {
   List<Widget> _results(TherapyEffectReport report) {
     if (report.verdicts.isNotEmpty) {
       return [
-        for (final effect in report.verdicts) TherapyVerdictCard(effect: effect),
+        for (final effect in report.verdicts)
+          TherapyVerdictCard(effect: effect),
         const SizedBox(height: AppSpacing.xs),
         const T(
           'These are associations in your readings around sessions, not proof that a therapy caused a change.',
@@ -79,7 +80,8 @@ class TherapyEffectsSection extends ConsumerWidget {
         Empty(
           key: const Key('therapy-effects-none'),
           title: 'Not enough sessions yet',
-          body: 'Once you have logged a few sauna or cold plunge sessions '
+          body:
+              'Once you have logged a few sauna or cold plunge sessions '
               'with your ring on, we will measure what they do to you. It '
               'takes ${report.minSessions} before a run means anything.',
           tone: EmptyTone.waiting,
@@ -94,7 +96,8 @@ class TherapyEffectsSection extends ConsumerWidget {
           key: const Key('therapy-effects-nothing-qualified'),
           tone: EmptyTone.result,
           title: 'No reliable signal yet',
-          body: 'We measured ${report.tested} '
+          body:
+              'We measured ${report.tested} '
               '${report.tested == 1 ? 'effect' : 'effects'} and none of them '
               'reached the bar. It takes ${report.minSessions} sessions '
               'before a run means anything, and a clear result needs more '
@@ -127,19 +130,26 @@ String therapyVerdictTitle(TherapyVerdict verdict) => switch (verdict) {
 };
 
 String _therapyVerdictBody(TherapyEffect effect) => switch (effect.verdict) {
-  TherapyVerdict.helped => 'The expected change held across both halves of your sessions and passed the evidence threshold.',
-  TherapyVerdict.promising => 'The change is clear enough to keep watching, but it has not replicated strongly enough to call helped.',
-  TherapyVerdict.possibleNegative => 'The measured change ran in an adverse direction. Pause and discuss it with your care team.',
-  TherapyVerdict.noReliableSignal => 'Your readings did not show a stable change. That is a complete result, not missing data.',
-  TherapyVerdict.tooEarly => 'There are fewer than five eligible sessions, so individual experiences still outweigh the pattern.',
-  TherapyVerdict.inSessionOnly => 'Your check-ins are available, but there is not enough wearable coverage for a measured outcome.',
+  TherapyVerdict.helped =>
+    'The expected change held across both halves of your sessions and passed the evidence threshold.',
+  TherapyVerdict.promising =>
+    'The change is clear enough to keep watching, but it has not replicated strongly enough to call helped.',
+  TherapyVerdict.possibleNegative =>
+    'The measured change ran in an adverse direction. Pause and discuss it with your care team.',
+  TherapyVerdict.noReliableSignal =>
+    'Your readings did not show a stable change. That is a complete result, not missing data.',
+  TherapyVerdict.tooEarly =>
+    'There are fewer than five eligible sessions, so individual experiences still outweigh the pattern.',
+  TherapyVerdict.inSessionOnly =>
+    'Your check-ins are available, but there is not enough wearable coverage for a measured outcome.',
 };
 
 class TherapyVerdictCard extends StatelessWidget {
   const TherapyVerdictCard({super.key, required this.effect});
   final TherapyEffect effect;
 
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final adverse = effect.verdict == TherapyVerdict.possibleNegative;
     final icon = switch (effect.verdict) {
@@ -153,31 +163,57 @@ class TherapyVerdictCard extends StatelessWidget {
     return AppCard(
       key: Key('therapy-verdict-${effect.verdict.wire}'),
       tone: adverse ? CardTone.copper : CardTone.teal,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(icon, color: adverse ? theme.colorScheme.error : theme.colorScheme.primary),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(child: T(therapyVerdictTitle(effect.verdict), v: TextVariant.h3)),
-        ]),
-        const SizedBox(height: AppSpacing.xs),
-        T('${metricLabel(effect.metric)} after ${effect.label}', muted: true),
-        const SizedBox(height: AppSpacing.xs),
-        T(_therapyVerdictBody(effect)),
-        if (effect.meanDelta != null) ...[
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                color: adverse
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.primary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: T(
+                  therapyVerdictTitle(effect.verdict),
+                  v: TextVariant.h3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          T('${metricLabel(effect.metric)} after ${effect.label}', muted: true),
+          const SizedBox(height: AppSpacing.xs),
+          T(_therapyVerdictBody(effect)),
+          if (effect.meanDelta != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            T(
+              'Average change ${effect.meanDelta!.toStringAsFixed(1)} ${metricUnit(effect.metric)} · ${effect.sessions} sessions',
+              v: TextVariant.small,
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
-          T('Average change ${effect.meanDelta!.toStringAsFixed(1)} ${metricUnit(effect.metric)} · ${effect.sessions} sessions', v: TextVariant.small),
+          const T(
+            'This is an association in your readings, not proof of cause.',
+            v: TextVariant.small,
+            muted: true,
+          ),
+          if (effect.nextMilestone.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            T(effect.nextMilestone, v: TextVariant.small),
+          ],
+          if (effect.provenance.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            T(
+              'Evidence: ${effect.provenance['model_version'] ?? 'versioned therapy model'}',
+              v: TextVariant.small,
+              muted: true,
+            ),
+          ],
         ],
-        const SizedBox(height: AppSpacing.sm),
-        const T('This is an association in your readings, not proof of cause.', v: TextVariant.small, muted: true),
-        if (effect.nextMilestone.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.xs),
-          T(effect.nextMilestone, v: TextVariant.small),
-        ],
-        if (effect.provenance.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.xs),
-          T('Evidence: ${effect.provenance['model_version'] ?? 'versioned therapy model'}', v: TextVariant.small, muted: true),
-        ],
-      ]),
+      ),
     );
   }
 }
@@ -197,18 +233,20 @@ class _EffectCard extends StatelessWidget {
     // beside the number and not under it.
     final basis = effect.sessionsConfounded > 0
         ? 'across ${effect.sessions} '
-            '${effect.sessions == 1 ? 'session' : 'sessions'}, '
-            '${effect.sessionsConfounded} more left out'
+              '${effect.sessions == 1 ? 'session' : 'sessions'}, '
+              '${effect.sessionsConfounded} more left out'
         : 'across ${effect.sessions} '
-            '${effect.sessions == 1 ? 'session' : 'sessions'}';
+              '${effect.sessions == 1 ? 'session' : 'sessions'}';
 
     return AppCard(
       key: Key('therapy-effect-${effect.modality}-${effect.metric}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          T('${metricLabel(effect.metric)} after ${effect.label}',
-              v: TextVariant.h3),
+          T(
+            '${metricLabel(effect.metric)} after ${effect.label}',
+            v: TextVariant.h3,
+          ),
           const SizedBox(height: AppSpacing.xxs),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -267,31 +305,35 @@ class _WithheldSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        child: ExpansionTile(
-          key: const Key('therapy-effects-withheld'),
-          tilePadding: EdgeInsets.zero,
-          title: T('Also measured, not shown (${report.withheld.length})',
-              v: TextVariant.h3),
-          childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
-          children: [
-            for (final effect in report.withheld)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    T('${metricLabel(effect.metric)} after ${effect.label}'),
-                    T(
-                      therapyWithheldReason(
-                          effect.withheld ?? '', report.minSessions),
-                      v: TextVariant.small,
-                      muted: true,
-                    ),
-                  ],
+    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+    child: ExpansionTile(
+      key: const Key('therapy-effects-withheld'),
+      tilePadding: EdgeInsets.zero,
+      title: T(
+        'Also measured, not shown (${report.withheld.length})',
+        v: TextVariant.h3,
+      ),
+      childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      children: [
+        for (final effect in report.withheld)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                T('${metricLabel(effect.metric)} after ${effect.label}'),
+                T(
+                  therapyWithheldReason(
+                    effect.withheld ?? '',
+                    report.minSessions,
+                  ),
+                  v: TextVariant.small,
+                  muted: true,
                 ),
-              ),
-          ],
-        ),
-      );
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }

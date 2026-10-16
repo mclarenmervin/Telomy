@@ -195,6 +195,13 @@ void main() {
     }
   });
 
+  test('an unknown verdict is refused instead of being upgraded to helped', () {
+    expect(
+      () => TherapyEffect.fromJson(effect(verdict: 'future_verdict')),
+      throwsFormatException,
+    );
+  });
+
   testWidgets('all six honest verdicts have dedicated non-causal presentation', (tester) async {
     for (final verdict in TherapyVerdict.values) {
       final model = TherapyEffect.fromJson(effect(

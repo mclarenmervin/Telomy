@@ -10,6 +10,13 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.analytics.centre_metrics import calculate_centre_metrics
+from app.clinical.therapy_sessions import (
+    SessionConflict,
+    SessionForbidden,
+    SessionSafetyRefused,
+    schedule_session,
+)
+from app.common.context_loader import ContextLoader
 from app.common.supabase_client import get_supabase_client
 from app.gateway.access_audit import audited_read
 from app.gateway.api.accounts import get_invitation_service
@@ -68,6 +75,13 @@ class TherapyOfferingCreate(BaseModel):
     currency_code: str = Field(min_length=3, max_length=3, pattern=r"^[A-Z]{3}$")
     default_duration_minutes: int | None = Field(default=None, ge=1, le=1440)
     operational_notes: str | None = Field(default=None, max_length=2000)
+
+
+class TherapySessionCreate(BaseModel):
+    patient_id: str
+    plan_item_id: str
+    offering_id: str
+    scheduled_start: str | None = None
 
 
 class BookingCreate(BaseModel):
@@ -205,6 +219,31 @@ def create_therapy_offering(body: TherapyOfferingCreate, scope: Annotated[Centre
 @router.get("/therapy-sessions")
 def list_therapy_sessions(scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)], supabase: Annotated[Any, Depends(get_supabase_client)]) -> dict:
     return {"items": _loader(supabase, scope).therapy_sessions()}
+
+
+@router.post("/therapy-sessions", status_code=201)
+def schedule_therapy_session(
+    body: TherapySessionCreate,
+    scope: Annotated[CentreOwnerScope, Depends(require_centre_owner_scope)],
+    supabase: Annotated[Any, Depends(get_supabase_client)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+) -> dict:
+    try:
+        facts = ContextLoader(supabase).therapy_safety_facts(body.patient_id)
+        return schedule_session(
+            supabase, scope.actor_id, scope.centre_id, body.patient_id,
+            body.plan_item_id, body.offering_id, idempotency_key, facts,
+            body.scheduled_start,
+        )
+    except SessionSafetyRefused as error:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "safety_refused", "reason_codes": error.reason_codes},
+        ) from None
+    except SessionForbidden as error:
+        raise HTTPException(status_code=403, detail=str(error)) from None
+    except SessionConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
 
 
 @router.post("/invitations", status_code=201)

@@ -206,8 +206,8 @@ class TodayScreen extends ConsumerWidget {
                         !FeatureFlags.biologicalAge
                             ? 'Not available'
                             : biologicalAge?.exactValue == null
-                                ? 'Not yet'
-                                : '${biologicalAge!.exactValue!.toStringAsFixed(1)} yrs',
+                            ? 'Not yet'
+                            : '${biologicalAge!.exactValue!.toStringAsFixed(1)} yrs',
                         style: theme.textTheme.titleLarge,
                       ),
                       const SizedBox(height: 6),
@@ -287,6 +287,18 @@ class TodayScreen extends ConsumerWidget {
             subtitle: const Text('Meals, movement, mood & more'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => showQuickLog(context),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.health_and_safety_outlined),
+            title: const Text('Therapy plans and sessions'),
+            subtitle: const Text(
+              'Explore safely, review plans, and record sessions',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/therapies'),
           ),
         ),
         const SizedBox(height: 12),
@@ -430,11 +442,11 @@ class TrendsScreen extends ConsumerWidget {
 /// number: the whole reason the old tile was wrong is that 'Learning' and a
 /// confidence of 0% both read as a value in progress.
 String _bioAgeNote(BiologicalAgeView? view) => switch (view?.state) {
-      null => 'Loading.',
-      BiologicalAgeState.ready => 'From your confirmed labs.',
-      BiologicalAgeState.awaitingClinicalReview => 'Awaiting clinical review.',
-      BiologicalAgeState.notApplicable => 'Not applicable right now.',
-      BiologicalAgeState.needsProfile => 'Add your date of birth.',
-      BiologicalAgeState.needsLabs => 'A few more blood results needed.',
-      BiologicalAgeState.notComputed => 'Upload a blood report.',
-    };
+  null => 'Loading.',
+  BiologicalAgeState.ready => 'From your confirmed labs.',
+  BiologicalAgeState.awaitingClinicalReview => 'Awaiting clinical review.',
+  BiologicalAgeState.notApplicable => 'Not applicable right now.',
+  BiologicalAgeState.needsProfile => 'Add your date of birth.',
+  BiologicalAgeState.needsLabs => 'A few more blood results needed.',
+  BiologicalAgeState.notComputed => 'Upload a blood report.',
+};

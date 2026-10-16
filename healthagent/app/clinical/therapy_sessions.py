@@ -48,7 +48,7 @@ def _screen(
     actor_id: str, facts: Mapping,
 ) -> tuple[Any, str]:
     catalogues = _rows(
-        supabase.table("therapy_catalogue").select("id,slug,publication_status")
+        supabase.table("therapy_catalogue").select("id,slug,event_type,publication_status")
         .eq("id", catalogue_id).eq("publication_status", "published").limit(1)
     )
     if not catalogues:
@@ -65,9 +65,11 @@ def _screen(
     return decision, str(catalogues[0]["slug"])
 
 
-def book_session(
+def _book_session(
     supabase: Any,
     actor_id: str,
+    patient_id: str,
+    required_centre_id: str | None,
     plan_item_id: str,
     offering_id: str,
     idempotency_key: str,
@@ -79,7 +81,7 @@ def book_session(
         raise SessionConflict("idempotency key is required")
     existing = _rows(
         supabase.table("therapy_service_sessions").select("*")
-        .eq("patient_id", actor_id).eq("idempotency_key", key).limit(1)
+        .eq("patient_id", patient_id).eq("idempotency_key", key).limit(1)
     )
     if existing:
         return existing[0]
@@ -87,22 +89,26 @@ def book_session(
     offering = _one(supabase, "centre_therapy_offerings", offering_id)
     if not item or not offering or offering.get("status") != "active":
         raise SessionConflict("plan item or centre offering is unavailable")
+    if item.get("disposition") not in ("proposed", "active"):
+        raise SessionConflict("only an item in the signed active regimen can be booked")
     plan = _one(supabase, "therapy_plans", str(item["plan_id"]))
     if not plan or plan.get("status") != "signed":
         raise SessionConflict("only a signed therapy plan can be booked")
-    if str(plan.get("patient_id")) != actor_id:
+    if str(plan.get("patient_id")) != patient_id:
         raise SessionForbidden("a patient may only book their own therapy plan")
+    if required_centre_id is not None and str(plan.get("centre_id")) != required_centre_id:
+        raise SessionForbidden("the plan does not belong to the selected centre")
     if str(offering.get("centre_id")) != str(plan.get("centre_id")) or str(offering.get("catalogue_id")) != str(item.get("catalogue_id")):
         raise SessionConflict("offering does not match the signed plan item")
     decision, _ = _screen(
-        supabase, patient_id=actor_id, centre_id=str(plan["centre_id"]),
+        supabase, patient_id=patient_id, centre_id=str(plan["centre_id"]),
         catalogue_id=str(item["catalogue_id"]), plan_item_id=plan_item_id,
         session_id=None, point="booking", actor_id=actor_id, facts=safety_facts,
     )
     if not decision.eligible:
         raise SessionSafetyRefused(list(decision.reason_codes))
     row = {
-        "id": str(uuid.uuid4()), "patient_id": actor_id, "centre_id": plan["centre_id"],
+        "id": str(uuid.uuid4()), "patient_id": patient_id, "centre_id": plan["centre_id"],
         "offering_id": offering_id, "plan_item_id": plan_item_id,
         "centre_booking_id": None, "status": "scheduled",
         "prescribed_dose": dict(item.get("prescribed_dose") or {}),
@@ -113,6 +119,39 @@ def book_session(
     }
     supabase.table("therapy_service_sessions").insert(row).execute()
     return row
+
+
+def book_session(
+    supabase: Any,
+    actor_id: str,
+    plan_item_id: str,
+    offering_id: str,
+    idempotency_key: str,
+    safety_facts: Mapping,
+    scheduled_start: str | None,
+) -> dict:
+    return _book_session(
+        supabase, actor_id, actor_id, None, plan_item_id, offering_id,
+        idempotency_key, safety_facts, scheduled_start,
+    )
+
+
+def schedule_session(
+    supabase: Any,
+    actor_id: str,
+    centre_id: str,
+    patient_id: str,
+    plan_item_id: str,
+    offering_id: str,
+    idempotency_key: str,
+    safety_facts: Mapping,
+    scheduled_start: str | None,
+) -> dict:
+    """Schedule a signed item from a Centre Owner's operational scope."""
+    return _book_session(
+        supabase, actor_id, patient_id, centre_id, plan_item_id, offering_id,
+        idempotency_key, safety_facts, scheduled_start,
+    )
 
 
 def start_session(supabase: Any, actor_id: str, session_id: str, safety_facts: Mapping) -> dict:
@@ -151,7 +190,8 @@ def finish_session(supabase: Any, actor_id: str, session_id: str, delivered_dose
     events = _rows(supabase.table("events").select("id").eq("id", event_id).limit(1))
     if not events:
         supabase.table("events").insert({
-            "id": event_id, "user_id": actor_id, "event_type": catalogue["slug"],
+            "id": event_id, "user_id": actor_id,
+            "event_type": catalogue.get("event_type") or catalogue["slug"],
             "status": "ended", "source": "manual", "confidence": 1,
             "started_at": session["started_at"], "ended_at": ended_at,
             "metadata": {

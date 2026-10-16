@@ -8,22 +8,76 @@ import '../models/therapy_catalogue.dart';
 import '../providers/therapy_provider.dart';
 
 class TherapyCatalogueScreen extends ConsumerWidget {
-  const TherapyCatalogueScreen({super.key, this.initialItems, this.initialOfferings = const []});
+  const TherapyCatalogueScreen({
+    super.key,
+    this.initialItems,
+    this.initialOfferings = const [],
+    this.centreNames = const {},
+    this.selectedCentreId,
+    this.onCentreChanged,
+    this.showTitle = true,
+  });
   final List<TherapyCatalogueItem>? initialItems;
   final List<TherapyOffering> initialOfferings;
+  final Map<String, String> centreNames;
+  final String? selectedCentreId;
+  final ValueChanged<String?>? onCentreChanged;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = initialItems == null ? ref.watch(therapyCatalogueProvider) : null;
+    final async = initialItems == null
+        ? ref.watch(therapyCatalogueProvider)
+        : null;
     final items = initialItems ?? async?.asData?.value;
-    return AppScreen(title: 'Therapies', children: [
-      const T('Explore what is available, then review the safety details before adding anything to a plan.', muted: true),
-      const SizedBox(height: AppSpacing.lg),
-      if (items == null && async?.isLoading == true) const Loading('Loading therapies…')
-      else if (items == null) ErrorState(message: 'The therapy catalogue is unavailable.', onRetry: () => ref.invalidate(therapyCatalogueProvider))
-      else if (items.isEmpty) const Empty(title: 'No therapies available', body: 'Published therapies will appear here.', tone: EmptyTone.waiting)
-      else for (final item in items) _CatalogueRow(item: item, offering: initialOfferings.where((value) => value.catalogueId == item.id).firstOrNull),
-    ]);
+    return AppScreen(
+      title: showTitle ? 'Therapies' : null,
+      children: [
+        const T(
+          'Explore what is available, then review the safety details before adding anything to a plan.',
+          muted: true,
+        ),
+        if (centreNames.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          DropdownButtonFormField<String>(
+            initialValue: selectedCentreId,
+            decoration: const InputDecoration(labelText: 'Care centre'),
+            items: [
+              for (final centre in centreNames.entries)
+                DropdownMenuItem(value: centre.key, child: Text(centre.value)),
+            ],
+            onChanged: onCentreChanged,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          const T(
+            'Prices below are indicative for the selected centre.',
+            muted: true,
+          ),
+        ],
+        const SizedBox(height: AppSpacing.lg),
+        if (items == null && async?.isLoading == true)
+          const Loading('Loading therapies…')
+        else if (items == null)
+          ErrorState(
+            message: 'The therapy catalogue is unavailable.',
+            onRetry: () => ref.invalidate(therapyCatalogueProvider),
+          )
+        else if (items.isEmpty)
+          const Empty(
+            title: 'No therapies available',
+            body: 'Published therapies will appear here.',
+            tone: EmptyTone.waiting,
+          )
+        else
+          for (final item in items)
+            _CatalogueRow(
+              item: item,
+              offering: initialOfferings
+                  .where((value) => value.catalogueId == item.id)
+                  .firstOrNull,
+            ),
+      ],
+    );
   }
 }
 
@@ -31,12 +85,28 @@ class _CatalogueRow extends StatelessWidget {
   const _CatalogueRow({required this.item, this.offering});
   final TherapyCatalogueItem item;
   final TherapyOffering? offering;
-  @override Widget build(BuildContext context) => AppCard(
+  @override
+  Widget build(BuildContext context) => AppCard(
     onTap: () => context.push('/therapies/${item.id}', extra: item),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Expanded(child: T(item.name, v: TextVariant.h3)), const Icon(Icons.chevron_right)]),
-      const SizedBox(height: AppSpacing.xxs), T(item.summary, muted: true),
-      if (offering != null) ...[const SizedBox(height: AppSpacing.sm), Text(offering!.indicativePrice, style: Theme.of(context).textTheme.labelLarge)],
-    ]),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: T(item.name, v: TextVariant.h3)),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        T(item.summary, muted: true),
+        if (offering != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            offering!.indicativePrice,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ],
+      ],
+    ),
   );
 }

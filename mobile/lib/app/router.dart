@@ -61,8 +61,8 @@ import '../features/doctor/screens/doctor_patient_detail_screen.dart';
 import '../features/doctor/screens/doctor_work_queue_screen.dart';
 import '../features/doctor/screens/doctor_profile_screen.dart';
 import '../features/therapies/models/therapy_catalogue.dart';
-import '../features/therapies/screens/therapy_catalogue_screen.dart';
-import '../features/therapies/screens/therapy_detail_screen.dart';
+import '../features/therapies/screens/therapy_hub_screen.dart';
+import '../features/therapies/screens/therapy_route_screens.dart';
 import 'role_routes.dart';
 
 /// One role's shell, its tabs taken from [roleTabs] so the branch order and
@@ -222,17 +222,32 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/activity-session',
         builder: (_, state) => const ActivitySessionScreen(),
       ),
-      GoRoute(path: '/therapies', builder: (_, state) => const TherapyCatalogueScreen()),
+      GoRoute(
+        path: '/therapies',
+        builder: (_, state) => const TherapyHubScreen(),
+      ),
+      GoRoute(
+        path: '/therapies/catalogue',
+        builder: (_, state) => const TherapyCatalogueRouteScreen(),
+      ),
+      GoRoute(
+        path: '/therapies/plans/:planId',
+        builder: (_, state) =>
+            TherapyPlanRouteScreen(planId: state.pathParameters['planId']!),
+      ),
+      GoRoute(
+        path: '/therapies/sessions/:sessionId',
+        builder: (_, state) => TherapySessionRouteScreen(
+          sessionId: state.pathParameters['sessionId']!,
+        ),
+      ),
       GoRoute(
         path: '/therapies/:catalogueId',
-        builder: (_, state) => TherapyDetailScreen(
+        builder: (_, state) => TherapyDetailRouteScreen(
+          catalogueId: state.pathParameters['catalogueId']!,
           item: state.extra is TherapyCatalogueItem
               ? state.extra! as TherapyCatalogueItem
-              : TherapyCatalogueItem(
-                  id: state.pathParameters['catalogueId']!, slug: '', name: 'Therapy',
-                  category: '', summary: 'Open the catalogue to load this therapy.',
-                  intendedExperience: '', contraindicationRuleIds: const [], doseSchema: const {},
-                ),
+              : null,
         ),
       ),
       for (final entry in <String, Widget>{

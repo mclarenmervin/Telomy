@@ -144,3 +144,13 @@ def test_f12_migration_defines_the_therapy_safety_and_session_contract():
         "protect_therapy_history",
     ):
         assert required in sql
+
+
+def test_database_contract_runner_is_checked_in_and_executable():
+    from pathlib import Path
+
+    script = Path(__file__).parents[1] / "scripts" / "test-db.sh"
+
+    assert script.is_file()
+    assert script.stat().st_mode & 0o111
+    assert "ON_ERROR_STOP=1" in script.read_text()

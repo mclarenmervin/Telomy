@@ -16,9 +16,13 @@ class TherapyEffect {
     required this.mechanismReviewed,
     required this.withheld,
     this.verdict = TherapyVerdict.helped,
-    this.qValue, this.ciLow, this.ciHigh,
-    this.replicated = false, this.wearableCoverage = 0,
-    this.nextMilestone = '', this.provenance = const {},
+    this.qValue,
+    this.ciLow,
+    this.ciHigh,
+    this.replicated = false,
+    this.wearableCoverage = 0,
+    this.nextMilestone = '',
+    this.provenance = const {},
   });
 
   final String modality;
@@ -54,25 +58,26 @@ class TherapyEffect {
   bool get rose => (meanDelta ?? 0) >= 0;
 
   factory TherapyEffect.fromJson(Map<String, dynamic> json) => TherapyEffect(
-        modality: json['modality']?.toString() ?? '',
-        label: json['label']?.toString() ?? '',
-        metric: json['metric']?.toString() ?? '',
-        meanDelta: (json['mean_delta'] as num?)?.toDouble(),
-        sessions: (json['sessions'] as num?)?.toInt() ?? 0,
-        sessionsConfounded: (json['sessions_confounded'] as num?)?.toInt() ?? 0,
-        pValue: (json['p_value'] as num?)?.toDouble(),
-        mechanism: json['mechanism']?.toString(),
-        mechanismReviewed: json['mechanism_reviewed'] == true,
-        withheld: json['withheld']?.toString(),
-        verdict: therapyVerdictFromWire(json['verdict']?.toString()),
-        qValue: (json['q_value'] as num?)?.toDouble(),
-        ciLow: (json['ci_low'] as num?)?.toDouble(),
-        ciHigh: (json['ci_high'] as num?)?.toDouble(),
-        replicated: json['replicated'] == true,
-        wearableCoverage: (json['wearable_coverage'] as num?)?.toDouble() ?? 0,
-        nextMilestone: json['next_milestone']?.toString() ?? '',
-        provenance: (json['provenance'] as Map?)?.cast<String, dynamic>() ?? const {},
-      );
+    modality: json['modality']?.toString() ?? '',
+    label: json['label']?.toString() ?? '',
+    metric: json['metric']?.toString() ?? '',
+    meanDelta: (json['mean_delta'] as num?)?.toDouble(),
+    sessions: (json['sessions'] as num?)?.toInt() ?? 0,
+    sessionsConfounded: (json['sessions_confounded'] as num?)?.toInt() ?? 0,
+    pValue: (json['p_value'] as num?)?.toDouble(),
+    mechanism: json['mechanism']?.toString(),
+    mechanismReviewed: json['mechanism_reviewed'] == true,
+    withheld: json['withheld']?.toString(),
+    verdict: therapyVerdictFromWire(json['verdict']?.toString()),
+    qValue: (json['q_value'] as num?)?.toDouble(),
+    ciLow: (json['ci_low'] as num?)?.toDouble(),
+    ciHigh: (json['ci_high'] as num?)?.toDouble(),
+    replicated: json['replicated'] == true,
+    wearableCoverage: (json['wearable_coverage'] as num?)?.toDouble() ?? 0,
+    nextMilestone: json['next_milestone']?.toString() ?? '',
+    provenance:
+        (json['provenance'] as Map?)?.cast<String, dynamic>() ?? const {},
+  );
 }
 
 class TherapyEffectReport {
@@ -94,9 +99,9 @@ class TherapyEffectReport {
 
   factory TherapyEffectReport.fromJson(Map<String, dynamic> json) {
     List<TherapyEffect> parse(String key) => [
-          for (final row in (json[key] as List? ?? const []))
-            TherapyEffect.fromJson(Map<String, dynamic>.from(row as Map)),
-        ];
+      for (final row in (json[key] as List? ?? const []))
+        TherapyEffect.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
     return TherapyEffectReport(
       minSessions: (json['min_sessions'] as num?)?.toInt() ?? 5,
       tested: (json['tested'] as num?)?.toInt() ?? 0,
@@ -142,22 +147,33 @@ String therapyWithheldReason(String reason, int minSessions) =>
             'to the session.',
       _ => 'Not reportable.',
     };
-enum TherapyVerdict { helped, promising, possibleNegative, noReliableSignal, tooEarly, inSessionOnly }
+
+enum TherapyVerdict {
+  helped,
+  promising,
+  possibleNegative,
+  noReliableSignal,
+  tooEarly,
+  inSessionOnly,
+}
 
 extension TherapyVerdictWire on TherapyVerdict {
   String get wire => switch (this) {
-    TherapyVerdict.helped => 'helped', TherapyVerdict.promising => 'promising',
+    TherapyVerdict.helped => 'helped',
+    TherapyVerdict.promising => 'promising',
     TherapyVerdict.possibleNegative => 'possible_negative',
     TherapyVerdict.noReliableSignal => 'no_reliable_signal',
-    TherapyVerdict.tooEarly => 'too_early', TherapyVerdict.inSessionOnly => 'in_session_only',
+    TherapyVerdict.tooEarly => 'too_early',
+    TherapyVerdict.inSessionOnly => 'in_session_only',
   };
 }
 
 TherapyVerdict therapyVerdictFromWire(String? value) => switch (value) {
+  'helped' => TherapyVerdict.helped,
   'promising' => TherapyVerdict.promising,
   'possible_negative' => TherapyVerdict.possibleNegative,
   'no_reliable_signal' => TherapyVerdict.noReliableSignal,
   'too_early' => TherapyVerdict.tooEarly,
   'in_session_only' => TherapyVerdict.inSessionOnly,
-  _ => TherapyVerdict.helped,
+  _ => throw FormatException('Unknown therapy verdict: $value'),
 };

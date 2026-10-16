@@ -167,6 +167,12 @@ python -m app.migrate.main --baseline
 `python -m app.migrate.main --dry-run` prints what would run and changes
 nothing.
 
+After numbered migrations are current, the same locked pre-deploy process
+publishes the versioned therapy catalogue from
+`app/analytics/data/therapies.v1.yaml`. Schema migration `029` must therefore
+run before catalogue publication; an empty `therapy_catalogue` after a
+successful pre-deploy is a deployment failure, not an expected manual step.
+
 **`SUPABASE_DB_URL` must be the session pooler on port 5432**, as the
 checkpointer already requires. Without it the migration step fails the deploy
 rather than skipping silently.

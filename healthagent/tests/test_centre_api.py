@@ -330,6 +330,14 @@ def test_centre_router_exposes_every_f11_operational_surface():
         "/api/v1/centre/therapy-sessions",
     } <= paths
 
+    methods = {
+        method
+        for route in router.routes
+        if route.path == "/api/v1/centre/therapy-sessions"
+        for method in route.methods
+    }
+    assert {"GET", "POST"} <= methods
+
 
 def test_centre_can_create_an_operational_offering_but_not_clinical_content():
     db = FakeSupabase({

@@ -17,23 +17,28 @@ final therapyRepositoryProvider = Provider(
 /// emulator demonstrated there: a screen whose common early answer is "not
 /// enough sessions yet" must be able to stop saying it once the sessions
 /// have happened.
-final therapyEffectsProvider =
-    FutureProvider.autoDispose<TherapyEffectReport>((ref) async {
+final therapyEffectsProvider = FutureProvider.autoDispose<TherapyEffectReport>((
+  ref,
+) async {
   return ref.read(therapyRepositoryProvider).effects();
 });
 
-final therapyCatalogueProvider = FutureProvider.autoDispose<List<TherapyCatalogueItem>>(
-  (ref) => ref.read(therapyRepositoryProvider).catalogue(),
-);
+final therapyCatalogueProvider =
+    FutureProvider.autoDispose<List<TherapyCatalogueItem>>(
+      (ref) => ref.read(therapyRepositoryProvider).catalogue(),
+    );
 
-final therapyOfferingsProvider = FutureProvider.autoDispose.family<List<TherapyOffering>, String>(
-  (ref, centreId) => ref.read(therapyRepositoryProvider).offerings(centreId),
-);
+final therapyOfferingsProvider = FutureProvider.autoDispose
+    .family<List<TherapyOffering>, String>(
+      (ref, centreId) =>
+          ref.read(therapyRepositoryProvider).offerings(centreId),
+    );
 
 final therapyPlansProvider = FutureProvider.autoDispose<List<TherapyPlan>>(
   (ref) => ref.read(therapyRepositoryProvider).plans(),
 );
 
-final therapySessionsProvider = FutureProvider.autoDispose<List<TherapySession>>(
-  (ref) => ref.read(therapyRepositoryProvider).sessions(),
-);
+final therapySessionsProvider =
+    FutureProvider.autoDispose<List<TherapySession>>(
+      (ref) => ref.read(therapyRepositoryProvider).sessions(),
+    );
